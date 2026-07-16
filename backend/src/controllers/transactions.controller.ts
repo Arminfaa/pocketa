@@ -146,6 +146,15 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
     next.accountId = parsed.data.accountId;
   }
 
+  if (parsed.data.needsReview !== undefined) {
+    next.needsReview = parsed.data.needsReview;
+  }
+
+  // If user sets a real title while reviewing, clear needsReview unless explicitly kept.
+  if (parsed.data.title && parsed.data.needsReview === undefined) {
+    next.needsReview = false;
+  }
+
   const updated = await TransactionModel.findOneAndUpdate(
     { _id: id, userId },
     { $set: next },

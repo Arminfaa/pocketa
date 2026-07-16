@@ -19,6 +19,7 @@ export const TransactionUpdateSchema = TransactionCreateSchema.partial().extend(
   type: z.enum(["income", "expense"]).optional(),
   categoryId: z.string().min(1).optional(),
   accountId: z.string().min(1).optional(),
+  needsReview: z.boolean().optional(),
 });
 
 export const TransactionQuerySchema = z.object({
