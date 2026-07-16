@@ -6,7 +6,7 @@ import { useAuthStore } from "@/stores/auth.store";
 /**
  * Local: call backend directly via NEXT_PUBLIC_API_URL (localhost).
  * Production: same-origin "" so requests hit Vercel /api/* rewrites → Render.
- * That keeps auth cookies first-party and working on mobile browsers.
+ * That keeps auth cookies first-party and working on mobile browsers / iOS PWAs.
  */
 function resolveBaseURL(): string {
   const configured = process.env.NEXT_PUBLIC_API_URL?.trim() ?? "";
@@ -36,7 +36,7 @@ const apiNoAuth = axios.create({
 
 let refreshPromise: Promise<void> | null = null;
 
-async function refreshSession(): Promise<void> {
+export async function refreshSession(): Promise<void> {
   if (!refreshPromise) {
     refreshPromise = apiNoAuth
       .post("/api/auth/refresh")

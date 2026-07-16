@@ -17,6 +17,10 @@ const EnvSchema = z.object({
 
   CORS_ORIGIN: z.string().min(1).default("http://localhost:3000"),
   COOKIE_SECURE: z.coerce.boolean().default(false),
+  // Production uses Vercel → same-origin /api rewrite → Render, so cookies are
+  // first-party. Prefer "lax" (iOS Home Screen PWAs drop SameSite=None aggressively).
+  // Use "none" only if the browser talks to the API on a different site.
+  COOKIE_SAMESITE: z.enum(["lax", "strict", "none"]).default("lax"),
 
   CLOUDINARY_CLOUD_NAME: z.string().optional().default(""),
   CLOUDINARY_API_KEY: z.string().optional().default(""),
