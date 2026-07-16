@@ -13,7 +13,6 @@ import {
   Flex,
   Grid,
   Input,
-  List,
   Row,
   Select,
   Space,
@@ -241,69 +240,67 @@ export default function BankSmsImportPage() {
             </Space>
           </Flex>
 
-          <List
-            dataSource={items}
-            renderItem={(item) => (
-              <List.Item className="!p-0 !border-none mb-2">
-                <Card
-                  size="small"
-                  className={cn(
-                    "w-full",
-                    item.isDuplicate && "opacity-80 border-amber-400/30 bg-amber-500/5"
-                  )}
-                >
-                  <Flex gap="middle" align="flex-start">
-                    <Checkbox
-                      disabled={item.isDuplicate}
-                      checked={Boolean(selected[item.importHash])}
-                      onChange={(e) =>
-                        setSelected((s) => ({ ...s, [item.importHash]: e.target.checked }))
-                      }
-                    />
-                    <div className="flex-1 min-w-0">
-                      <Flex justify="space-between" align="center" gap="small" wrap="wrap">
-                        <Space size="small" wrap>
-                          <Tag color={item.type === "income" ? "green" : "red"}>
-                            {item.type === "income" ? "واریز" : "برداشت"}
-                          </Tag>
-                          {item.bankName ? <Text strong>{item.bankName}</Text> : null}
-                        </Space>
-                        <Text
-                          strong
-                          className={cn(
-                            item.type === "income" ? "text-emerald-500" : "text-red-500"
-                          )}
-                        >
-                          {item.type === "income" ? "+" : "-"}
-                          {formatToman(item.amount)}
-                        </Text>
-                      </Flex>
-                      <Text type="secondary" className="text-sm">
-                        {formatJalaliDate(item.date)}
-                        {item.time ? ` · ${item.time}` : ""}
-                        {item.balanceAfter !== undefined
-                          ? ` · مانده ${formatToman(item.balanceAfter)}`
-                          : ""}
+          <Space orientation="vertical" size="small" className="w-full">
+            {items.map((item) => (
+              <Card
+                key={item.importHash}
+                size="small"
+                className={cn(
+                  "w-full",
+                  item.isDuplicate && "opacity-80 border-amber-400/30 bg-amber-500/5"
+                )}
+              >
+                <Flex gap="middle" align="flex-start">
+                  <Checkbox
+                    disabled={item.isDuplicate}
+                    checked={Boolean(selected[item.importHash])}
+                    onChange={(e) =>
+                      setSelected((s) => ({ ...s, [item.importHash]: e.target.checked }))
+                    }
+                  />
+                  <div className="flex-1 min-w-0">
+                    <Flex justify="space-between" align="center" gap="small" wrap="wrap">
+                      <Space size="small" wrap>
+                        <Tag color={item.type === "income" ? "green" : "red"}>
+                          {item.type === "income" ? "واریز" : "برداشت"}
+                        </Tag>
+                        {item.bankName ? <Text strong>{item.bankName}</Text> : null}
+                      </Space>
+                      <Text
+                        strong
+                        className={cn(
+                          item.type === "income" ? "text-emerald-500" : "text-red-500"
+                        )}
+                      >
+                        {item.type === "income" ? "+" : "-"}
+                        {formatToman(item.amount)}
                       </Text>
-                      {item.isDuplicate ? (
-                        <div className="mt-1">
-                          <Tag icon={<WarningOutlined />} color="warning">
-                            قبلاً ایمپورت شده — رد می‌شود
-                          </Tag>
-                        </div>
-                      ) : (
-                        <div className="mt-1">
-                          <Tag icon={<CheckCircleOutlined />} color="success">
-                            آماده ورود · نیاز به نام‌گذاری بعداً
-                          </Tag>
-                        </div>
-                      )}
-                    </div>
-                  </Flex>
-                </Card>
-              </List.Item>
-            )}
-          />
+                    </Flex>
+                    <Text type="secondary" className="text-sm">
+                      {formatJalaliDate(item.date)}
+                      {item.time ? ` · ${item.time}` : ""}
+                      {item.balanceAfter !== undefined
+                        ? ` · مانده ${formatToman(item.balanceAfter)}`
+                        : ""}
+                    </Text>
+                    {item.isDuplicate ? (
+                      <div className="mt-1">
+                        <Tag icon={<WarningOutlined />} color="warning">
+                          قبلاً ایمپورت شده — رد می‌شود
+                        </Tag>
+                      </div>
+                    ) : (
+                      <div className="mt-1">
+                        <Tag icon={<CheckCircleOutlined />} color="success">
+                          آماده ورود · نیاز به نام‌گذاری بعداً
+                        </Tag>
+                      </div>
+                    )}
+                  </div>
+                </Flex>
+              </Card>
+            ))}
+          </Space>
 
           <Checkbox checked={syncBalance} onChange={(e) => setSyncBalance(e.target.checked)}>
             همگام‌سازی موجودی حساب با آخرین «مانده» پیامک در این دسته

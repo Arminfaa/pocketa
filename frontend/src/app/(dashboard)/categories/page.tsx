@@ -6,10 +6,11 @@ import {
   App,
   Button,
   Card,
+  Col,
   Flex,
   Input,
-  List,
   Popconfirm,
+  Row,
   Space,
   Tag,
   Typography,
@@ -220,11 +221,9 @@ export default function CategoriesPage() {
         />
       ) : null}
 
-      <List
-        grid={{ gutter: 12, xs: 1, md: 2 }}
-        dataSource={items}
-        renderItem={(c) => (
-          <List.Item>
+      <Row gutter={[12, 12]}>
+        {items.map((c) => (
+          <Col key={c._id} xs={24} md={12}>
             <Card className="w-full" classNames={{ body: "p-4" }}>
               <Flex justify="space-between" align="center" gap="middle" wrap="wrap">
                 <Flex align="center" gap="middle" className="min-w-0 flex-1">
@@ -275,9 +274,9 @@ export default function CategoriesPage() {
                 </Space>
               </Flex>
             </Card>
-          </List.Item>
-        )}
-      />
+          </Col>
+        ))}
+      </Row>
     </Space>
   );
 }

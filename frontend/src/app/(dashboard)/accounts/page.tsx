@@ -9,7 +9,6 @@ import {
   Flex,
   Grid,
   Input,
-  List,
   Popconfirm,
   Space,
   Typography,
@@ -258,100 +257,97 @@ export default function AccountsPage() {
           description="اولین حساب بانکی خود را بسازید تا تراکنش‌ها و ایمپورت به آن وصل شوند."
         />
       ) : (
-        <List
-          dataSource={q.data ?? []}
-          renderItem={(account) => (
-            <List.Item className="!p-0 !border-none mb-3">
-              <Card className="w-full" classNames={{ body: "p-4" }}>
-                <Flex
-                  justify="space-between"
-                  align={isMobile ? "stretch" : "center"}
-                  gap="middle"
-                  wrap="wrap"
-                  vertical={isMobile}
-                >
-                  <Flex align="center" gap="middle" className="min-w-0 flex-1">
-                    <div
-                      className="w-11 h-11 rounded-2xl flex items-center justify-center text-white shrink-0"
-                      style={{ background: account.color }}
-                    >
-                      <BankOutlined className="text-xl" />
-                    </div>
-                    <div className="min-w-0">
-                      <Text strong ellipsis>
-                        {account.name}
-                      </Text>
-                      <div>
-                        <Text type="secondary" ellipsis className="text-sm">
-                          {account.bankName || "بدون نام بانک"} · موجودی اولیه{" "}
-                          {formatToman(account.initialBalance)}
-                        </Text>
-                      </div>
-                    </div>
-                  </Flex>
-
-                  <Flex
-                    align="center"
-                    gap="small"
-                    wrap="wrap"
-                    className={cn("shrink-0", isMobile && "w-full")}
+        <Space orientation="vertical" size="middle" className="w-full">
+          {(q.data ?? []).map((account) => (
+            <Card key={account.id} className="w-full" classNames={{ body: "p-4" }}>
+              <Flex
+                justify="space-between"
+                align={isMobile ? "stretch" : "center"}
+                gap="middle"
+                wrap="wrap"
+                vertical={isMobile}
+              >
+                <Flex align="center" gap="middle" className="min-w-0 flex-1">
+                  <div
+                    className="w-11 h-11 rounded-2xl flex items-center justify-center text-white shrink-0"
+                    style={{ background: account.color }}
                   >
-                    <div
-                      className={cn(
-                        "text-left",
-                        isMobile ? "flex-1 me-0" : "me-2"
-                      )}
-                    >
-                      <Text type="secondary" className="text-xs">
-                        موجودی
+                    <BankOutlined className="text-xl" />
+                  </div>
+                  <div className="min-w-0">
+                    <Text strong ellipsis>
+                      {account.name}
+                    </Text>
+                    <div>
+                      <Text type="secondary" ellipsis className="text-sm">
+                        {account.bankName || "بدون نام بانک"} · موجودی اولیه{" "}
+                        {formatToman(account.initialBalance)}
                       </Text>
-                      <div>
-                        <Text strong>{formatToman(account.balance)}</Text>
-                      </div>
                     </div>
-                    <Popconfirm
-                      title="همگام‌سازی موجودی"
-                      description={`موجودی «${account.name}» با آخرین مانده پیامک بانکی همگام شود؟ (موجودی اولیه طوری تنظیم می‌شود که مانده حساب با SMS یکی شود)`}
-                      okText="همگام‌سازی"
-                      cancelText="انصراف"
-                      onConfirm={() => syncMutation.mutate(account.id)}
-                    >
-                      <Button
-                        type="default"
-                        icon={<SyncOutlined />}
-                        loading={syncMutation.isPending}
-                        aria-label="همگام‌سازی مانده"
-                        title="همگام‌سازی با آخرین مانده پیامک"
-                      />
-                    </Popconfirm>
+                  </div>
+                </Flex>
+
+                <Flex
+                  align="center"
+                  gap="small"
+                  wrap="wrap"
+                  className={cn("shrink-0", isMobile && "w-full")}
+                >
+                  <div
+                    className={cn(
+                      "text-left",
+                      isMobile ? "flex-1 me-0" : "me-2"
+                    )}
+                  >
+                    <Text type="secondary" className="text-xs">
+                      موجودی
+                    </Text>
+                    <div>
+                      <Text strong>{formatToman(account.balance)}</Text>
+                    </div>
+                  </div>
+                  <Popconfirm
+                    title="همگام‌سازی موجودی"
+                    description={`موجودی «${account.name}» با آخرین مانده پیامک بانکی همگام شود؟ (موجودی اولیه طوری تنظیم می‌شود که مانده حساب با SMS یکی شود)`}
+                    okText="همگام‌سازی"
+                    cancelText="انصراف"
+                    onConfirm={() => syncMutation.mutate(account.id)}
+                  >
                     <Button
                       type="default"
-                      icon={<EditOutlined />}
-                      onClick={() => startEdit(account)}
-                      aria-label="ویرایش"
+                      icon={<SyncOutlined />}
+                      loading={syncMutation.isPending}
+                      aria-label="همگام‌سازی مانده"
+                      title="همگام‌سازی با آخرین مانده پیامک"
                     />
-                    <Popconfirm
-                      title="غیرفعال کردن حساب"
-                      description={`حساب «${account.name}» غیرفعال شود؟`}
-                      okText="غیرفعال"
-                      cancelText="انصراف"
-                      okButtonProps={{ danger: true }}
-                      onConfirm={() => deleteMutation.mutate(account.id)}
-                    >
-                      <Button
-                        type="default"
-                        danger
-                        icon={<DeleteOutlined />}
-                        loading={deleteMutation.isPending}
-                        aria-label="حذف"
-                      />
-                    </Popconfirm>
-                  </Flex>
+                  </Popconfirm>
+                  <Button
+                    type="default"
+                    icon={<EditOutlined />}
+                    onClick={() => startEdit(account)}
+                    aria-label="ویرایش"
+                  />
+                  <Popconfirm
+                    title="غیرفعال کردن حساب"
+                    description={`حساب «${account.name}» غیرفعال شود؟`}
+                    okText="غیرفعال"
+                    cancelText="انصراف"
+                    okButtonProps={{ danger: true }}
+                    onConfirm={() => deleteMutation.mutate(account.id)}
+                  >
+                    <Button
+                      type="default"
+                      danger
+                      icon={<DeleteOutlined />}
+                      loading={deleteMutation.isPending}
+                      aria-label="حذف"
+                    />
+                  </Popconfirm>
                 </Flex>
-              </Card>
-            </List.Item>
-          )}
-        />
+              </Flex>
+            </Card>
+          ))}
+        </Space>
       )}
     </Space>
   );
