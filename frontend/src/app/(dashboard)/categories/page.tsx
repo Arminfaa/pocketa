@@ -216,6 +216,7 @@ export default function CategoriesPage() {
         onChange={(e) => setFilter(e.target.value)}
         optionType="button"
         buttonStyle="solid"
+        block
       >
         <Radio.Button value="all">همه</Radio.Button>
         <Radio.Button value="expense">هزینه</Radio.Button>
@@ -240,7 +241,7 @@ export default function CategoriesPage() {
         renderItem={(c) => (
           <List.Item>
             <Card style={{ width: "100%" }} styles={{ body: { padding: 16 } }}>
-              <Flex justify="space-between" align="center" gap="middle">
+              <Flex justify="space-between" align="center" gap="middle" wrap="wrap">
                 <Flex align="center" gap="middle" style={{ minWidth: 0, flex: 1 }}>
                   <div
                     style={{
@@ -274,7 +275,7 @@ export default function CategoriesPage() {
                     </div>
                   </div>
                 </Flex>
-                <Space>
+                <Space wrap>
                   <Button
                     type="default"
                     icon={<EditOutlined />}

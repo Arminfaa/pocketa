@@ -4,12 +4,14 @@ import { useRef, useState } from "react";
 import { useAuthStore } from "@/stores/auth.store";
 import api from "@/services/api";
 import { useRouter } from "next/navigation";
-import { App, Button, Card, Flex, Input, Space, Spin, Typography } from "antd";
+import { App, Button, Card, Flex, Grid, Input, Space, Spin, Typography } from "antd";
 import { CameraOutlined, LoadingOutlined, LogoutOutlined } from "@ant-design/icons";
 
 const { Title, Text } = Typography;
 
 export default function SettingsPage() {
+  const screens = Grid.useBreakpoint();
+  const isMobile = !screens.md;
   const { message } = App.useApp();
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
@@ -96,7 +98,7 @@ export default function SettingsPage() {
 
       <Card>
         <Space direction="vertical" size="large" style={{ width: "100%" }}>
-          <Flex align="center" gap="large">
+          <Flex align="center" gap="large" vertical={isMobile}>
             <Button
               type="text"
               onClick={() => inputRef.current?.click()}
@@ -146,10 +148,12 @@ export default function SettingsPage() {
               </div>
             </Button>
 
-            <div>
+            <div style={{ minWidth: 0, textAlign: isMobile ? "center" : undefined }}>
               <Text strong>{user?.name ?? "—"}</Text>
               <div>
-                <Text type="secondary">{user?.email ?? ""}</Text>
+                <Text type="secondary" style={{ wordBreak: "break-word" }}>
+                  {user?.email ?? ""}
+                </Text>
               </div>
               <Text type="secondary" style={{ fontSize: 12 }}>
                 JPEG / PNG / WebP — حداکثر ۵ مگابایت

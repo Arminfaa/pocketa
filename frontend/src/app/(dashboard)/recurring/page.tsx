@@ -9,6 +9,7 @@ import {
   Card,
   Col,
   Flex,
+  Grid,
   Input,
   Popconfirm,
   Radio,
@@ -42,6 +43,8 @@ const FREQ_LABEL: Record<string, string> = {
 };
 
 export default function RecurringPage() {
+  const screens = Grid.useBreakpoint();
+  const isMobile = !screens.md;
   const { message } = App.useApp();
   const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
@@ -124,7 +127,12 @@ export default function RecurringPage() {
   const items = listQ.data?.items ?? [];
 
   return (
-    <Space direction="vertical" size="large" style={{ width: "100%", maxWidth: 768 }}>
+    <Space
+      direction="vertical"
+      size="large"
+      className="pocketa-page"
+      style={{ width: "100%", maxWidth: "100%", minWidth: 0 }}
+    >
       <div>
         <Title level={4} style={{ margin: 0 }}>
           <Space>
@@ -257,11 +265,17 @@ export default function RecurringPage() {
                 borderColor: item.isDue ? "rgba(245, 158, 11, 0.4)" : undefined,
               }}
             >
-              <Flex justify="space-between" align="flex-start" gap="middle">
-                <div>
+              <Flex
+                justify="space-between"
+                align="flex-start"
+                gap="middle"
+                wrap="wrap"
+                vertical={isMobile}
+              >
+                <div style={{ minWidth: 0, flex: 1 }}>
                   <Text strong>{item.title}</Text>
                   <div>
-                    <Text type="secondary">
+                    <Text type="secondary" style={{ wordBreak: "break-word" }}>
                       {FREQ_LABEL[item.frequency] ?? item.frequency} · موعد{" "}
                       {formatJalaliDate(item.nextPaymentDate)} · {accountName} · {categoryName}
                       {item.isDue ? (
@@ -279,9 +293,15 @@ export default function RecurringPage() {
                   {formatToman(item.amount)}
                 </Text>
               </Flex>
-              <Space style={{ marginTop: 12 }}>
+              <Flex
+                gap="small"
+                wrap="wrap"
+                vertical={isMobile}
+                style={{ marginTop: 12, width: isMobile ? "100%" : undefined }}
+              >
                 <Button
                   type="primary"
+                  block={isMobile}
                   icon={<CaretRightOutlined />}
                   loading={generateMutation.isPending}
                   onClick={() => generateMutation.mutate(item.id)}
@@ -296,11 +316,11 @@ export default function RecurringPage() {
                   okButtonProps={{ danger: true }}
                   onConfirm={() => deleteMutation.mutate(item.id)}
                 >
-                  <Button danger icon={<DeleteOutlined />}>
+                  <Button block={isMobile} danger icon={<DeleteOutlined />}>
                     حذف
                   </Button>
                 </Popconfirm>
-              </Space>
+              </Flex>
             </Card>
           );
         })}

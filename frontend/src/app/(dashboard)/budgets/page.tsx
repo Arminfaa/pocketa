@@ -129,17 +129,17 @@ export default function BudgetsPage() {
 
       {summary ? (
         <Row gutter={[12, 12]}>
-          <Col xs={24} sm={8}>
+          <Col xs={24} md={8}>
             <Card>
               <Statistic title="کل بودجه" value={formatToman(summary.totalBudget)} />
             </Card>
           </Col>
-          <Col xs={24} sm={8}>
+          <Col xs={24} md={8}>
             <Card>
               <Statistic title="مصرف‌شده" value={formatToman(summary.totalConsumed)} />
             </Card>
           </Col>
-          <Col xs={24} sm={8}>
+          <Col xs={24} md={8}>
             <Card>
               <Statistic
                 title="هشدارها"
@@ -270,14 +270,16 @@ export default function BudgetsPage() {
                   </Popconfirm>
                 </Flex>
 
-                <Flex justify="space-between" style={{ marginTop: 12 }}>
+                <Flex justify="space-between" style={{ marginTop: 12 }} wrap="wrap" gap="small">
                   <Text type="secondary">مصرف: {formatToman(b.consumed)}</Text>
                   <Text type="secondary">سقف: {formatToman(b.amount)}</Text>
                 </Flex>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  باقیمانده: {formatToman(b.remaining)} · {b.rawPercent.toFixed(0)}% ·{" "}
+                <Flex wrap="wrap" gap="small" align="center" style={{ marginTop: 4 }}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    باقیمانده: {formatToman(b.remaining)} · {b.rawPercent.toFixed(0)}%
+                  </Text>
                   <Tag color={statusColor}>{statusLabel}</Tag>
-                </Text>
+                </Flex>
 
                 <Progress
                   percent={b.percent}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Button, Flex, Form, Input, Modal, Radio, Select, Typography } from "antd";
+import { Button, Flex, Form, Grid, Input, Modal, Radio, Select, Typography } from "antd";
 import { BulbOutlined } from "@ant-design/icons";
 import type { Transaction } from "@/types/transaction";
 import type { BankAccount } from "@/types/account";
@@ -52,6 +52,9 @@ export function TransactionFormModal({
   defaultAccountId,
   submitting,
 }: Props) {
+  const screens = Grid.useBreakpoint();
+  const modalWidth = screens.sm ? 520 : "calc(100vw - 24px)";
+
   const [form] = Form.useForm<TransactionFormValues>();
   const [tags, setTags] = useState<string[]>([]);
   const [suggestLabel, setSuggestLabel] = useState<string | null>(null);
@@ -142,7 +145,7 @@ export function TransactionFormModal({
       title={initial ? "ویرایش تراکنش" : "افزودن تراکنش"}
       onCancel={onClose}
       destroyOnHidden
-      width={520}
+      width={modalWidth}
       okText={submitting ? "در حال ذخیره..." : initial ? "ذخیره تغییرات" : "ثبت تراکنش"}
       cancelText="انصراف"
       confirmLoading={submitting}
@@ -205,8 +208,14 @@ export function TransactionFormModal({
         </Form.Item>
 
         <Form.Item label="دسته‌بندی" required>
-          <Flex justify="space-between" align="center" style={{ marginBottom: 8 }}>
-            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+          <Flex
+            justify="space-between"
+            align={screens.sm ? "center" : "flex-start"}
+            wrap="wrap"
+            gap="small"
+            style={{ marginBottom: 8 }}
+          >
+            <Typography.Text type="secondary" style={{ fontSize: 12, minWidth: 0 }}>
               {suggestLabel ? `پیشنهاد اعمال‌شده: ${suggestLabel}` : null}
             </Typography.Text>
             <Button
