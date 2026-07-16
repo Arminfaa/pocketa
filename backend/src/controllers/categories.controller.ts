@@ -4,6 +4,8 @@ import { asyncHandler } from "../middleware/asyncHandler";
 import { sendSuccess } from "../utils/apiResponse";
 import { CategoryModel } from "../models/Category";
 import { CategoryCreateSchema, CategoryUpdateSchema } from "../validations/categories";
+import { CategorySuggestSchema } from "../validations/transactions";
+import { suggestCategoryForTitle } from "../services/category-suggest.service";
 
 export const list = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user?.userId;
@@ -51,5 +53,24 @@ export const remove = asyncHandler(async (req: Request, res: Response) => {
   if (!deleted) throw new AppError(404, "دسته‌بندی یافت نشد");
 
   return sendSuccess(res, { id }, "دسته‌بندی حذف شد");
+});
+
+export const suggest = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) throw new AppError(401, "عدم دسترسی");
+
+  const parsed = CategorySuggestSchema.safeParse({
+    title: req.query.title ?? req.body?.title,
+    type: req.query.type ?? req.body?.type,
+  });
+  if (!parsed.success) throw new AppError(400, "خطا در اعتبارسنجی داده‌ها", parsed.error.flatten());
+
+  const result = await suggestCategoryForTitle({
+    userId,
+    title: parsed.data.title,
+    type: parsed.data.type,
+  });
+
+  return sendSuccess(res, result);
 });
 

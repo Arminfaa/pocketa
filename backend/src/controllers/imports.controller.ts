@@ -13,6 +13,8 @@ import {
   ensureBankSmsCategories,
   findExistingHashes,
 } from "../services/bank-sms-import.service";
+import { syncInitialBalanceToTarget } from "../services/account.service";
+import { suggestCategoryForTitle } from "../services/category-suggest.service";
 
 export const preview = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user?.userId;
@@ -63,7 +65,7 @@ export const confirm = asyncHandler(async (req: Request, res: Response) => {
   const parsed = BankSmsConfirmSchema.safeParse(req.body);
   if (!parsed.success) throw new AppError(400, "خطا در اعتبارسنجی داده‌ها", parsed.error.flatten());
 
-  const { rawText, accountId, selectedHashes } = parsed.data;
+  const { rawText, accountId, selectedHashes, syncBalance } = parsed.data;
   const jalaliYear = parsed.data.jalaliYear ?? currentJalaliYear();
 
   const account = await BankAccountModel.findOne({ _id: accountId, userId, isActive: true });
@@ -83,26 +85,41 @@ export const confirm = asyncHandler(async (req: Request, res: Response) => {
   const toImport = selected.filter((i) => !existing.has(i.importHash));
   const categories = await ensureBankSmsCategories(userId);
 
-  const docs = toImport.map((item) => ({
-    userId,
-    accountId,
-    type: item.type,
-    amount: item.amount,
-    categoryId: item.type === "income" ? categories.income._id : categories.expense._id,
-    title: defaultTitle(item),
-    description: item.rawSnippet,
-    date: item.date,
-    source: "bank_sms" as const,
-    needsReview: true,
-    importHash: item.importHash,
-    bankMeta: {
-      bankName: item.bankName,
-      accountHint: item.accountHint,
-      balanceAfter: item.balanceAfter,
-      time: item.time,
-      rawSnippet: item.rawSnippet,
-    },
-  }));
+  const docs = await Promise.all(
+    toImport.map(async (item) => {
+      const title = defaultTitle(item);
+      const suggested = await suggestCategoryForTitle({
+        userId,
+        title: `${title} ${item.rawSnippet}`,
+        type: item.type,
+      });
+      const categoryId =
+        suggested.suggestion?._id ??
+        (item.type === "income" ? categories.income._id : categories.expense._id);
+
+      return {
+        userId,
+        accountId,
+        type: item.type,
+        amount: item.amount,
+        categoryId,
+        title,
+        description: item.rawSnippet,
+        date: item.date,
+        source: "bank_sms" as const,
+        needsReview: true,
+        tags: [] as string[],
+        importHash: item.importHash,
+        bankMeta: {
+          bankName: item.bankName,
+          accountHint: item.accountHint,
+          balanceAfter: item.balanceAfter,
+          time: item.time,
+          rawSnippet: item.rawSnippet,
+        },
+      };
+    })
+  );
 
   let importedCount = 0;
   if (docs.length > 0) {
@@ -141,12 +158,38 @@ export const confirm = asyncHandler(async (req: Request, res: Response) => {
     bankHint,
   });
 
+  let balanceSync: {
+    previousBalance: number;
+    balance: number;
+    smsBalance: number;
+  } | null = null;
+
+  if (syncBalance) {
+    const withBalance = [...toImport]
+      .filter((i) => typeof i.balanceAfter === "number")
+      .sort((a, b) => {
+        const da = `${a.date} ${a.time ?? ""}`;
+        const db = `${b.date} ${b.time ?? ""}`;
+        return db.localeCompare(da);
+      });
+    const latest = withBalance[0]?.balanceAfter;
+    if (typeof latest === "number") {
+      const synced = await syncInitialBalanceToTarget(userId, accountId, latest);
+      balanceSync = {
+        previousBalance: synced.previousBalance,
+        balance: synced.balance,
+        smsBalance: latest,
+      };
+    }
+  }
+
   return sendSuccess(
     res,
     {
       importedCount,
       skippedDuplicateCount: selected.length - toImport.length,
       parsedCount: selected.length,
+      balanceSync,
     },
     `${importedCount} تراکنش از پیامک وارد شد`
   );

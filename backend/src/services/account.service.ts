@@ -47,3 +47,60 @@ export async function computeAccountBalance(
 
   return initialBalance + income - expense;
 }
+
+/** Adjust initialBalance so computed balance equals targetBalance (e.g. SMS مانده). */
+export async function syncInitialBalanceToTarget(
+  userId: string | mongoose.Types.ObjectId,
+  accountId: string | mongoose.Types.ObjectId,
+  targetBalance: number
+): Promise<{
+  previousBalance: number;
+  balance: number;
+  initialBalance: number;
+  previousInitialBalance: number;
+}> {
+  const account = await BankAccountModel.findOne({
+    _id: toObjectId(accountId),
+    userId: toObjectId(userId),
+  });
+  if (!account) {
+    throw new Error("ACCOUNT_NOT_FOUND");
+  }
+
+  const previousBalance = await computeAccountBalance(
+    userId,
+    accountId,
+    account.initialBalance
+  );
+  const netFromTransactions = previousBalance - account.initialBalance;
+  const previousInitialBalance = account.initialBalance;
+  const nextInitial = targetBalance - netFromTransactions;
+
+  account.initialBalance = nextInitial;
+  await account.save();
+
+  return {
+    previousBalance,
+    balance: targetBalance,
+    initialBalance: nextInitial,
+    previousInitialBalance,
+  };
+}
+
+/** Latest bankMeta.balanceAfter for account (by date/time then createdAt). */
+export async function findLatestSmsBalance(
+  userId: string | mongoose.Types.ObjectId,
+  accountId: string | mongoose.Types.ObjectId
+): Promise<number | null> {
+  const tx = await TransactionModel.findOne({
+    userId: toObjectId(userId),
+    accountId: toObjectId(accountId),
+    "bankMeta.balanceAfter": { $exists: true, $ne: null },
+  })
+    .sort({ date: -1, createdAt: -1 })
+    .select("bankMeta.balanceAfter")
+    .lean();
+
+  const value = tx?.bankMeta?.balanceAfter;
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}

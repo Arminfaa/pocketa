@@ -22,6 +22,8 @@ const TransactionSchema = new Schema(
     },
     needsReview: { type: Boolean, default: false, index: true },
 
+    tags: { type: [String], default: [] },
+
     importHash: { type: String, required: false, index: true },
     bankMeta: {
       bankName: { type: String },
@@ -36,6 +38,7 @@ const TransactionSchema = new Schema(
 
 TransactionSchema.index({ userId: 1, accountId: 1, date: -1 });
 TransactionSchema.index({ userId: 1, type: 1, date: -1 });
+TransactionSchema.index({ userId: 1, tags: 1 });
 TransactionSchema.index({ userId: 1, importHash: 1 }, { unique: true, sparse: true });
 
 export type Transaction = InferSchemaType<typeof TransactionSchema>;

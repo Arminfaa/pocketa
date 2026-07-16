@@ -10,6 +10,7 @@ export type TransactionListParams = {
   type?: "income" | "expense" | "";
   categoryId?: string;
   accountId?: string | null;
+  tag?: string;
   needsReview?: boolean;
   sortBy?: string;
   sortOrder?: "asc" | "desc";
@@ -25,6 +26,7 @@ export async function fetchTransactions(
   if (params.type) qs.set("type", params.type);
   if (params.categoryId) qs.set("categoryId", params.categoryId);
   if (params.accountId) qs.set("accountId", params.accountId);
+  if (params.tag) qs.set("tag", params.tag);
   if (params.needsReview !== undefined) qs.set("needsReview", String(params.needsReview));
   if (params.sortBy) qs.set("sortBy", params.sortBy);
   if (params.sortOrder) qs.set("sortOrder", params.sortOrder);
@@ -55,4 +57,24 @@ export async function fetchCategories(): Promise<
 > {
   const res = await api.get("/api/categories");
   return res.data?.data?.items ?? [];
+}
+
+export type CategorySuggestion = {
+  _id: string;
+  name: string;
+  type: "income" | "expense";
+  color?: string;
+  icon?: string;
+  score: number;
+};
+
+export async function suggestCategory(params: {
+  title: string;
+  type?: "income" | "expense";
+}): Promise<{ suggestion: CategorySuggestion | null; alternatives: CategorySuggestion[] }> {
+  const qs = new URLSearchParams();
+  qs.set("title", params.title);
+  if (params.type) qs.set("type", params.type);
+  const res = await api.get(`/api/categories/suggest?${qs.toString()}`);
+  return res.data.data;
 }

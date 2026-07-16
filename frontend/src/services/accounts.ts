@@ -58,3 +58,21 @@ export async function updateAccount(
 export async function deleteAccount(id: string): Promise<void> {
   await api.delete(`/api/accounts/${id}`);
 }
+
+export async function syncAccountBalance(
+  id: string,
+  balanceAfter?: number
+): Promise<BankAccount & { previousBalance?: number; smsBalance?: number }> {
+  const res = await api.post(`/api/accounts/${id}/sync-balance`, {
+    ...(balanceAfter !== undefined ? { balanceAfter } : {}),
+  });
+  const data = res.data?.data as AccountResponse & {
+    item: Record<string, unknown> & { previousBalance?: number; smsBalance?: number };
+  };
+  return {
+    ...normalize(data.item as unknown as Record<string, unknown>),
+    previousBalance:
+      data.item.previousBalance !== undefined ? Number(data.item.previousBalance) : undefined,
+    smsBalance: data.item.smsBalance !== undefined ? Number(data.item.smsBalance) : undefined,
+  };
+}

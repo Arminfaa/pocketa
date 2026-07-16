@@ -3,11 +3,12 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Landmark, Pencil, Plus, Trash2 } from "lucide-react";
+import { Landmark, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import {
   createAccount,
   deleteAccount,
   fetchAccounts,
+  syncAccountBalance,
   updateAccount,
 } from "@/services/accounts";
 import { formatToman } from "@/lib/format";
@@ -78,6 +79,23 @@ export default function AccountsPage() {
       const message =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         "خطا در حذف حساب";
+      toast.error(message);
+    },
+  });
+
+  const syncMutation = useMutation({
+    mutationFn: (id: string) => syncAccountBalance(id),
+    onSuccess: (item) => {
+      toast.success(
+        `موجودی از ${formatToman(item.previousBalance ?? 0)} به ${formatToman(item.balance)} همگام شد`
+      );
+      void queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+    onError: (err: unknown) => {
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        "همگام‌سازی ناموفق بود";
       toast.error(message);
     },
   });
@@ -231,6 +249,23 @@ export default function AccountsPage() {
                 <div className="text-xs text-[var(--muted)]">موجودی</div>
                 <div className="font-semibold">{formatToman(account.balance)}</div>
               </div>
+              <button
+                type="button"
+                title="همگام‌سازی با آخرین مانده پیامک"
+                onClick={() => {
+                  if (
+                    confirm(
+                      `موجودی «${account.name}» با آخرین مانده پیامک بانکی همگام شود؟\n(موجودی اولیه طوری تنظیم می‌شود که مانده حساب با SMS یکی شود)`
+                    )
+                  ) {
+                    syncMutation.mutate(account.id);
+                  }
+                }}
+                className="h-10 w-10 rounded-xl border border-[var(--border)] hover:bg-white/5 flex items-center justify-center text-brand-400"
+                aria-label="همگام‌سازی مانده"
+              >
+                <RefreshCw size={16} />
+              </button>
               <button
                 type="button"
                 onClick={() => startEdit(account)}

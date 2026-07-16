@@ -5,6 +5,23 @@ const JalaliDateSchema = z
   .string()
   .regex(new RegExp(`^${JalaliDigit}{4}\\/${JalaliDigit}{1,2}\\/${JalaliDigit}{1,2}$`));
 
+const TagsSchema = z
+  .array(z.string().trim().min(1).max(30))
+  .max(20)
+  .optional()
+  .transform((tags) => {
+    if (!tags) return undefined;
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const t of tags) {
+      const key = t.trim();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push(key);
+    }
+    return out;
+  });
+
 export const TransactionCreateSchema = z.object({
   type: z.enum(["income", "expense"]),
   amount: z.coerce.number().positive(),
@@ -13,6 +30,7 @@ export const TransactionCreateSchema = z.object({
   title: z.string().min(2).max(120).trim(),
   description: z.string().max(500).optional().nullable(),
   date: JalaliDateSchema,
+  tags: TagsSchema,
 });
 
 export const TransactionUpdateSchema = TransactionCreateSchema.partial().extend({
@@ -20,6 +38,7 @@ export const TransactionUpdateSchema = TransactionCreateSchema.partial().extend(
   categoryId: z.string().min(1).optional(),
   accountId: z.string().min(1).optional(),
   needsReview: z.boolean().optional(),
+  tags: TagsSchema,
 });
 
 export const TransactionQuerySchema = z.object({
@@ -29,6 +48,7 @@ export const TransactionQuerySchema = z.object({
   type: z.enum(["income", "expense"]).optional().nullable(),
   categoryId: z.string().optional().nullable(),
   accountId: z.string().optional().nullable(),
+  tag: z.string().optional().nullable(),
   month: z.coerce.number().int().min(1).max(12).optional().nullable(),
   year: z.coerce.number().int().min(1300).max(2000).optional().nullable(),
   needsReview: z
@@ -42,4 +62,13 @@ export const TransactionQuerySchema = z.object({
     }),
   sortBy: z.string().optional().nullable(),
   sortOrder: z.enum(["asc", "desc"]).optional().default("desc"),
+});
+
+export const CategorySuggestSchema = z.object({
+  title: z.string().min(1).max(200),
+  type: z.enum(["income", "expense"]).optional(),
+});
+
+export const SyncBalanceSchema = z.object({
+  balanceAfter: z.coerce.number().optional(),
 });

@@ -36,6 +36,7 @@ export default function BankSmsImportPage() {
   const [items, setItems] = useState<ParsedImportItem[]>([]);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [failedBlocks, setFailedBlocks] = useState<string[]>([]);
+  const [syncBalance, setSyncBalance] = useState(true);
   const [previewMeta, setPreviewMeta] = useState<{
     bankHint: string;
     duplicateCount: number;
@@ -79,10 +80,16 @@ export default function BankSmsImportPage() {
         accountId: effectiveAccountId,
         jalaliYear: Number(jalaliYear),
         selectedHashes,
+        syncBalance,
       });
     },
     onSuccess: (data) => {
       toast.success(`${data.importedCount} تراکنش وارد شد`);
+      if (data.balanceSync) {
+        toast.message(
+          `موجودی حساب همگام شد: ${formatToman(data.balanceSync.previousBalance)} → ${formatToman(data.balanceSync.balance)}`
+        );
+      }
       void queryClient.invalidateQueries({ queryKey: ["transactions"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       void queryClient.invalidateQueries({ queryKey: ["accounts"] });
@@ -263,6 +270,16 @@ export default function BankSmsImportPage() {
               </label>
             ))}
           </div>
+
+          <label className="flex items-center gap-2 text-sm text-[var(--muted)] cursor-pointer">
+            <input
+              type="checkbox"
+              checked={syncBalance}
+              onChange={(e) => setSyncBalance(e.target.checked)}
+              className="rounded border-[var(--border)]"
+            />
+            همگام‌سازی موجودی حساب با آخرین «مانده» پیامک در این دسته
+          </label>
 
           <button
             type="button"

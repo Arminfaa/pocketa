@@ -38,6 +38,7 @@ export const list = asyncHandler(async (req: Request, res: Response) => {
     type,
     categoryId,
     accountId,
+    tag,
     month,
     year,
     needsReview,
@@ -49,6 +50,7 @@ export const list = asyncHandler(async (req: Request, res: Response) => {
   if (type) filter.type = type;
   if (categoryId) filter.categoryId = categoryId;
   if (accountId) filter.accountId = accountId;
+  if (tag) filter.tags = tag;
   if (needsReview !== undefined) filter.needsReview = needsReview;
 
   if (month && year) {
@@ -83,7 +85,7 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
   const parsed = TransactionCreateSchema.safeParse(req.body);
   if (!parsed.success) throw new AppError(400, "خطا در اعتبارسنجی داده‌ها", parsed.error.flatten());
 
-  const { type, amount, categoryId, accountId, title, description, date } = parsed.data;
+  const { type, amount, categoryId, accountId, title, description, date, tags } = parsed.data;
 
   const [category, account] = await Promise.all([
     CategoryModel.findOne({ _id: categoryId, userId }),
@@ -104,6 +106,7 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
     title,
     description: description ?? "",
     date: normalizedDate,
+    tags: tags ?? [],
     source: "manual",
     needsReview: false,
   });
@@ -148,6 +151,10 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
 
   if (parsed.data.needsReview !== undefined) {
     next.needsReview = parsed.data.needsReview;
+  }
+
+  if (parsed.data.tags !== undefined) {
+    next.tags = parsed.data.tags;
   }
 
   // If user sets a real title while reviewing, clear needsReview unless explicitly kept.
