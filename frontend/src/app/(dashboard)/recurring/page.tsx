@@ -7,10 +7,12 @@ import {
   App,
   Button,
   Card,
+  Checkbox,
   Col,
   Flex,
   Grid,
   Input,
+  InputNumber,
   Popconfirm,
   Row,
   Select,
@@ -18,20 +20,32 @@ import {
   Tag,
   Typography,
 } from "antd";
-import { CaretRightOutlined, DeleteOutlined, PlusOutlined, CalendarOutlined } from "@ant-design/icons";
+import {
+  CaretRightOutlined,
+  CheckSquareOutlined,
+  DeleteOutlined,
+  PlusOutlined,
+  AccountBookOutlined,
+} from "@ant-design/icons";
 import {
   createRecurring,
   deleteRecurring,
   fetchRecurring,
   generateRecurring,
+  type DebtEndMode,
+  type DebtKind,
+  type RecurringItem,
 } from "@/services/recurring";
 import { fetchAccounts } from "@/services/accounts";
 import { fetchCategories } from "@/services/categories";
-import { formatJalaliDate, formatToman } from "@/lib/format";
+import type { Category } from "@/services/categories";
+import type { BankAccount } from "@/types/account";
+import { formatJalaliDate, formatToman, toPersianDigits } from "@/lib/format";
 import { getTodayJalali } from "@/lib/transaction-helpers";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { QueryError } from "@/components/ui/query-error";
+import { AppModal } from "@/components/ui/modal";
 import {
   FinanceTypeToggle,
   financeTypeTextClass,
@@ -40,11 +54,23 @@ import { cn } from "@/lib/cn";
 
 const { Title, Text } = Typography;
 
-const FREQ_LABEL: Record<string, string> = {
-  weekly: "هفتگی",
-  monthly: "ماهانه",
-  yearly: "سالانه",
+const KIND_LABEL: Record<DebtKind, string> = {
+  recurring: "تکرارشونده (قسط)",
+  one_time: "بدهی یک‌باره",
 };
+
+function endLabel(item: {
+  kind: DebtKind;
+  endMode: DebtEndMode | null;
+  endMonths: number | null;
+  paymentsMade: number;
+}): string {
+  if (item.kind === "one_time") return "یک‌باره";
+  if (item.endMode === "months" && item.endMonths != null) {
+    return `${toPersianDigits(String(item.paymentsMade))}/${toPersianDigits(String(item.endMonths))} قسط`;
+  }
+  return "همیشگی";
+}
 
 export default function RecurringPage() {
   const screens = Grid.useBreakpoint();
@@ -54,17 +80,21 @@ export default function RecurringPage() {
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [type, setType] = useState<"income" | "expense">("expense");
-  const [frequency, setFrequency] = useState<"weekly" | "monthly" | "yearly">("monthly");
-  const [nextPaymentDate, setNextPaymentDate] = useState(getTodayJalali());
-  const [accountId, setAccountId] = useState("");
+  const [kind, setKind] = useState<DebtKind>("recurring");
+  const [dayOfMonth, setDayOfMonth] = useState<number>(1);
+  const [endMode, setEndMode] = useState<DebtEndMode>("forever");
+  const [endMonths, setEndMonths] = useState<number | null>(12);
+  const [dueDate, setDueDate] = useState(getTodayJalali());
   const [categoryId, setCategoryId] = useState("");
+  const [payItem, setPayItem] = useState<RecurringItem | null>(null);
+  const [payAccountId, setPayAccountId] = useState("");
 
   const listQ = useQuery({ queryKey: ["recurring"], queryFn: fetchRecurring });
   const accountsQ = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const categoriesQ = useQuery({ queryKey: ["categories"], queryFn: fetchCategories });
 
   const categories = useMemo(
-    () => (categoriesQ.data ?? []).filter((c) => c.type === type),
+    () => (categoriesQ.data ?? []).filter((c: Category) => c.type === type),
     [categoriesQ.data, type]
   );
 
@@ -73,21 +103,39 @@ export default function RecurringPage() {
       const value = Number(amount.replace(/,/g, ""));
       if (title.trim().length < 2) throw new Error("عنوان را وارد کنید");
       if (!Number.isFinite(value) || value <= 0) throw new Error("مبلغ معتبر نیست");
-      const acc = accountId || accountsQ.data?.[0]?.id;
-      if (!acc) throw new Error("حساب را انتخاب کنید");
       if (!categoryId) throw new Error("دسته را انتخاب کنید");
+
+      if (kind === "recurring") {
+        if (!dayOfMonth || dayOfMonth < 1 || dayOfMonth > 31) {
+          throw new Error("روز موعد ماه را وارد کنید (۱ تا ۳۱)");
+        }
+        if (endMode === "months" && (!endMonths || endMonths < 1)) {
+          throw new Error("تعداد ماه‌ها را وارد کنید");
+        }
+        return createRecurring({
+          title: title.trim(),
+          amount: value,
+          type,
+          kind: "recurring",
+          dayOfMonth,
+          endMode,
+          endMonths: endMode === "months" ? endMonths : null,
+          categoryId,
+        });
+      }
+
+      if (!dueDate.trim()) throw new Error("تاریخ سررسید را وارد کنید");
       return createRecurring({
         title: title.trim(),
         amount: value,
         type,
-        frequency,
-        nextPaymentDate,
-        accountId: acc,
+        kind: "one_time",
+        dueDate,
         categoryId,
       });
     },
     onSuccess: () => {
-      message.success("پرداخت تکرارشونده ثبت شد");
+      message.success("بدهی/قسط ثبت شد");
       setTitle("");
       setAmount("");
       setCategoryId("");
@@ -104,9 +152,12 @@ export default function RecurringPage() {
   });
 
   const generateMutation = useMutation({
-    mutationFn: (id: string) => generateRecurring(id),
+    mutationFn: ({ id, accountId }: { id: string; accountId: string }) =>
+      generateRecurring(id, accountId),
     onSuccess: () => {
-      message.success("تراکنش ساخته شد و موعد بعدی جلو رفت");
+      message.success("تراکنش ثبت شد");
+      setPayItem(null);
+      setPayAccountId("");
       void queryClient.invalidateQueries({ queryKey: ["recurring"] });
       void queryClient.invalidateQueries({ queryKey: ["transactions"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
@@ -115,7 +166,7 @@ export default function RecurringPage() {
     onError: (err: unknown) => {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        "خطا در تولید تراکنش";
+        "خطا در ثبت تراکنش";
       message.error(msg);
     },
   });
@@ -129,18 +180,21 @@ export default function RecurringPage() {
   });
 
   const items = listQ.data?.items ?? [];
+  const monthChecklist = listQ.data?.monthChecklist ?? [];
+  const monthPaidCount = monthChecklist.filter((i: RecurringItem) => i.paidThisMonth).length;
+  const defaultAccountId = accountsQ.data?.[0]?.id ?? "";
 
   return (
     <Space orientation="vertical" size="large" className="w-full max-w-full min-w-0">
       <div>
         <Title level={4} className="!m-0">
           <Space>
-            <CalendarOutlined />
-            پرداخت‌های تکرارشونده
+            <AccountBookOutlined />
+            بدهی / اقساط
           </Space>
         </Title>
         <Text type="secondary">
-          اجاره، اینترنت، حقوق و ... را ثبت کنید و در موعد با یک کلیک به تراکنش تبدیل کنید.
+          اقساط ماهانه یا بدهی یک‌باره را ثبت کنید؛ حساب بانکی را موقع ثبت تراکنش انتخاب کنید.
         </Text>
       </div>
 
@@ -150,6 +204,65 @@ export default function RecurringPage() {
           showIcon
           title={`${listQ.data?.dueCount} مورد به موعد رسیده یا گذشته است.`}
         />
+      ) : null}
+
+      {monthChecklist.length > 0 ? (
+        <Card
+          title={
+            <Space>
+              <CheckSquareOutlined />
+              چک‌لیست این ماه
+              {listQ.data?.monthLabel ? (
+                <Text type="secondary" className="!text-sm font-normal">
+                  ({toPersianDigits(listQ.data.monthLabel)})
+                </Text>
+              ) : null}
+            </Space>
+          }
+          extra={
+            <Text type="secondary" className="text-sm">
+              {toPersianDigits(String(monthPaidCount))}/
+              {toPersianDigits(String(monthChecklist.length))} پرداخت شده
+            </Text>
+          }
+        >
+          <Text type="secondary" className="mb-3 block text-xs">
+            تیک‌نخورده‌ها با «ثبت تراکنش الان» تیک می‌خورند.
+          </Text>
+          <Space orientation="vertical" size="small" className="w-full">
+            {monthChecklist.map((item: RecurringItem) => (
+              <Flex
+                key={`check-${item.id}`}
+                align="center"
+                justify="space-between"
+                gap="middle"
+                className={cn(
+                  "rounded-lg px-2 py-1.5",
+                  item.paidThisMonth ? "bg-emerald-500/5" : "bg-app-muted/30"
+                )}
+              >
+                <Checkbox checked={item.paidThisMonth} disabled>
+                  <span
+                    className={cn(
+                      item.paidThisMonth && "text-app-muted line-through"
+                    )}
+                  >
+                    {item.title}
+                  </span>
+                </Checkbox>
+                <Text
+                  className={cn(
+                    "shrink-0 text-sm font-semibold",
+                    financeTypeTextClass(item.type),
+                    item.paidThisMonth && "opacity-60"
+                  )}
+                >
+                  {formatToman(item.amount)}
+                </Text>
+              </Flex>
+            ))}
+          </Space>
+        </Card>
       ) : null}
 
       <Card
@@ -169,8 +282,20 @@ export default function RecurringPage() {
             }}
           />
 
+          <Select
+            className="w-full"
+            value={kind}
+            onChange={setKind}
+            options={[
+              { value: "recurring", label: "تکرارشونده (قسط ماهانه)" },
+              { value: "one_time", label: "بدهی یک‌باره" },
+            ]}
+          />
+
           <Input
-            placeholder="عنوان (مثلاً اینترنت)"
+            placeholder={
+              kind === "one_time" ? "عنوان (مثلاً بدهی به علی)" : "عنوان (مثلاً قسط وام)"
+            }
             value={title}
             onChange={(e) => setTitle(e.target.value)}
           />
@@ -182,51 +307,79 @@ export default function RecurringPage() {
             className={cn("font-semibold", financeTypeTextClass(type))}
           />
 
-          <Row gutter={[12, 12]}>
-            <Col xs={24} md={12}>
-              <Select
-                className="w-full"
-                value={frequency}
-                onChange={setFrequency}
-                options={[
-                  { value: "weekly", label: "هفتگی" },
-                  { value: "monthly", label: "ماهانه" },
-                  { value: "yearly", label: "سالانه" },
-                ]}
-              />
-            </Col>
-            <Col xs={24} md={12}>
+          {kind === "recurring" ? (
+            <Row gutter={[12, 12]}>
+              <Col xs={24} md={12}>
+                <Text type="secondary" className="mb-1 block text-xs">
+                  روز موعد هر ماه
+                </Text>
+                <Space.Compact className="w-full">
+                  <InputNumber
+                    className="!w-full"
+                    min={1}
+                    max={31}
+                    value={dayOfMonth}
+                    onChange={(v) => setDayOfMonth(v ?? 1)}
+                  />
+                  <Input className="!w-[7.5rem]" value="ام هر ماه" disabled />
+                </Space.Compact>
+              </Col>
+              <Col xs={24} md={12}>
+                <Text type="secondary" className="mb-1 block text-xs">
+                  مدت تکرار
+                </Text>
+                <Select
+                  className="w-full"
+                  value={endMode}
+                  onChange={setEndMode}
+                  options={[
+                    { value: "forever", label: "همیشگی (هر ماه)" },
+                    { value: "months", label: "تا چند ماه مشخص" },
+                  ]}
+                />
+              </Col>
+              {endMode === "months" ? (
+                <Col xs={24} md={12}>
+                  <Text type="secondary" className="mb-1 block text-xs">
+                    تعداد ماه‌ها
+                  </Text>
+                  <Space.Compact className="w-full">
+                    <InputNumber
+                      className="!w-full"
+                      min={1}
+                      max={600}
+                      value={endMonths}
+                      onChange={(v) => setEndMonths(v)}
+                    />
+                    <Input className="!w-16" value="ماه" disabled />
+                  </Space.Compact>
+                </Col>
+              ) : null}
+            </Row>
+          ) : (
+            <div>
+              <Text type="secondary" className="mb-1 block text-xs">
+                تاریخ سررسید
+              </Text>
               <Input
                 dir="ltr"
-                value={nextPaymentDate}
-                onChange={(e) => setNextPaymentDate(e.target.value)}
-                placeholder="1405/04/01"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                placeholder="1405/04/25"
               />
-            </Col>
-            <Col xs={24} md={12}>
-              <Select
-                className="w-full"
-                value={accountId || accountsQ.data?.[0]?.id || undefined}
-                onChange={setAccountId}
-                options={(accountsQ.data ?? []).map((a) => ({
-                  value: a.id,
-                  label: a.name,
-                }))}
-              />
-            </Col>
-            <Col xs={24} md={12}>
-              <Select
-                className="w-full"
-                placeholder="انتخاب دسته"
-                value={categoryId || undefined}
-                onChange={setCategoryId}
-                options={categories.map((c) => ({
-                  value: c._id,
-                  label: c.name,
-                }))}
-              />
-            </Col>
-          </Row>
+            </div>
+          )}
+
+          <Select
+            className="w-full"
+            placeholder="انتخاب دسته"
+            value={categoryId || undefined}
+            onChange={setCategoryId}
+            options={categories.map((c: Category) => ({
+              value: c._id,
+              label: c.name,
+            }))}
+          />
 
           <Button
             type="primary"
@@ -241,17 +394,20 @@ export default function RecurringPage() {
       {listQ.isLoading ? <Skeleton className="h-40 w-full" /> : null}
       {listQ.error ? (
         <QueryError
-          message="خطا در دریافت پرداخت‌های تکرارشونده."
+          message="خطا در دریافت بدهی‌ها و اقساط."
           onRetry={() => void listQ.refetch()}
         />
       ) : null}
 
       <Space orientation="vertical" size="middle" className="w-full">
-        {items.map((item) => {
-          const accountName =
-            typeof item.account === "object" && item.account ? item.account.name : "—";
+        {items.map((item: RecurringItem) => {
           const categoryName =
             typeof item.category === "object" && item.category ? item.category.name : "—";
+          const scheduleText =
+            item.kind === "recurring" && item.dayOfMonth != null
+              ? `${toPersianDigits(String(item.dayOfMonth))}ام هر ماه`
+              : `سررسید ${formatJalaliDate(item.nextPaymentDate)}`;
+
           return (
             <Card
               key={item.id}
@@ -265,16 +421,15 @@ export default function RecurringPage() {
                 vertical={isMobile}
               >
                 <div className="min-w-0 flex-1 mb-3">
-                  <Text strong>{item.title}</Text>
+                  <Space size="small" wrap>
+                    <Text strong>{item.title}</Text>
+                    <Tag>{KIND_LABEL[item.kind] ?? item.kind}</Tag>
+                    {item.isDue ? <Tag color="orange">سررسید شده</Tag> : null}
+                  </Space>
                   <div>
                     <Text type="secondary" className="break-words">
-                      {FREQ_LABEL[item.frequency] ?? item.frequency} · موعد{" "}
-                      {formatJalaliDate(item.nextPaymentDate)} · {accountName} · {categoryName}
-                      {item.isDue ? (
-                        <Tag color="orange" className="!ms-1">
-                          سررسید شده
-                        </Tag>
-                      ) : null}
+                      {scheduleText} · {endLabel(item)} · موعد بعدی{" "}
+                      {formatJalaliDate(item.nextPaymentDate)} · {categoryName}
                     </Text>
                   </div>
                 </div>
@@ -295,8 +450,10 @@ export default function RecurringPage() {
                   type="primary"
                   block={isMobile}
                   icon={<CaretRightOutlined />}
-                  loading={generateMutation.isPending}
-                  onClick={() => generateMutation.mutate(item.id)}
+                  onClick={() => {
+                    setPayItem(item);
+                    setPayAccountId(defaultAccountId);
+                  }}
                 >
                   ثبت تراکنش الان
                 </Button>
@@ -320,10 +477,61 @@ export default function RecurringPage() {
 
       {!listQ.isLoading && items.length === 0 ? (
         <EmptyState
-          title="هنوز پرداخت تکرارشونده‌ای ثبت نشده"
-          description="اجاره، اینترنت یا حقوق را اینجا تعریف کنید."
+          title="هنوز بدهی یا قسطی ثبت نشده"
+          description="قسط ماهانه یا بدهی یک‌باره را اینجا تعریف کنید."
         />
       ) : null}
+
+      <AppModal
+        open={!!payItem}
+        onClose={() => {
+          setPayItem(null);
+          setPayAccountId("");
+        }}
+        title="ثبت تراکنش"
+        subtitle={payItem ? payItem.title : undefined}
+        footer={
+          <Flex gap="small" justify="flex-end" wrap="wrap">
+            <Button
+              onClick={() => {
+                setPayItem(null);
+                setPayAccountId("");
+              }}
+            >
+              انصراف
+            </Button>
+            <Button
+              type="primary"
+              loading={generateMutation.isPending}
+              onClick={() => {
+                if (!payItem) return;
+                const acc = payAccountId || defaultAccountId;
+                if (!acc) {
+                  message.error("حساب بانکی را انتخاب کنید");
+                  return;
+                }
+                generateMutation.mutate({ id: payItem.id, accountId: acc });
+              }}
+            >
+              ثبت تراکنش
+            </Button>
+          </Flex>
+        }
+      >
+        <Space orientation="vertical" size="middle" className="w-full">
+          <Text type="secondary">حساب بانکی که این پرداخت از آن انجام می‌شود را انتخاب کنید.</Text>
+          <Select
+            className="w-full"
+            placeholder="انتخاب حساب بانکی"
+            value={payAccountId || defaultAccountId || undefined}
+            onChange={setPayAccountId}
+            options={(accountsQ.data ?? []).map((a: BankAccount) => ({
+              value: a.id,
+              label: a.name,
+            }))}
+          />
+        </Space>
+      </AppModal>
     </Space>
   );
 }

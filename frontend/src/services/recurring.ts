@@ -2,35 +2,61 @@
 
 import api from "@/services/api";
 
+export type DebtKind = "recurring" | "one_time";
+export type DebtEndMode = "forever" | "months";
+
 export type RecurringItem = {
   id: string;
   title: string;
   amount: number;
   type: "income" | "expense";
-  frequency: "weekly" | "monthly" | "yearly";
+  kind: DebtKind;
+  dayOfMonth: number | null;
+  endMode: DebtEndMode | null;
+  endMonths: number | null;
+  paymentsMade: number;
+  lastPaymentDate: string | null;
   nextPaymentDate: string;
   active: boolean;
   notes?: string;
   isDue: boolean;
-  account: { _id: string; name: string; bankName?: string; color?: string } | string;
+  paidThisMonth: boolean;
   category: { _id: string; name: string; color?: string; type?: string } | string;
 };
 
-export async function fetchRecurring(): Promise<{ items: RecurringItem[]; dueCount: number }> {
+export type CreateDebtPayload =
+  | {
+      title: string;
+      amount: number;
+      type: "income" | "expense";
+      kind: "recurring";
+      dayOfMonth: number;
+      endMode: DebtEndMode;
+      endMonths?: number | null;
+      categoryId: string;
+      notes?: string;
+    }
+  | {
+      title: string;
+      amount: number;
+      type: "income" | "expense";
+      kind: "one_time";
+      dueDate: string;
+      categoryId: string;
+      notes?: string;
+    };
+
+export async function fetchRecurring(): Promise<{
+  items: RecurringItem[];
+  monthChecklist: RecurringItem[];
+  monthLabel: string;
+  dueCount: number;
+}> {
   const res = await api.get("/api/recurring");
   return res.data.data;
 }
 
-export async function createRecurring(payload: {
-  title: string;
-  amount: number;
-  type: "income" | "expense";
-  frequency: "weekly" | "monthly" | "yearly";
-  nextPaymentDate: string;
-  accountId: string;
-  categoryId: string;
-  notes?: string;
-}): Promise<void> {
+export async function createRecurring(payload: CreateDebtPayload): Promise<void> {
   await api.post("/api/recurring", payload);
 }
 
@@ -40,9 +66,12 @@ export async function updateRecurring(
     title: string;
     amount: number;
     type: "income" | "expense";
-    frequency: "weekly" | "monthly" | "yearly";
+    kind: DebtKind;
+    dayOfMonth: number;
+    endMode: DebtEndMode;
+    endMonths: number | null;
+    dueDate: string;
     nextPaymentDate: string;
-    accountId: string;
     categoryId: string;
     notes: string;
     active: boolean;
@@ -55,6 +84,6 @@ export async function deleteRecurring(id: string): Promise<void> {
   await api.delete(`/api/recurring/${id}`);
 }
 
-export async function generateRecurring(id: string): Promise<void> {
-  await api.post(`/api/recurring/${id}/generate`);
+export async function generateRecurring(id: string, accountId: string): Promise<void> {
+  await api.post(`/api/recurring/${id}/generate`, { accountId });
 }
