@@ -3,10 +3,11 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AlertCircle, Check, ClipboardCheck } from "lucide-react";
+import { AlertCircle, Check, ClipboardCheck, Sparkles } from "lucide-react";
 import {
   fetchCategories,
   fetchTransactions,
+  suggestCategory,
   updateTransaction,
 } from "@/services/transactions";
 import type { Transaction } from "@/types/transaction";
@@ -18,6 +19,7 @@ import {
 } from "@/lib/transaction-helpers";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
+import { TagsInput } from "@/components/ui/tags-input";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
 
 export default function ReviewPage() {
@@ -40,7 +42,7 @@ export default function ReviewPage() {
   const categoriesQ = useQuery({ queryKey: ["categories"], queryFn: fetchCategories });
 
   const [drafts, setDrafts] = useState<
-    Record<string, { title: string; categoryId: string }>
+    Record<string, { title: string; categoryId: string; tags: string[] }>
   >({});
 
   function getDraft(tx: Transaction) {
@@ -48,6 +50,7 @@ export default function ReviewPage() {
       drafts[tx._id] ?? {
         title: tx.title.includes("بدون عنوان") ? "" : tx.title,
         categoryId: categoryIdValue(tx.categoryId),
+        tags: tx.tags ?? [],
       }
     );
   }
@@ -61,6 +64,7 @@ export default function ReviewPage() {
       return updateTransaction(tx._id, {
         title: draft.title.trim(),
         categoryId: draft.categoryId || categoryIdValue(tx.categoryId),
+        tags: draft.tags,
         needsReview: false,
       });
     },
@@ -81,6 +85,26 @@ export default function ReviewPage() {
           : (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
             "خطا در ذخیره";
       toast.error(message);
+    },
+  });
+
+  const suggestMutation = useMutation({
+    mutationFn: async (tx: Transaction) => {
+      const draft = getDraft(tx);
+      const title = draft.title.trim() || tx.description || tx.title;
+      return suggestCategory({ title, type: tx.type });
+    },
+    onSuccess: (result, tx) => {
+      if (!result.suggestion) {
+        toast.message("پیشنهادی پیدا نشد");
+        return;
+      }
+      const draft = getDraft(tx);
+      setDrafts((d) => ({
+        ...d,
+        [tx._id]: { ...draft, categoryId: result.suggestion!._id },
+      }));
+      toast.success(`پیشنهاد: ${result.suggestion.name}`);
     },
   });
 
@@ -148,24 +172,49 @@ export default function ReviewPage() {
                     [tx._id]: { ...draft, title: e.target.value },
                   }))
                 }
+                onBlur={() => {
+                  if (draft.title.trim().length >= 2) {
+                    suggestMutation.mutate(tx);
+                  }
+                }}
               />
 
-              <select
-                className="w-full rounded-xl border border-[var(--border)] bg-transparent px-3 py-3 outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                value={draft.categoryId}
-                onChange={(e) =>
+              <div className="flex gap-2 items-center">
+                <select
+                  className="flex-1 rounded-xl border border-[var(--border)] bg-transparent px-3 py-3 outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                  value={draft.categoryId}
+                  onChange={(e) =>
+                    setDrafts((d) => ({
+                      ...d,
+                      [tx._id]: { ...draft, categoryId: e.target.value },
+                    }))
+                  }
+                >
+                  {cats.map((c) => (
+                    <option key={c._id} value={c._id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  title="پیشنهاد دسته از عنوان"
+                  onClick={() => suggestMutation.mutate(tx)}
+                  className="h-11 w-11 rounded-xl border border-[var(--border)] flex items-center justify-center text-brand-400 hover:bg-white/5"
+                >
+                  <Sparkles size={16} />
+                </button>
+              </div>
+
+              <TagsInput
+                value={draft.tags}
+                onChange={(tags) =>
                   setDrafts((d) => ({
                     ...d,
-                    [tx._id]: { ...draft, categoryId: e.target.value },
+                    [tx._id]: { ...draft, tags },
                   }))
                 }
-              >
-                {cats.map((c) => (
-                  <option key={c._id} value={c._id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+              />
 
               <button
                 type="button"

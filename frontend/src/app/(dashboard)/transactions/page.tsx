@@ -38,6 +38,7 @@ type Filters = {
   search: string;
   type: "" | "income" | "expense";
   categoryId: string;
+  tag: string;
   needsReviewOnly: boolean;
 };
 
@@ -50,6 +51,7 @@ export default function TransactionsPage() {
     search: "",
     type: "",
     categoryId: "",
+    tag: "",
     needsReviewOnly: false,
   });
   const [searchInput, setSearchInput] = useState("");
@@ -75,6 +77,7 @@ export default function TransactionsPage() {
         type: filters.type || undefined,
         categoryId: filters.categoryId || undefined,
         accountId: selectedAccountId,
+        tag: filters.tag || undefined,
         needsReview: filters.needsReviewOnly ? true : undefined,
         sortBy: "date",
         sortOrder: "desc",
@@ -152,6 +155,7 @@ export default function TransactionsPage() {
         type: filters.type || undefined,
         categoryId: filters.categoryId || undefined,
         accountId: selectedAccountId,
+        tag: filters.tag || undefined,
         needsReview: filters.needsReviewOnly ? true : undefined,
         sortBy: "date",
         sortOrder: "desc",
@@ -261,6 +265,16 @@ export default function TransactionsPage() {
             ))}
           </select>
 
+          <input
+            className="rounded-xl border border-[var(--border)] bg-transparent px-3 py-2.5 text-sm"
+            placeholder="فیلتر تگ"
+            value={filters.tag}
+            onChange={(e) => {
+              setPage(1);
+              setFilters((f) => ({ ...f, tag: e.target.value.trim() }));
+            }}
+          />
+
           <button
             type="button"
             onClick={() => {
@@ -281,7 +295,7 @@ export default function TransactionsPage() {
             onClick={() => {
               setSearchInput("");
               setPage(1);
-              setFilters({ search: "", type: "", categoryId: "", needsReviewOnly: false });
+              setFilters({ search: "", type: "", categoryId: "", tag: "", needsReviewOnly: false });
             }}
             className="rounded-xl border border-[var(--border)] px-3 py-2.5 text-sm hover:bg-white/5"
           >
@@ -324,6 +338,23 @@ export default function TransactionsPage() {
                     </span>
                   ) : null}
                 </div>
+                {(tx.tags?.length ?? 0) > 0 ? (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {tx.tags!.map((tag) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => {
+                          setPage(1);
+                          setFilters((f) => ({ ...f, tag }));
+                        }}
+                        className="text-[10px] px-2 py-0.5 rounded-lg bg-brand-500/10 text-brand-400"
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
                 <div className="text-sm text-[var(--muted)] mt-1">
                   {formatJalaliDate(tx.date)} · {categoryName(tx.categoryId)} ·{" "}
                   {accountName(tx.accountId)}

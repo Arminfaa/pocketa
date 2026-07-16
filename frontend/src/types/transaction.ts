@@ -25,6 +25,7 @@ export type Transaction = {
   date: string;
   source?: "manual" | "bank_sms";
   needsReview?: boolean;
+  tags?: string[];
   importHash?: string;
   bankMeta?: {
     bankName?: string;
@@ -48,6 +49,7 @@ export type TransactionInput = {
   description?: string | null;
   date: string;
   needsReview?: boolean;
+  tags?: string[];
 };
 
 export type TransactionsListResponse = {

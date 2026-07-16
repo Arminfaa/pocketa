@@ -5,7 +5,8 @@ import { sendSuccess } from "../utils/apiResponse";
 import { BankAccountModel } from "../models/BankAccount";
 import { TransactionModel } from "../models/Transaction";
 import { BankAccountCreateSchema, BankAccountUpdateSchema } from "../validations/accounts";
-import { computeAccountBalance, ensureDefaultAccount } from "../services/account.service";
+import { computeAccountBalance, ensureDefaultAccount, findLatestSmsBalance, syncInitialBalanceToTarget } from "../services/account.service";
+import { SyncBalanceSchema } from "../validations/transactions";
 
 export const list = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user?.userId;
@@ -165,4 +166,49 @@ export const getOne = asyncHandler(async (req: Request, res: Response) => {
       transactionCount: txCount,
     },
   });
+});
+
+export const syncBalance = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) throw new AppError(401, "عدم دسترسی");
+
+  const parsed = SyncBalanceSchema.safeParse(req.body ?? {});
+  if (!parsed.success) throw new AppError(400, "خطا در اعتبارسنجی داده‌ها", parsed.error.flatten());
+
+  const { id } = req.params;
+  const account = await BankAccountModel.findOne({ _id: id, userId });
+  if (!account) throw new AppError(404, "حساب بانکی یافت نشد");
+
+  let target = parsed.data.balanceAfter;
+  if (target === undefined) {
+    const latest = await findLatestSmsBalance(userId, account._id);
+    if (latest === null) {
+      throw new AppError(400, "مانده‌ای از پیامک بانکی برای این حساب یافت نشد");
+    }
+    target = latest;
+  }
+
+  try {
+    const result = await syncInitialBalanceToTarget(userId, account._id, target);
+    return sendSuccess(
+      res,
+      {
+        item: {
+          id: account._id,
+          name: account.name,
+          bankName: account.bankName ?? "",
+          color: account.color,
+          icon: account.icon,
+          initialBalance: result.initialBalance,
+          isActive: account.isActive,
+          balance: result.balance,
+          previousBalance: result.previousBalance,
+          smsBalance: target,
+        },
+      },
+      "موجودی حساب با مانده پیامک همگام شد"
+    );
+  } catch {
+    throw new AppError(404, "حساب بانکی یافت نشد");
+  }
 });

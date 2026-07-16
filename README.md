@@ -16,6 +16,8 @@ Persian RTL personal finance SaaS — track income & expenses, budgets, bank SMS
 - Financial reports (monthly + by category)
 - Recurring payments (generate transaction on due date)
 - Savings goals with progress & contribute
+- Tags on transactions + rule-based category suggestions from title
+- Sync account balance from latest bank SMS `مانده`
 - Dark / light theme, Vazirmatn RTL, Toman + Jalali dates
 
 ## Prerequisites
