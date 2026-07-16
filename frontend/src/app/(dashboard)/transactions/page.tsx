@@ -6,11 +6,13 @@ import {
   Button,
   Card,
   Checkbox,
+  Col,
   Flex,
   Grid,
   Input,
   Pagination,
   Popconfirm,
+  Row,
   Select,
   Space,
   Table,
@@ -43,7 +45,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { QueryError } from "@/components/ui/query-error";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TransactionFormModal } from "@/features/transactions/TransactionFormModal";
-import { cn } from "@/lib/cn";
 
 const { useBreakpoint } = Grid;
 const { Title, Text } = Typography;
@@ -334,74 +335,81 @@ export default function TransactionsPage() {
 
       <Card size="small">
         <Space orientation="vertical" size="middle" className="w-full">
-          <Flex gap="small" wrap="wrap">
-            <Input.Search
-              className={cn("flex-1", isMobile ? "min-w-full w-full" : "min-w-[200px]")}
-              placeholder="جستجو در عنوان یا توضیحات..."
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              onSearch={applySearch}
-              enterButton="جستجو"
-            />
-          </Flex>
+          <Input.Search
+            className="w-full"
+            placeholder="جستجو در عنوان یا توضیحات..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onSearch={applySearch}
+            enterButton="جستجو"
+          />
 
-          <Flex gap="small" wrap="wrap">
-            <Select
-              className={cn("flex-1", isMobile ? "min-w-full w-full" : "min-w-[140px]")}
-              value={filters.type}
-              onChange={(value) => {
-                setPage(1);
-                setFilters((f) => ({
-                  ...f,
-                  type: value as Filters["type"],
-                  categoryId: "",
-                }));
-              }}
-              options={[
-                { value: "", label: "همه انواع" },
-                { value: "income", label: "درآمد" },
-                { value: "expense", label: "هزینه" },
-              ]}
-            />
+          <Row gutter={[12, 12]} align="middle">
+            <Col xs={24} sm={12} md={6}>
+              <Select
+                className="w-full"
+                value={filters.type}
+                onChange={(value) => {
+                  setPage(1);
+                  setFilters((f) => ({
+                    ...f,
+                    type: value as Filters["type"],
+                    categoryId: "",
+                  }));
+                }}
+                options={[
+                  { value: "", label: "همه انواع" },
+                  { value: "income", label: "درآمد" },
+                  { value: "expense", label: "هزینه" },
+                ]}
+              />
+            </Col>
 
-            <Select
-              className={cn("flex-1", isMobile ? "min-w-full w-full" : "min-w-[140px]")}
-              value={filters.categoryId || undefined}
-              placeholder="همه دسته‌ها"
-              allowClear
-              onChange={(value) => {
-                setPage(1);
-                setFilters((f) => ({ ...f, categoryId: value ?? "" }));
-              }}
-              options={filteredCategories.map((c) => ({
-                value: c._id,
-                label: c.name,
-              }))}
-            />
+            <Col xs={24} sm={12} md={6}>
+              <Select
+                className="w-full"
+                value={filters.categoryId || undefined}
+                placeholder="همه دسته‌ها"
+                allowClear
+                onChange={(value) => {
+                  setPage(1);
+                  setFilters((f) => ({ ...f, categoryId: value ?? "" }));
+                }}
+                options={filteredCategories.map((c) => ({
+                  value: c._id,
+                  label: c.name,
+                }))}
+              />
+            </Col>
 
-            <Input
-              className={cn("flex-1", isMobile ? "min-w-full w-full" : "min-w-[120px]")}
-              placeholder="فیلتر تگ"
-              value={filters.tag}
-              onChange={(e) => {
-                setPage(1);
-                setFilters((f) => ({ ...f, tag: e.target.value.trim() }));
-              }}
-            />
+            <Col xs={24} sm={12} md={5}>
+              <Input
+                className="w-full"
+                placeholder="فیلتر تگ"
+                value={filters.tag}
+                onChange={(e) => {
+                  setPage(1);
+                  setFilters((f) => ({ ...f, tag: e.target.value.trim() }));
+                }}
+              />
+            </Col>
 
-            <Checkbox
-              checked={filters.needsReviewOnly}
-              className="!items-center"
-              onChange={(e) => {
-                setPage(1);
-                setFilters((f) => ({ ...f, needsReviewOnly: e.target.checked }));
-              }}
-            >
-              فقط نیاز به بررسی
-            </Checkbox>
-
-            <Button onClick={clearFilters}>پاک کردن فیلترها</Button>
-          </Flex>
+            <Col xs={24} sm={12} md={7}>
+              <Flex gap="small" wrap="wrap" align="center">
+                <Checkbox
+                  checked={filters.needsReviewOnly}
+                  className="!items-center"
+                  onChange={(e) => {
+                    setPage(1);
+                    setFilters((f) => ({ ...f, needsReviewOnly: e.target.checked }));
+                  }}
+                >
+                  فقط نیاز به بررسی
+                </Checkbox>
+                <Button onClick={clearFilters}>پاک کردن فیلترها</Button>
+              </Flex>
+            </Col>
+          </Row>
         </Space>
       </Card>
 

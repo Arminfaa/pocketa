@@ -105,7 +105,7 @@ export default function BudgetsPage() {
       </div>
 
       <Row gutter={[12, 12]}>
-        <Col xs={24} sm={12}>
+        <Col xs={24} sm={12} md={8}>
           <Text type="secondary">ماه</Text>
           <Select
             className="w-full mt-2"
@@ -117,7 +117,7 @@ export default function BudgetsPage() {
             }))}
           />
         </Col>
-        <Col xs={24} sm={12}>
+        <Col xs={24} sm={12} md={8}>
           <Text type="secondary">سال</Text>
           <Input
             className="mt-2"

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { App, Button, Card, Flex, Grid, Input, Select, Space, Typography } from "antd";
+import { App, Button, Card, Col, Flex, Grid, Input, Row, Select, Space, Typography } from "antd";
 import { CheckOutlined, WarningOutlined, ThunderboltOutlined } from "@ant-design/icons";
 import {
   fetchCategories,
@@ -189,36 +189,41 @@ export default function ReviewPage() {
                   }}
                 />
 
-                <Flex gap="small" align="center" wrap="wrap">
-                  <Select
-                    className={cn("flex-1", isMobile ? "min-w-full" : "min-w-40")}
-                    value={draft.categoryId}
-                    onChange={(categoryId) =>
-                      setDrafts((d) => ({
-                        ...d,
-                        [tx._id]: { ...draft, categoryId },
-                      }))
-                    }
-                    options={cats.map((c) => ({ value: c._id, label: c.name }))}
-                  />
-                  <Button
-                    type="default"
-                    icon={<ThunderboltOutlined />}
-                    title="پیشنهاد دسته از عنوان"
-                    loading={suggestMutation.isPending}
-                    onClick={() => suggestMutation.mutate(tx)}
-                  />
-                </Flex>
-
-                <TagsInput
-                  value={draft.tags}
-                  onChange={(tags) =>
-                    setDrafts((d) => ({
-                      ...d,
-                      [tx._id]: { ...draft, tags },
-                    }))
-                  }
-                />
+                <Row gutter={[12, 12]}>
+                  <Col xs={24} md={14}>
+                    <Flex gap="small" align="center" wrap="wrap">
+                      <Select
+                        className="min-w-0 flex-1"
+                        value={draft.categoryId}
+                        onChange={(categoryId) =>
+                          setDrafts((d) => ({
+                            ...d,
+                            [tx._id]: { ...draft, categoryId },
+                          }))
+                        }
+                        options={cats.map((c) => ({ value: c._id, label: c.name }))}
+                      />
+                      <Button
+                        type="default"
+                        icon={<ThunderboltOutlined />}
+                        title="پیشنهاد دسته از عنوان"
+                        loading={suggestMutation.isPending}
+                        onClick={() => suggestMutation.mutate(tx)}
+                      />
+                    </Flex>
+                  </Col>
+                  <Col xs={24} md={10}>
+                    <TagsInput
+                      value={draft.tags}
+                      onChange={(tags) =>
+                        setDrafts((d) => ({
+                          ...d,
+                          [tx._id]: { ...draft, tags },
+                        }))
+                      }
+                    />
+                  </Col>
+                </Row>
 
                 <Button
                   type="primary"

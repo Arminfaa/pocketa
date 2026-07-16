@@ -154,7 +154,7 @@ export default function BankSmsImportPage() {
       <Card>
         <Space orientation="vertical" size="middle" className="w-full">
           <Row gutter={[12, 12]}>
-            <Col xs={24} md={12}>
+            <Col xs={24} md={16}>
               <Text type="secondary">حساب مقصد</Text>
               {accountsQ.isLoading ? (
                 <Skeleton className="h-11 w-full mt-2" rows={1} />
@@ -171,7 +171,7 @@ export default function BankSmsImportPage() {
               )}
             </Col>
 
-            <Col xs={24} md={12}>
+            <Col xs={24} md={8}>
               <Text type="secondary">سال شمسی (برای تاریخ‌های بدون سال)</Text>
               <Input
                 className="mt-2"

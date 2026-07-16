@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Button, Flex, Form, Grid, Input, Select, Typography } from "antd";
+import { Button, Col, Flex, Form, Grid, Input, Row, Select, Typography } from "antd";
 import { BulbOutlined } from "@ant-design/icons";
 import type { Transaction } from "@/types/transaction";
 import type { BankAccount } from "@/types/account";
@@ -59,7 +59,7 @@ export function TransactionFormModal({
   submitting,
 }: Props) {
   const screens = Grid.useBreakpoint();
-  const modalWidth = screens.sm ? 520 : "calc(100vw - 24px)";
+  const modalWidth = screens.sm ? 640 : "calc(100vw - 24px)";
 
   const [form] = Form.useForm<TransactionFormValues>();
   const [tags, setTags] = useState<string[]>([]);
@@ -181,82 +181,92 @@ export function TransactionFormModal({
           <Input onBlur={() => void applySuggestion()} />
         </Form.Item>
 
-        <Form.Item
-          name="amount"
-          label="مبلغ (تومان)"
-          rules={[{ required: true, message: "مبلغ را وارد کنید" }]}
-        >
-          <Input
-            dir="ltr"
-            placeholder="500000"
-            className={cn("font-semibold", financeTypeTextClass(type))}
-          />
-        </Form.Item>
-
-        <Form.Item
-          name="date"
-          label="تاریخ شمسی (YYYY/MM/DD)"
-          rules={[
-            { required: true, message: "تاریخ را وارد کنید" },
-            {
-              pattern: /^\d{4}\/\d{1,2}\/\d{1,2}$/,
-              message: "تاریخ باید به صورت ۱۴۰۵/۰۱/۰۱ باشد (با ارقام انگلیسی)",
-            },
-          ]}
-        >
-          <Input dir="ltr" placeholder="1405/04/25" />
-        </Form.Item>
-
-        <Form.Item
-          name="accountId"
-          label="حساب بانکی"
-          rules={[{ required: true, message: "حساب را انتخاب کنید" }]}
-        >
-          <Select
-            placeholder="انتخاب حساب"
-            options={accounts.map((a) => ({
-              value: a.id,
-              label: `${a.name}${a.bankName ? ` · ${a.bankName}` : ""}`,
-            }))}
-          />
-        </Form.Item>
-
-        <Form.Item label="دسته‌بندی" required>
-          <Flex
-            justify="space-between"
-            align={screens.sm ? "center" : "flex-start"}
-            wrap="wrap"
-            gap="small"
-            className="mb-2"
-          >
-            <Typography.Text type="secondary" className="text-xs min-w-0">
-              {suggestLabel ? `پیشنهاد اعمال‌شده: ${suggestLabel}` : null}
-            </Typography.Text>
-            <Button
-              type="link"
-              size="small"
-              icon={<BulbOutlined />}
-              disabled={suggesting || title.trim().length < 2}
-              loading={suggesting}
-              onClick={() => void applySuggestion()}
+        <Row gutter={[12, 0]}>
+          <Col xs={24} sm={12}>
+            <Form.Item
+              name="amount"
+              label="مبلغ (تومان)"
+              rules={[{ required: true, message: "مبلغ را وارد کنید" }]}
             >
-              پیشنهاد از عنوان
-            </Button>
-          </Flex>
-          <Form.Item
-            name="categoryId"
-            noStyle
-            rules={[{ required: true, message: "دسته‌بندی را انتخاب کنید" }]}
-          >
-            <Select
-              placeholder="انتخاب دسته"
-              options={filteredCategories.map((c) => ({
-                value: c._id,
-                label: c.name,
-              }))}
-            />
-          </Form.Item>
-        </Form.Item>
+              <Input
+                dir="ltr"
+                placeholder="500000"
+                className={cn("font-semibold", financeTypeTextClass(type))}
+              />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={12}>
+            <Form.Item
+              name="date"
+              label="تاریخ شمسی (YYYY/MM/DD)"
+              rules={[
+                { required: true, message: "تاریخ را وارد کنید" },
+                {
+                  pattern: /^\d{4}\/\d{1,2}\/\d{1,2}$/,
+                  message: "تاریخ باید به صورت ۱۴۰۵/۰۱/۰۱ باشد (با ارقام انگلیسی)",
+                },
+              ]}
+            >
+              <Input dir="ltr" placeholder="1405/04/25" />
+            </Form.Item>
+          </Col>
+        </Row>
+
+        <Row gutter={[12, 0]}>
+          <Col xs={24} sm={12}>
+            <Form.Item
+              name="accountId"
+              label="حساب بانکی"
+              rules={[{ required: true, message: "حساب را انتخاب کنید" }]}
+            >
+              <Select
+                placeholder="انتخاب حساب"
+                options={accounts.map((a) => ({
+                  value: a.id,
+                  label: `${a.name}${a.bankName ? ` · ${a.bankName}` : ""}`,
+                }))}
+              />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={12}>
+            <Form.Item label="دسته‌بندی" required>
+              <Flex
+                justify="space-between"
+                align={screens.sm ? "center" : "flex-start"}
+                wrap="wrap"
+                gap="small"
+                className="mb-2"
+              >
+                <Typography.Text type="secondary" className="text-xs min-w-0">
+                  {suggestLabel ? `پیشنهاد اعمال‌شده: ${suggestLabel}` : null}
+                </Typography.Text>
+                <Button
+                  type="link"
+                  size="small"
+                  icon={<BulbOutlined />}
+                  disabled={suggesting || title.trim().length < 2}
+                  loading={suggesting}
+                  onClick={() => void applySuggestion()}
+                >
+                  پیشنهاد از عنوان
+                </Button>
+              </Flex>
+              <Form.Item
+                name="categoryId"
+                noStyle
+                rules={[{ required: true, message: "دسته‌بندی را انتخاب کنید" }]}
+              >
+                <Select
+                  placeholder="انتخاب دسته"
+                  options={filteredCategories.map((c) => ({
+                    value: c._id,
+                    label: c.name,
+                  }))}
+                />
+              </Form.Item>
+            </Form.Item>
+          </Col>
+        </Row>
 
         <Form.Item label="تگ‌ها (اختیاری)">
           <TagsInput value={tags} onChange={setTags} />
