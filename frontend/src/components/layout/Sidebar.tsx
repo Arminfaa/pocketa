@@ -9,7 +9,7 @@ import {
   PieChart,
   Settings,
   Tags,
-  ListPlus,
+  Landmark,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useUiStore } from "@/stores/ui.store";
@@ -17,6 +17,7 @@ import { useUiStore } from "@/stores/ui.store";
 const items = [
   { href: "/dashboard", label: "داشبورد", icon: LayoutDashboard },
   { href: "/transactions", label: "تراکنش‌ها", icon: ReceiptText },
+  { href: "/accounts", label: "حساب‌های بانکی", icon: Landmark },
   { href: "/categories", label: "دسته‌بندی‌ها", icon: Tags },
   { href: "/budgets", label: "بودجه‌بندی", icon: Wallet },
   { href: "/reports", label: "گزارش‌ها", icon: PieChart },
@@ -65,4 +66,3 @@ export function Sidebar() {
     </aside>
   );
 }
-

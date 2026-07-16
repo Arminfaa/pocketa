@@ -7,20 +7,26 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from "recharts";
 import { BarChart, Bar, Legend } from "recharts";
+import { useAccountFilterStore } from "@/stores/account-filter.store";
 
 export default function DashboardPage() {
+  const selectedAccountId = useAccountFilterStore((s) => s.selectedAccountId);
+
   const dashboardQ = useQuery({
-    queryKey: ["dashboard"],
-    queryFn: async () => (await api.get("/api/dashboard")).data.data,
+    queryKey: ["dashboard", selectedAccountId],
+    queryFn: async () => {
+      const qs = selectedAccountId ? `?accountId=${selectedAccountId}` : "";
+      return (await api.get(`/api/dashboard${qs}`)).data.data;
+    },
   });
 
   const monthlyQ = useQuery({
-    queryKey: ["reports-monthly"],
+    queryKey: ["reports-monthly", selectedAccountId],
     queryFn: async () => (await api.get("/api/reports/monthly?months=6")).data.data,
   });
 
   const categoriesQ = useQuery({
-    queryKey: ["reports-categories"],
+    queryKey: ["reports-categories", selectedAccountId],
     queryFn: async () => (await api.get("/api/reports/categories")).data.data,
   });
 

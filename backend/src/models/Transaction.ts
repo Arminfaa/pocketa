@@ -3,6 +3,7 @@ import mongoose, { Schema, type InferSchemaType } from "mongoose";
 const TransactionSchema = new Schema(
   {
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    accountId: { type: Schema.Types.ObjectId, ref: "BankAccount", required: true, index: true },
     type: { type: String, required: true, enum: ["income", "expense"] },
 
     amount: { type: Number, required: true, min: 0 },
@@ -13,10 +14,19 @@ const TransactionSchema = new Schema(
 
     // Jalali date string: YYYY/MM/DD
     date: { type: String, required: true, index: true },
+
+    // For future bank SMS import
+    source: {
+      type: String,
+      enum: ["manual", "bank_sms"],
+      default: "manual",
+    },
+    needsReview: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
 
+TransactionSchema.index({ userId: 1, accountId: 1, date: -1 });
 TransactionSchema.index({ userId: 1, type: 1, date: -1 });
 
 export type Transaction = InferSchemaType<typeof TransactionSchema>;
@@ -26,4 +36,3 @@ export const TransactionModel = mongoose.model<TransactionDocument>(
   "Transaction",
   TransactionSchema
 );
-

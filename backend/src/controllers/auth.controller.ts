@@ -10,6 +10,7 @@ import { RegisterSchema, LoginSchema } from "../validations/auth";
 import { UserModel } from "../models/User";
 import { CategoryModel } from "../models/Category";
 import { RefreshTokenModel } from "../models/RefreshToken";
+import { BankAccountModel } from "../models/BankAccount";
 
 function sha256(input: string) {
   return crypto.createHash("sha256").update(input).digest("hex");
@@ -77,16 +78,27 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
     avatar: avatar ?? null,
   });
 
-  // Seed default categories for this user.
-  await CategoryModel.insertMany(
-    defaultCategories.map((c) => ({
+  // Seed default categories + primary bank account for this user.
+  await Promise.all([
+    CategoryModel.insertMany(
+      defaultCategories.map((c) => ({
+        userId: user._id,
+        name: c.name,
+        type: c.type,
+        icon: c.icon,
+        color: c.color,
+      }))
+    ),
+    BankAccountModel.create({
       userId: user._id,
-      name: c.name,
-      type: c.type,
-      icon: c.icon,
-      color: c.color,
-    }))
-  );
+      name: "حساب اصلی",
+      bankName: "",
+      color: "#06b6d4",
+      icon: "Landmark",
+      initialBalance: 0,
+      isActive: true,
+    }),
+  ]);
 
   return sendSuccess(res, { userId: user._id, email: user.email }, "ثبت نام با موفقیت انجام شد");
 });
