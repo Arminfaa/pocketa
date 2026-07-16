@@ -10,6 +10,8 @@ import {
   Settings,
   Tags,
   Landmark,
+  FileInput,
+  ClipboardCheck,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useUiStore } from "@/stores/ui.store";
@@ -17,6 +19,8 @@ import { useUiStore } from "@/stores/ui.store";
 const items = [
   { href: "/dashboard", label: "داشبورد", icon: LayoutDashboard },
   { href: "/transactions", label: "تراکنش‌ها", icon: ReceiptText },
+  { href: "/imports/bank-sms", label: "ایمپورت پیامک", icon: FileInput },
+  { href: "/review", label: "نام‌گذاری", icon: ClipboardCheck },
   { href: "/accounts", label: "حساب‌های بانکی", icon: Landmark },
   { href: "/categories", label: "دسته‌بندی‌ها", icon: Tags },
   { href: "/budgets", label: "بودجه‌بندی", icon: Wallet },
