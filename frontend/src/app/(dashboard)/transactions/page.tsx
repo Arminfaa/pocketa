@@ -13,6 +13,7 @@ import {
   Flex,
   Grid,
   Input,
+  Pagination,
   Popconfirm,
   Select,
   Space,
@@ -67,6 +68,7 @@ export default function TransactionsPage() {
   const isMobile = !screens.md;
 
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [filters, setFilters] = useState<Filters>({
     search: "",
     type: "",
@@ -77,14 +79,13 @@ export default function TransactionsPage() {
   const [searchInput, setSearchInput] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
-  const limit = 20;
 
   const accountsQ = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const categoriesQ = useQuery({ queryKey: ["categories"], queryFn: fetchCategories });
 
   const listKey = useMemo(
-    () => ["transactions", selectedAccountId, page, filters, limit] as const,
-    [selectedAccountId, page, filters, limit]
+    () => ["transactions", selectedAccountId, page, pageSize, filters] as const,
+    [selectedAccountId, page, pageSize, filters]
   );
 
   const listQ = useQuery({
@@ -92,7 +93,7 @@ export default function TransactionsPage() {
     queryFn: () =>
       fetchTransactions({
         page,
-        limit,
+        limit: pageSize,
         search: filters.search || undefined,
         type: filters.type || undefined,
         categoryId: filters.categoryId || undefined,
@@ -160,7 +161,7 @@ export default function TransactionsPage() {
 
   const items = listQ.data?.items ?? [];
   const total = listQ.data?.pagination.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const rowOffset = (page - 1) * pageSize;
 
   const filteredCategories = (categoriesQ.data ?? []).filter((c) =>
     filters.type ? c.type === filters.type : true
@@ -209,6 +210,15 @@ export default function TransactionsPage() {
   }
 
   const columns: TableColumnsType<Transaction> = [
+    {
+      title: "ردیف",
+      key: "rowNumber",
+      width: 64,
+      align: "center",
+      render: (_value, _record, index) => (
+        <Text type="secondary">{rowOffset + index + 1}</Text>
+      ),
+    },
     {
       title: "تاریخ",
       dataIndex: "date",
@@ -393,6 +403,7 @@ export default function TransactionsPage() {
 
             <Checkbox
               checked={filters.needsReviewOnly}
+              className="!items-center"
               onChange={(e) => {
                 setPage(1);
                 setFilters((f) => ({ ...f, needsReviewOnly: e.target.checked }));
@@ -423,11 +434,14 @@ export default function TransactionsPage() {
 
       {isMobile && items.length > 0 ? (
         <Space orientation="vertical" size="small" className="w-full">
-          {items.map((tx) => (
+          {items.map((tx, index) => (
             <Card key={tx._id} size="small">
               <Flex justify="space-between" align="flex-start" gap="middle">
                 <div className="min-w-0 flex-1">
                   <Space size={4} wrap>
+                    <Text type="secondary" className="tabular-nums">
+                      #{rowOffset + index + 1}
+                    </Text>
                     <Text strong ellipsis>
                       {tx.title}
                     </Text>
@@ -493,26 +507,30 @@ export default function TransactionsPage() {
           rowKey="_id"
           columns={columns}
           dataSource={items}
-          scroll={{ x: 900 }}
+          scroll={{ x: 960 }}
           pagination={false}
           size="middle"
         />
       ) : null}
 
-      {totalPages > 1 ? (
-        <Flex justify="center" align="center" gap="small">
-          <Button disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
-            قبلی
-          </Button>
-          <Text type="secondary">
-            صفحه {page} از {totalPages}
-          </Text>
-          <Button
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-          >
-            بعدی
-          </Button>
+      {total > 0 ? (
+        <Flex justify="center" className="w-full py-1">
+          <Pagination
+            current={page}
+            pageSize={pageSize}
+            total={total}
+            showSizeChanger
+            pageSizeOptions={[10, 20, 50, 100]}
+            showTotal={(t, range) => `${range[0]}–${range[1]} از ${t}`}
+            onChange={(nextPage, nextSize) => {
+              if (nextSize !== pageSize) {
+                setPageSize(nextSize);
+                setPage(1);
+                return;
+              }
+              setPage(nextPage);
+            }}
+          />
         </Flex>
       ) : null}
 
