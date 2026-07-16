@@ -306,7 +306,7 @@ export default function TransactionsPage() {
   ];
 
   return (
-    <Space direction="vertical" size="middle" className="w-full">
+    <Space orientation="vertical" size="middle" className="w-full">
       <Flex justify="space-between" align="flex-end" gap="middle" wrap="wrap">
         <div>
           <Title level={4} className="!m-0">
@@ -335,7 +335,7 @@ export default function TransactionsPage() {
       </Flex>
 
       <Card size="small">
-        <Space direction="vertical" size="middle" className="w-full">
+        <Space orientation="vertical" size="middle" className="w-full">
           <Flex gap="small" wrap="wrap">
             <Input.Search
               className={cn("flex-1", isMobile ? "min-w-full w-full" : "min-w-[200px]")}
@@ -422,7 +422,7 @@ export default function TransactionsPage() {
       ) : null}
 
       {isMobile && items.length > 0 ? (
-        <Space direction="vertical" size="small" className="w-full">
+        <Space orientation="vertical" size="small" className="w-full">
           {items.map((tx) => (
             <Card key={tx._id} size="small">
               <Flex justify="space-between" align="flex-start" gap="middle">

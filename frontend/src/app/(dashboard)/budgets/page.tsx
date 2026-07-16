@@ -96,7 +96,7 @@ export default function BudgetsPage() {
   const summary = budgetsQ.data?.summary;
 
   return (
-    <Space direction="vertical" size="large" className="w-full max-w-3xl">
+    <Space orientation="vertical" size="large" className="w-full max-w-3xl">
       <div>
         <Title level={4} className="!m-0">
           بودجه‌بندی
@@ -169,7 +169,7 @@ export default function BudgetsPage() {
           </Space>
         }
       >
-        <Space direction="vertical" size="middle" className="w-full">
+        <Space orientation="vertical" size="middle" className="w-full">
           <Row gutter={[12, 12]}>
             <Col xs={24} md={12}>
               <Text type="secondary">دسته هزینه</Text>

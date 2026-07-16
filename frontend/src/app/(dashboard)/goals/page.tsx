@@ -108,7 +108,7 @@ export default function GoalsPage() {
   const summary = q.data?.summary;
 
   return (
-    <Space direction="vertical" size="large" className="w-full max-w-3xl">
+    <Space orientation="vertical" size="large" className="w-full max-w-3xl">
       <div>
         <Title level={4} className="!m-0">
           <Space>
@@ -153,7 +153,7 @@ export default function GoalsPage() {
           </Space>
         }
       >
-        <Space direction="vertical" size="middle" className="w-full">
+        <Space orientation="vertical" size="middle" className="w-full">
           <Input
             placeholder="مثلاً سفر شمال"
             value={title}
@@ -219,7 +219,7 @@ export default function GoalsPage() {
         <QueryError message="خطا در دریافت اهداف." onRetry={() => void q.refetch()} />
       ) : null}
 
-      <Space direction="vertical" size="middle" className="w-full">
+      <Space orientation="vertical" size="middle" className="w-full">
         {items.map((goal) => (
           <Card
             key={goal.id}

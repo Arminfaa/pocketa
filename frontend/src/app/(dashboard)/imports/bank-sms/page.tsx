@@ -137,7 +137,7 @@ export default function BankSmsImportPage() {
   );
 
   return (
-    <Space direction="vertical" size="large" className="w-full max-w-4xl">
+    <Space orientation="vertical" size="large" className="w-full max-w-4xl">
       <div>
         <Title level={4} className="!m-0">
           <Space>
@@ -153,7 +153,7 @@ export default function BankSmsImportPage() {
       </div>
 
       <Card>
-        <Space direction="vertical" size="middle" className="w-full">
+        <Space orientation="vertical" size="middle" className="w-full">
           <Row gutter={[12, 12]}>
             <Col xs={24} md={12}>
               <Text type="secondary">حساب مقصد</Text>
@@ -217,7 +217,7 @@ export default function BankSmsImportPage() {
       ) : null}
 
       {items.length > 0 ? (
-        <Space direction="vertical" size="middle" className="w-full">
+        <Space orientation="vertical" size="middle" className="w-full">
           <Flex justify="space-between" align="center" gap="small" wrap="wrap">
             <Title level={5} className="!m-0">
               پیش‌نمایش تراکنش‌ها
@@ -327,7 +327,7 @@ export default function BankSmsImportPage() {
           showIcon
           message={`${failedBlocks.length} بلوک قابل parse نبود`}
           description={
-            <Space direction="vertical" size="small" className="w-full">
+            <Space orientation="vertical" size="small" className="w-full">
               {failedBlocks.slice(0, 3).map((b, i) => (
                 <pre
                   key={i}

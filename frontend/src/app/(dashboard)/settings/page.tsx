@@ -92,13 +92,13 @@ export default function SettingsPage() {
   }
 
   return (
-    <Space direction="vertical" size="large" className="w-full max-w-xl">
+    <Space orientation="vertical" size="large" className="w-full max-w-xl">
       <Title level={4} className="!m-0">
         تنظیمات پروفایل
       </Title>
 
       <Card>
-        <Space direction="vertical" size="large" className="w-full">
+        <Space orientation="vertical" size="large" className="w-full">
           <Flex align="center" gap="large" vertical={isMobile}>
             <Button
               type="text"

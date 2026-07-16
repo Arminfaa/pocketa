@@ -128,7 +128,7 @@ export default function RecurringPage() {
   const items = listQ.data?.items ?? [];
 
   return (
-    <Space direction="vertical" size="large" className="w-full max-w-full min-w-0">
+    <Space orientation="vertical" size="large" className="w-full max-w-full min-w-0">
       <div>
         <Title level={4} className="!m-0">
           <Space>
@@ -157,7 +157,7 @@ export default function RecurringPage() {
           </Space>
         }
       >
-        <Space direction="vertical" size="middle" className="w-full">
+        <Space orientation="vertical" size="middle" className="w-full">
           <Radio.Group
             value={type}
             onChange={(e) => {
@@ -248,7 +248,7 @@ export default function RecurringPage() {
         />
       ) : null}
 
-      <Space direction="vertical" size="middle" className="w-full">
+      <Space orientation="vertical" size="middle" className="w-full">
         {items.map((item) => {
           const accountName =
             typeof item.account === "object" && item.account ? item.account.name : "—";
