@@ -12,7 +12,6 @@ import {
   Flex,
   Grid,
   Input,
-  InputNumber,
   Popconfirm,
   Row,
   Select,
@@ -41,13 +40,15 @@ import { fetchCategories } from "@/services/categories";
 import type { Category } from "@/services/categories";
 import type { BankAccount } from "@/types/account";
 import { formatJalaliDate, formatToman, toPersianDigits } from "@/lib/format";
-import { parseAmountInput } from "@/lib/amount";
+import { normalizeJalaliDateInput, parseAmountInput } from "@/lib/amount";
 import { getTodayJalali } from "@/lib/transaction-helpers";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { QueryError } from "@/components/ui/query-error";
 import { AppModal } from "@/components/ui/modal";
 import { AmountInput } from "@/components/ui/amount-input";
+import { NumberInput } from "@/components/ui/number-input";
+import { JalaliDateInput } from "@/components/ui/jalali-date-input";
 import {
   FinanceTypeToggle,
   financeTypeTextClass,
@@ -137,13 +138,14 @@ export default function RecurringPage() {
         });
       }
 
-      if (!dueDate.trim()) throw new Error("تاریخ سررسید را وارد کنید");
+      const normalizedDue = normalizeJalaliDateInput(dueDate);
+      if (!normalizedDue) throw new Error("تاریخ سررسید را وارد کنید");
       return createRecurring({
         title: title.trim(),
         amount: value,
         type,
         kind: "one_time",
-        dueDate,
+        dueDate: normalizedDue,
         categoryId,
         reminderHour,
       });
@@ -364,7 +366,7 @@ export default function RecurringPage() {
                     روز موعد هر ماه
                   </Text>
                   <Space.Compact className="w-full">
-                    <InputNumber
+                    <NumberInput
                       className="!w-full"
                       min={1}
                       max={31}
@@ -394,12 +396,12 @@ export default function RecurringPage() {
                       تعداد ماه‌ها
                     </Text>
                     <Space.Compact className="w-full">
-                      <InputNumber
+                      <NumberInput
                         className="!w-full"
                         min={1}
                         max={600}
                         value={endMonths}
-                        onChange={(v) => setEndMonths(v)}
+                        onChange={setEndMonths}
                       />
                       <Input className="!w-16" value="ماه" disabled />
                     </Space.Compact>
@@ -411,10 +413,9 @@ export default function RecurringPage() {
                 <Text type="secondary" className="mb-1 block text-xs">
                   تاریخ سررسید
                 </Text>
-                <Input
-                  dir="ltr"
+                <JalaliDateInput
                   value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
+                  onChange={setDueDate}
                   placeholder="1405/04/25"
                 />
               </Col>

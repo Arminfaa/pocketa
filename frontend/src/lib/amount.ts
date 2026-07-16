@@ -1,7 +1,12 @@
-/** Shared money-input helpers: parse, thousand-sep display, Persian words. */
+/** Shared money/number-input helpers: parse, thousand-sep display, Persian words. */
 
 const persianDigits = "۰۱۲۳۴۵۶۷۸۹";
 const arabicDigits = "٠١٢٣٤٥٦٧٨٩";
+
+/** True for English / Persian / Arabic-Indic digit characters. */
+const DIGIT_CHAR_RE = /[0-9۰-۹٠-٩]/;
+const DIGIT_ONLY_RE = /^[0-9۰-۹٠-٩]+$/;
+const AMOUNT_INPUT_CHUNK_RE = /^[0-9۰-۹٠-٩,\u066C\u060C\s]+$/;
 
 export function toEnglishDigits(input: string): string {
   return input.replace(/[۰-۹٠-٩]/g, (d) => {
@@ -15,6 +20,28 @@ export function toEnglishDigits(input: string): string {
 
 export function toPersianDigits(input: string): string {
   return input.replace(/[0-9]/g, (d) => persianDigits[Number(d)] ?? d);
+}
+
+/** Keep only digits, normalized to English 0-9 (server-ready). */
+export function extractEnglishDigits(raw: string): string {
+  return toEnglishDigits(raw).replace(/\D/g, "");
+}
+
+/** Keep digits + `/` for Jalali date fields, English digits only. */
+export function normalizeJalaliDateInput(raw: string): string {
+  return toEnglishDigits(raw).replace(/[^\d/]/g, "").slice(0, 10);
+}
+
+export function isDigitOnlyChunk(chunk: string): boolean {
+  return DIGIT_ONLY_RE.test(chunk);
+}
+
+export function isAmountInputChunk(chunk: string): boolean {
+  return AMOUNT_INPUT_CHUNK_RE.test(chunk);
+}
+
+export function isDigitChar(char: string): boolean {
+  return DIGIT_CHAR_RE.test(char);
 }
 
 /** Strip separators / spaces and parse a money field to a number (NaN if empty/invalid). */

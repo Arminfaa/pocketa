@@ -21,9 +21,10 @@ import {
 import { AimOutlined, DeleteOutlined, PlusOutlined } from "@ant-design/icons";
 import { contributeGoal, createGoal, deleteGoal, fetchGoals } from "@/services/goals";
 import { formatJalaliDate, formatToman } from "@/lib/format";
-import { parseAmountInput } from "@/lib/amount";
+import { normalizeJalaliDateInput, parseAmountInput } from "@/lib/amount";
 import { CATEGORY_COLORS } from "@/lib/finance-ui";
 import { AmountInput } from "@/components/ui/amount-input";
+import { JalaliDateInput } from "@/components/ui/jalali-date-input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { QueryError } from "@/components/ui/query-error";
@@ -56,7 +57,7 @@ export default function GoalsPage() {
         title: title.trim(),
         targetAmount: target,
         currentAmount: currentSafe,
-        deadline: deadline || undefined,
+        deadline: deadline ? normalizeJalaliDateInput(deadline) : undefined,
         color,
       });
     },
@@ -171,11 +172,10 @@ export default function GoalsPage() {
               />
             </Col>
             <Col xs={24} sm={12} md={8}>
-              <Input
-                dir="ltr"
+              <JalaliDateInput
                 placeholder="مهلت YYYY/MM/DD"
                 value={deadline}
-                onChange={(e) => setDeadline(e.target.value)}
+                onChange={setDeadline}
               />
             </Col>
             <Col xs={24}>

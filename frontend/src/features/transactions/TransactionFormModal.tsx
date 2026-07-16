@@ -9,12 +9,17 @@ import { getTodayJalali, accountIdValue, categoryIdValue } from "@/lib/transacti
 import { suggestCategory } from "@/services/transactions";
 import { TagsInput } from "@/components/ui/tags-input";
 import { AmountInput } from "@/components/ui/amount-input";
+import { JalaliDateInput } from "@/components/ui/jalali-date-input";
 import { AppModal } from "@/components/ui/modal";
 import {
   FinanceTypeToggle,
   financeTypeTextClass,
 } from "@/components/ui/finance-type-toggle";
-import { formatAmountInputValue, parseAmountInput } from "@/lib/amount";
+import {
+  formatAmountInputValue,
+  normalizeJalaliDateInput,
+  parseAmountInput,
+} from "@/lib/amount";
 import { cn } from "@/lib/cn";
 
 export type TransactionFormValues = {
@@ -141,7 +146,7 @@ export function TransactionFormModal({
       accountId: values.accountId,
       title: values.title.trim(),
       description: values.description?.trim() || "",
-      date: values.date,
+      date: normalizeJalaliDateInput(values.date),
       needsReview: false,
       tags,
     });
@@ -204,11 +209,11 @@ export function TransactionFormModal({
                 { required: true, message: "تاریخ را وارد کنید" },
                 {
                   pattern: /^\d{4}\/\d{1,2}\/\d{1,2}$/,
-                  message: "تاریخ باید به صورت ۱۴۰۵/۰۱/۰۱ باشد (با ارقام انگلیسی)",
+                  message: "تاریخ باید به صورت 1405/01/01 باشد",
                 },
               ]}
             >
-              <Input dir="ltr" placeholder="1405/04/25" />
+              <JalaliDateInput placeholder="1405/04/25" />
             </Form.Item>
           </Col>
         </Row>
