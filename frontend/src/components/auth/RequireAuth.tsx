@@ -23,6 +23,8 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
       if (!hydrated || sessionChecked) return;
 
       try {
+        // 401 → axios interceptor refreshes via httpOnly cookie, then retries.
+        // Critical after iOS PWA cold start when the short-lived access cookie is gone.
         const res = await api.get("/api/auth/me");
         const nextUser = res.data?.data?.user ?? null;
         setUser(nextUser);

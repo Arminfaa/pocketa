@@ -13,6 +13,9 @@ services:
         value: production
       - key: COOKIE_SECURE
         value: "true"
+      # First-party cookies via Vercel rewrite — required for iOS Home Screen PWA persistence
+      - key: COOKIE_SAMESITE
+        value: lax
       - key: JWT_ACCESS_EXPIRES_IN
         value: 15m
       - key: JWT_REFRESH_EXPIRES_IN

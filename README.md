@@ -91,7 +91,9 @@ pocketa-app/
 
 ## Auth notes
 
-- Access token in memory (Zustand); refresh token in httpOnly cookie
+- Access + refresh tokens in httpOnly cookies (first-party via Vercel `/api` rewrite)
+- Production cookies: `Secure` + `SameSite=Lax` (keeps iOS Home Screen PWA sessions)
+- Zustand only holds the current user object in memory
 - Register seeds default categories + a default bank account
 
 ## License

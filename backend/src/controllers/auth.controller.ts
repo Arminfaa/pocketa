@@ -51,12 +51,14 @@ function signRefreshToken(userId: string): string {
 }
 
 function baseCookieOptions(): CookieOptions {
-  // Cross-site (Vercel frontend + Render API) requires SameSite=None + Secure.
-  // Localhost same-site uses Lax.
+  // First-party (Vercel /api rewrite → Render): SameSite=Lax + Secure.
+  // True cross-site API calls need SameSite=None + Secure (COOKIE_SAMESITE=none).
+  // iOS Home Screen PWAs often discard SameSite=None cookies between launches.
+  const sameSite = env.COOKIE_SAMESITE;
   return {
     httpOnly: true,
-    secure: env.COOKIE_SECURE,
-    sameSite: env.COOKIE_SECURE ? "none" : "lax",
+    secure: env.COOKIE_SECURE || sameSite === "none",
+    sameSite,
   };
 }
 
@@ -88,6 +90,13 @@ function clearAuthCookies(res: Response) {
   res.clearCookie(REFRESH_COOKIE, { ...base, path: REFRESH_COOKIE_PATH });
   // Clear legacy refresh cookie path from older deployments
   res.clearCookie(REFRESH_COOKIE, { ...base, path: "/api/auth/refresh" });
+  // Clear cookies set with previous SameSite=None defaults (pre first-party proxy)
+  if (base.sameSite !== "none") {
+    const legacyNone: CookieOptions = { ...base, sameSite: "none", secure: true };
+    res.clearCookie(ACCESS_COOKIE, { ...legacyNone, path: ACCESS_COOKIE_PATH });
+    res.clearCookie(REFRESH_COOKIE, { ...legacyNone, path: REFRESH_COOKIE_PATH });
+    res.clearCookie(REFRESH_COOKIE, { ...legacyNone, path: "/api/auth/refresh" });
+  }
 }
 
 const defaultCategories = [

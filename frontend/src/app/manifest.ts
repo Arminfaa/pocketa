@@ -6,8 +6,9 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "Pocketa",
     description:
       "SaaS مدیریت مالی شخصی فارسی و RTL: تراکنش، بودجه، ایمپورت پیامک بانکی، گزارش شمسی و تومان.",
-    start_url: "/",
+    start_url: "/dashboard",
     display: "standalone",
+    scope: "/",
     orientation: "portrait-primary",
     background_color: "#0b1220",
     theme_color: "#06b6d4",
