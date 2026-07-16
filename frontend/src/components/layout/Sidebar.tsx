@@ -38,9 +38,15 @@ type Props = {
   onNavigate?: () => void;
   /** When true (e.g. Drawer), always show labels even if store is collapsed */
   forceExpanded?: boolean;
+  /** Hide logo/brand (Drawer header already shows brand) */
+  hideBrand?: boolean;
 };
 
-export function Sidebar({ onNavigate, forceExpanded = false }: Props) {
+export function Sidebar({
+  onNavigate,
+  forceExpanded = false,
+  hideBrand = false,
+}: Props) {
   const pathname = usePathname();
   const router = useRouter();
   const storeCollapsed = useUiStore((s) => s.sidebarCollapsed);
@@ -61,29 +67,34 @@ export function Sidebar({ onNavigate, forceExpanded = false }: Props) {
 
   return (
     <div className="h-full min-h-0 flex flex-col overflow-hidden">
-      <div className="px-4 py-4 flex items-center gap-3 shrink-0">
-        <Link
-          href="/dashboard"
-          onClick={onNavigate}
-          className="flex items-center gap-3 min-w-0"
-        >
-          <div className="h-10 w-10 rounded-2xl bg-gradient-to-tr from-brand-500 to-brandViolet-500 flex items-center justify-center text-white font-bold shrink-0">
-            P
-          </div>
-          {!collapsed ? (
-            <Typography.Text strong className="!text-app-fg truncate">
-              Pocketa
-            </Typography.Text>
-          ) : null}
-        </Link>
-      </div>
+      {!hideBrand ? (
+        <div className="px-4 py-4 flex items-center gap-3 shrink-0">
+          <Link
+            href="/dashboard"
+            onClick={onNavigate}
+            className="flex items-center gap-3 min-w-0"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo.png"
+              alt="Pocketa"
+              className="h-10 w-10 object-contain shrink-0"
+            />
+            {!collapsed ? (
+              <Typography.Text strong className="!text-app-fg truncate">
+                Pocketa
+              </Typography.Text>
+            ) : null}
+          </Link>
+        </div>
+      ) : null}
 
       <Menu
         mode="inline"
         selectedKeys={[selectedKey]}
         inlineCollapsed={collapsed}
         items={menuItems}
-        className="!border-none flex-1 min-h-0 overflow-y-auto overscroll-contain"
+        className="!border-none flex-1 min-h-0 max-sm:scroll-none overflow-y-auto overscroll-contain"
         onClick={({ key }) => {
           router.push(String(key));
           onNavigate?.();
