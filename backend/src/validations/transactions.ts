@@ -9,6 +9,7 @@ export const TransactionCreateSchema = z.object({
   type: z.enum(["income", "expense"]),
   amount: z.coerce.number().positive(),
   categoryId: z.string().min(1),
+  accountId: z.string().min(1),
   title: z.string().min(2).max(120).trim(),
   description: z.string().max(500).optional().nullable(),
   date: JalaliDateSchema,
@@ -17,6 +18,7 @@ export const TransactionCreateSchema = z.object({
 export const TransactionUpdateSchema = TransactionCreateSchema.partial().extend({
   type: z.enum(["income", "expense"]).optional(),
   categoryId: z.string().min(1).optional(),
+  accountId: z.string().min(1).optional(),
 });
 
 export const TransactionQuerySchema = z.object({
@@ -25,9 +27,18 @@ export const TransactionQuerySchema = z.object({
   search: z.string().optional().nullable(),
   type: z.enum(["income", "expense"]).optional().nullable(),
   categoryId: z.string().optional().nullable(),
+  accountId: z.string().optional().nullable(),
   month: z.coerce.number().int().min(1).max(12).optional().nullable(),
   year: z.coerce.number().int().min(1300).max(2000).optional().nullable(),
+  needsReview: z
+    .union([z.literal("true"), z.literal("false"), z.boolean()])
+    .optional()
+    .nullable()
+    .transform((v) => {
+      if (v === undefined || v === null) return undefined;
+      if (typeof v === "boolean") return v;
+      return v === "true";
+    }),
   sortBy: z.string().optional().nullable(),
   sortOrder: z.enum(["asc", "desc"]).optional().default("desc"),
 });
-
