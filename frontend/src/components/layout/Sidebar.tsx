@@ -36,12 +36,15 @@ const items = [
 
 type Props = {
   onNavigate?: () => void;
+  /** When true (e.g. Drawer), always show labels even if store is collapsed */
+  forceExpanded?: boolean;
 };
 
-export function Sidebar({ onNavigate }: Props) {
+export function Sidebar({ onNavigate, forceExpanded = false }: Props) {
   const pathname = usePathname();
   const router = useRouter();
-  const collapsed = useUiStore((s) => s.sidebarCollapsed);
+  const storeCollapsed = useUiStore((s) => s.sidebarCollapsed);
+  const collapsed = forceExpanded ? false : storeCollapsed;
 
   const selectedKey = useMemo(() => {
     const match = items.find(
@@ -57,8 +60,8 @@ export function Sidebar({ onNavigate }: Props) {
   }));
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="px-4 py-4 flex items-center gap-3">
+    <div className="h-full min-h-0 flex flex-col overflow-hidden">
+      <div className="px-4 py-4 flex items-center gap-3 shrink-0">
         <Link
           href="/dashboard"
           onClick={onNavigate}
@@ -80,7 +83,7 @@ export function Sidebar({ onNavigate }: Props) {
         selectedKeys={[selectedKey]}
         inlineCollapsed={collapsed}
         items={menuItems}
-        className="!border-none flex-1 overflow-y-auto"
+        className="!border-none flex-1 min-h-0 overflow-y-auto overscroll-contain"
         onClick={({ key }) => {
           router.push(String(key));
           onNavigate?.();

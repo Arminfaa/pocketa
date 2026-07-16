@@ -1,6 +1,6 @@
 "use client";
 
-import { PropsWithChildren, useState } from "react";
+import { PropsWithChildren, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button, Drawer, Flex, Grid, Layout, Select } from "antd";
 import { cn } from "@/lib/cn";
@@ -24,7 +24,8 @@ const { useBreakpoint } = Grid;
 export default function AppLayout({ children }: PropsWithChildren) {
   const pathname = usePathname();
   const screens = useBreakpoint();
-  const isMobile = !screens.md;
+  /** Below Ant Design `lg` (~992px): menu button + Drawer only */
+  const isDrawerNav = !screens.lg;
 
   const collapsed = useUiStore((s) => s.sidebarCollapsed);
   const toggleCollapse = useUiStore((s) => s.toggleSidebarCollapsed);
@@ -32,23 +33,27 @@ export default function AppLayout({ children }: PropsWithChildren) {
   const toggleTheme = useThemeStore((s) => s.toggle);
   const selectedAccountId = useAccountFilterStore((s) => s.selectedAccountId);
   const setSelectedAccountId = useAccountFilterStore((s) => s.setSelectedAccountId);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const accountsQ = useQuery({
     queryKey: ["accounts"],
     queryFn: fetchAccounts,
   });
 
+  useEffect(() => {
+    if (!isDrawerNav) setDrawerOpen(false);
+  }, [isDrawerNav]);
+
   return (
-    <Layout className="min-h-screen !bg-transparent overflow-x-hidden">
-      {!isMobile ? (
+    <Layout className="h-dvh max-h-dvh !bg-transparent overflow-hidden">
+      {!isDrawerNav ? (
         <Sider
           collapsible
           collapsed={collapsed}
           trigger={null}
           width={256}
           collapsedWidth={72}
-          className="!sticky !top-0 !h-screen overflow-auto border-l border-app-border bg-app-card"
+          className="!h-dvh !max-h-dvh shrink-0 overflow-hidden border-l border-app-border bg-app-card"
         >
           <Sidebar />
         </Sider>
@@ -56,23 +61,24 @@ export default function AppLayout({ children }: PropsWithChildren) {
 
       <Drawer
         placement="right"
-        open={isMobile && mobileOpen}
-        onClose={() => setMobileOpen(false)}
+        open={isDrawerNav && drawerOpen}
+        onClose={() => setDrawerOpen(false)}
         width={280}
-        classNames={{ body: "p-0" }}
+        classNames={{ body: "p-0", header: "border-b border-app-border" }}
         title="منو"
+        destroyOnClose
       >
-        <Sidebar onNavigate={() => setMobileOpen(false)} />
+        <Sidebar forceExpanded onNavigate={() => setDrawerOpen(false)} />
       </Drawer>
 
-      <Layout className="!bg-transparent min-w-0 max-w-full">
-        <Header className="!sticky !top-0 !z-10 !px-2 sm:!px-4 !h-auto !min-h-16 !leading-normal border-b border-app-border bg-app-card !py-2">
+      <Layout className="!bg-transparent min-w-0 max-w-full flex-1 h-dvh max-h-dvh overflow-hidden flex flex-col">
+        <Header className="shrink-0 !px-2 sm:!px-4 !h-auto !min-h-16 !leading-normal border-b border-app-border bg-app-card !py-2 z-20">
           <Flex align="center" gap={8} wrap="wrap" className="w-full">
-            {isMobile ? (
+            {isDrawerNav ? (
               <Button
                 type="default"
                 icon={<MenuOutlined />}
-                onClick={() => setMobileOpen(true)}
+                onClick={() => setDrawerOpen(true)}
                 aria-label="منو"
               />
             ) : (
@@ -89,7 +95,7 @@ export default function AppLayout({ children }: PropsWithChildren) {
               placeholder="همه حساب‌ها"
               className={cn(
                 "flex-1 min-w-0",
-                isMobile ? "max-w-full" : "min-w-40 max-w-60"
+                isDrawerNav ? "max-w-full" : "min-w-40 max-w-60"
               )}
               value={selectedAccountId ?? undefined}
               onChange={(v) => setSelectedAccountId(v ?? null)}
@@ -112,7 +118,7 @@ export default function AppLayout({ children }: PropsWithChildren) {
           </Flex>
         </Header>
 
-        <Content className="p-3 sm:p-4 md:p-6 min-w-0 overflow-x-hidden">
+        <Content className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6 overscroll-contain">
           <PageMotion key={pathname}>{children}</PageMotion>
         </Content>
       </Layout>
