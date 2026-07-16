@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Button, Flex, Form, Grid, Input, Modal, Radio, Select, Typography } from "antd";
+import { Button, Flex, Form, Grid, Input, Radio, Select, Typography } from "antd";
 import { BulbOutlined } from "@ant-design/icons";
 import type { Transaction } from "@/types/transaction";
 import type { BankAccount } from "@/types/account";
 import { getTodayJalali, accountIdValue, categoryIdValue } from "@/lib/transaction-helpers";
 import { suggestCategory } from "@/services/transactions";
 import { TagsInput } from "@/components/ui/tags-input";
+import { AppModal } from "@/components/ui/modal";
 
 export type TransactionFormValues = {
   type: "income" | "expense";
@@ -140,16 +141,27 @@ export function TransactionFormModal({
   }
 
   return (
-    <Modal
+    <AppModal
       open={open}
+      onClose={onClose}
       title={initial ? "ویرایش تراکنش" : "افزودن تراکنش"}
-      onCancel={onClose}
-      destroyOnHidden
+      subtitle="مبلغ به تومان و تاریخ به صورت شمسی وارد شود"
       width={modalWidth}
-      okText={submitting ? "در حال ذخیره..." : initial ? "ذخیره تغییرات" : "ثبت تراکنش"}
-      cancelText="انصراف"
-      confirmLoading={submitting}
-      onOk={() => form.submit()}
+      footer={
+        <Flex justify="end" gap="small" wrap="wrap" className="w-full">
+          <Button onClick={onClose} className="min-w-[96px]">
+            انصراف
+          </Button>
+          <Button
+            type="primary"
+            loading={submitting}
+            onClick={() => form.submit()}
+            className="min-w-[120px]"
+          >
+            {submitting ? "در حال ذخیره..." : initial ? "ذخیره تغییرات" : "ثبت تراکنش"}
+          </Button>
+        </Flex>
+      }
     >
       <Form form={form} layout="vertical" onFinish={handleFinish} requiredMark={false}>
         <Form.Item name="type" rules={[{ required: true, message: "نوع را انتخاب کنید" }]}>
@@ -248,10 +260,10 @@ export function TransactionFormModal({
           <TagsInput value={tags} onChange={setTags} />
         </Form.Item>
 
-        <Form.Item name="description" label="توضیحات (اختیاری)">
+        <Form.Item name="description" label="توضیحات (اختیاری)" className="!mb-0">
           <Input.TextArea rows={3} />
         </Form.Item>
       </Form>
-    </Modal>
+    </AppModal>
   );
 }

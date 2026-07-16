@@ -42,3 +42,43 @@
     @apply bg-app-mesh bg-app;
   }
 }
+
+@layer components {
+  /* Ant Design 6 uses .ant-modal-container as the panel shell */
+  .app-modal-root .ant-modal-container,
+  .app-modal-root .ant-modal-content {
+    @apply flex flex-col overflow-hidden border border-app-border bg-app-card shadow-soft !rounded-2xl !p-0;
+    max-height: min(90dvh, 720px);
+  }
+
+  .app-modal-root .ant-modal-header {
+    @apply shrink-0 !mb-0 border-b border-app-border bg-app-card !px-5 !pt-5 !pb-3;
+  }
+
+  .app-modal-root .ant-modal-title {
+    @apply !text-app-fg;
+  }
+
+  .app-modal-root .ant-modal-close {
+    @apply !text-app-muted hover:!text-brand-500 hover:!bg-brand-500/10 !rounded-xl;
+  }
+
+  .app-modal-root .ant-modal-body {
+    @apply min-h-0 flex-1 overflow-y-auto overscroll-contain !px-5 !py-4 text-app-fg;
+  }
+
+  .app-modal-root .ant-modal-footer {
+    @apply shrink-0 !mt-0 border-t border-app-border bg-app-card !px-5 !py-4;
+  }
+
+  @media (max-width: 639px) {
+    .app-modal-root .ant-modal {
+      @apply !max-w-[calc(100vw-24px)] !mx-auto;
+    }
+
+    .app-modal-root .ant-modal-container,
+    .app-modal-root .ant-modal-content {
+      max-height: calc(100dvh - 24px);
+    }
+  }
+}
