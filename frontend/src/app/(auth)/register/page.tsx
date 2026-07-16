@@ -16,8 +16,8 @@ type RegisterForm = {
 export default function RegisterPage() {
   const router = useRouter();
   const { message } = App.useApp();
-  const setAccessToken = useAuthStore((s) => s.setAccessToken);
   const setUser = useAuthStore((s) => s.setUser);
+  const setSessionChecked = useAuthStore((s) => s.setSessionChecked);
   const [form] = Form.useForm<RegisterForm>();
   const [submitting, setSubmitting] = useState(false);
 
@@ -37,8 +37,8 @@ export default function RegisterPage() {
         password: values.password,
       });
       const loginPayload = loginRes.data?.data;
-      setAccessToken(loginPayload?.accessToken ?? null);
       setUser(loginPayload?.user ?? null);
+      setSessionChecked(true);
       router.replace("/dashboard");
     } catch (err: unknown) {
       const apiErr = err as { response?: { data?: { message?: string } } };

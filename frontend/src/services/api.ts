@@ -20,32 +20,36 @@ const apiNoAuth = axios.create({
   withCredentials: true,
 });
 
-async function refreshToken(): Promise<string> {
-  const res = await apiNoAuth.post("/api/auth/refresh");
-  const accessToken = res.data?.data?.accessToken as string | undefined;
-  if (!accessToken) throw new Error("Refresh failed");
-  useAuthStore.getState().setAccessToken(accessToken);
-  return accessToken;
-}
+let refreshPromise: Promise<void> | null = null;
 
-api.interceptors.request.use((config) => {
-  const token = useAuthStore.getState().accessToken;
-  if (token) {
-    config.headers = config.headers ?? {};
-    config.headers.Authorization = `Bearer ${token}`;
+async function refreshSession(): Promise<void> {
+  if (!refreshPromise) {
+    refreshPromise = apiNoAuth
+      .post("/api/auth/refresh")
+      .then(() => undefined)
+      .finally(() => {
+        refreshPromise = null;
+      });
   }
-  return config;
-});
+  await refreshPromise;
+}
 
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     const original = error.config as AxiosRequestConfig & { _retry?: boolean };
+    const url = original?.url ?? "";
 
-    if (error.response?.status === 401 && !original._retry) {
+    if (
+      error.response?.status === 401 &&
+      !original._retry &&
+      !url.includes("/api/auth/login") &&
+      !url.includes("/api/auth/register") &&
+      !url.includes("/api/auth/refresh")
+    ) {
       original._retry = true;
       try {
-        await refreshToken();
+        await refreshSession();
         return api(original);
       } catch {
         useAuthStore.getState().logout();
