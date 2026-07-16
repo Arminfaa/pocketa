@@ -68,7 +68,7 @@ export function Sidebar({ onNavigate }: Props) {
             P
           </div>
           {!collapsed ? (
-            <Typography.Text strong className="!text-[var(--text)] truncate">
+            <Typography.Text strong className="!text-app-fg truncate">
               Pocketa
             </Typography.Text>
           ) : null}

@@ -6,6 +6,7 @@ import api from "@/services/api";
 import { useRouter } from "next/navigation";
 import { App, Button, Card, Flex, Grid, Input, Space, Spin, Typography } from "antd";
 import { CameraOutlined, LoadingOutlined, LogoutOutlined } from "@ant-design/icons";
+import { cn } from "@/lib/cn";
 
 const { Title, Text } = Typography;
 
@@ -91,71 +92,55 @@ export default function SettingsPage() {
   }
 
   return (
-    <Space direction="vertical" size="large" style={{ width: "100%", maxWidth: 576 }}>
-      <Title level={4} style={{ margin: 0 }}>
+    <Space direction="vertical" size="large" className="w-full max-w-xl">
+      <Title level={4} className="!m-0">
         تنظیمات پروفایل
       </Title>
 
       <Card>
-        <Space direction="vertical" size="large" style={{ width: "100%" }}>
+        <Space direction="vertical" size="large" className="w-full">
           <Flex align="center" gap="large" vertical={isMobile}>
             <Button
               type="text"
               onClick={() => inputRef.current?.click()}
               disabled={uploading}
               aria-label="آپلود آواتار"
-              style={{
-                position: "relative",
-                width: 80,
-                height: 80,
-                padding: 0,
-                borderRadius: 16,
-                overflow: "hidden",
-                border: "1px solid rgba(148, 163, 184, 0.22)",
-                background: "linear-gradient(135deg, #06b6d4, #8b5cf6)",
-              }}
+              className="group relative w-20 h-20 p-0 rounded-2xl overflow-hidden border border-slate-400/20 bg-gradient-to-br from-brand-500 to-brandViolet-500"
             >
               {user?.avatar ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={user.avatar}
                   alt={user.name}
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  className="w-full h-full object-cover"
                 />
               ) : (
-                <span style={{ fontSize: 24, fontWeight: 700, color: "#fff" }}>
+                <span className="text-2xl font-bold text-white">
                   {(user?.name ?? "پ").charAt(0)}
                 </span>
               )}
               <div
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  background: "rgba(0,0,0,0.45)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  opacity: uploading ? 1 : 0,
-                  transition: "opacity 0.2s",
-                }}
-                className="avatar-overlay"
+                className={cn(
+                  "absolute inset-0 flex items-center justify-center bg-black/45 transition-opacity",
+                  uploading ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                )}
               >
                 {uploading ? (
-                  <Spin indicator={<LoadingOutlined style={{ fontSize: 22, color: "#fff" }} />} />
+                  <Spin indicator={<LoadingOutlined className="text-[22px] text-white" />} />
                 ) : (
-                  <CameraOutlined style={{ fontSize: 22, color: "#fff" }} />
+                  <CameraOutlined className="text-[22px] text-white" />
                 )}
               </div>
             </Button>
 
-            <div style={{ minWidth: 0, textAlign: isMobile ? "center" : undefined }}>
+            <div className={cn("min-w-0", isMobile && "text-center")}>
               <Text strong>{user?.name ?? "—"}</Text>
               <div>
-                <Text type="secondary" style={{ wordBreak: "break-word" }}>
+                <Text type="secondary" className="break-words">
                   {user?.email ?? ""}
                 </Text>
               </div>
-              <Text type="secondary" style={{ fontSize: 12 }}>
+              <Text type="secondary" className="text-xs">
                 JPEG / PNG / WebP — حداکثر ۵ مگابایت
               </Text>
             </div>
@@ -164,7 +149,7 @@ export default function SettingsPage() {
               ref={inputRef}
               type="file"
               accept="image/jpeg,image/png,image/webp,image/gif"
-              style={{ display: "none" }}
+              className="hidden"
               onChange={onAvatarChange}
             />
           </Flex>
@@ -172,7 +157,7 @@ export default function SettingsPage() {
           <div>
             <Text type="secondary">نام نمایشی</Text>
             <Input
-              style={{ marginTop: 8 }}
+              className="mt-2"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -187,12 +172,6 @@ export default function SettingsPage() {
       <Button icon={<LogoutOutlined />} onClick={onLogout}>
         خروج از حساب
       </Button>
-
-      <style jsx global>{`
-        button[aria-label="آپلود آواتار"]:hover .avatar-overlay {
-          opacity: 1 !important;
-        }
-      `}</style>
     </Space>
   );
 }

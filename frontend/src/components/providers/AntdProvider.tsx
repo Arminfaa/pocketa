@@ -8,7 +8,7 @@ import { useThemeStore } from "@/stores/theme.store";
 const brand = {
   colorPrimary: "#06b6d4",
   borderRadius: 12,
-  fontFamily: "var(--font-vazir), Vazirmatn, Tahoma, sans-serif",
+  fontFamily: "var(--font-vazir), Tahoma, Arial, sans-serif",
 };
 
 export function AntdProvider({ children }: { children: React.ReactNode }) {

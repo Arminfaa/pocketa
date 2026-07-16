@@ -2,7 +2,8 @@
 
 import { PropsWithChildren, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Button, Drawer, Flex, Grid, Layout, Select, theme } from "antd";
+import { Button, Drawer, Flex, Grid, Layout, Select } from "antd";
+import { cn } from "@/lib/cn";
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -32,7 +33,6 @@ export default function AppLayout({ children }: PropsWithChildren) {
   const selectedAccountId = useAccountFilterStore((s) => s.selectedAccountId);
   const setSelectedAccountId = useAccountFilterStore((s) => s.setSelectedAccountId);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { token } = theme.useToken();
 
   const accountsQ = useQuery({
     queryKey: ["accounts"],
@@ -48,8 +48,7 @@ export default function AppLayout({ children }: PropsWithChildren) {
           trigger={null}
           width={256}
           collapsedWidth={72}
-          className="!sticky !top-0 !h-screen overflow-auto border-l"
-          style={{ borderColor: token.colorBorder, background: token.colorBgContainer }}
+          className="!sticky !top-0 !h-screen overflow-auto border-l border-app-border bg-app-card"
         >
           <Sidebar />
         </Sider>
@@ -60,21 +59,14 @@ export default function AppLayout({ children }: PropsWithChildren) {
         open={isMobile && mobileOpen}
         onClose={() => setMobileOpen(false)}
         width={280}
-        styles={{ body: { padding: 0 } }}
+        classNames={{ body: "p-0" }}
         title="منو"
       >
         <Sidebar onNavigate={() => setMobileOpen(false)} />
       </Drawer>
 
       <Layout className="!bg-transparent min-w-0 max-w-full">
-        <Header
-          className="!sticky !top-0 !z-10 !px-2 sm:!px-4 !h-auto !min-h-16 !leading-none border-b !py-2"
-          style={{
-            background: token.colorBgContainer,
-            borderColor: token.colorBorder,
-            lineHeight: "normal",
-          }}
-        >
+        <Header className="!sticky !top-0 !z-10 !px-2 sm:!px-4 !h-auto !min-h-16 !leading-normal border-b border-app-border bg-app-card !py-2">
           <Flex align="center" gap={8} wrap="wrap" className="w-full">
             {isMobile ? (
               <Button
@@ -95,8 +87,10 @@ export default function AppLayout({ children }: PropsWithChildren) {
             <Select
               allowClear
               placeholder="همه حساب‌ها"
-              className="flex-1 min-w-0"
-              style={{ minWidth: isMobile ? 0 : 160, maxWidth: isMobile ? "100%" : 240 }}
+              className={cn(
+                "flex-1 min-w-0",
+                isMobile ? "max-w-full" : "min-w-40 max-w-60"
+              )}
               value={selectedAccountId ?? undefined}
               onChange={(v) => setSelectedAccountId(v ?? null)}
               options={(accountsQ.data ?? []).map((a) => ({

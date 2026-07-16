@@ -153,11 +153,11 @@ export function TransactionFormModal({
     >
       <Form form={form} layout="vertical" onFinish={handleFinish} requiredMark={false}>
         <Form.Item name="type" rules={[{ required: true, message: "نوع را انتخاب کنید" }]}>
-          <Radio.Group optionType="button" buttonStyle="solid" style={{ width: "100%", display: "flex" }}>
-            <Radio.Button value="expense" style={{ flex: 1, textAlign: "center" }}>
+          <Radio.Group optionType="button" buttonStyle="solid" className="flex w-full">
+            <Radio.Button value="expense" className="flex-1 text-center">
               هزینه
             </Radio.Button>
-            <Radio.Button value="income" style={{ flex: 1, textAlign: "center" }}>
+            <Radio.Button value="income" className="flex-1 text-center">
               درآمد
             </Radio.Button>
           </Radio.Group>
@@ -213,9 +213,9 @@ export function TransactionFormModal({
             align={screens.sm ? "center" : "flex-start"}
             wrap="wrap"
             gap="small"
-            style={{ marginBottom: 8 }}
+            className="mb-2"
           >
-            <Typography.Text type="secondary" style={{ fontSize: 12, minWidth: 0 }}>
+            <Typography.Text type="secondary" className="text-xs min-w-0">
               {suggestLabel ? `پیشنهاد اعمال‌شده: ${suggestLabel}` : null}
             </Typography.Text>
             <Button

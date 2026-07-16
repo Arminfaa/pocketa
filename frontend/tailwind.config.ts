@@ -5,7 +5,22 @@ const config: Config = {
   content: ["./src/**/*.{js,ts,jsx,tsx,mdx}"],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["var(--font-vazir)", "Tahoma", "Arial", "sans-serif"],
+        vazir: ["var(--font-vazir)", "Tahoma", "Arial", "sans-serif"],
+      },
       colors: {
+        app: {
+          DEFAULT: "var(--bg)",
+          fg: "var(--text)",
+          muted: "var(--muted)",
+          card: "var(--card)",
+          border: "var(--border)",
+          ring: "var(--ring)",
+          accent: "var(--accent)",
+          "accent-2": "var(--accent-2)",
+          gold: "var(--gold)",
+        },
         brand: {
           50: "#ecfeff",
           100: "#cffafe",
@@ -39,10 +54,18 @@ const config: Config = {
           "linear-gradient(135deg, #4c1d95 0%, #0b1220 45%, #155e75 100%)",
         "brand-accent":
           "linear-gradient(90deg, #06b6d4 0%, #8b5cf6 55%, #f59e0b 100%)",
+        "app-mesh":
+          "radial-gradient(circle at top right, rgba(6,182,212,0.08), transparent 28%), radial-gradient(circle at bottom left, rgba(139,92,246,0.1), transparent 24%)",
       },
       boxShadow: {
         soft: "0 10px 30px rgba(0,0,0,0.12)",
         glow: "0 0 40px rgba(6, 182, 212, 0.18)",
+      },
+      borderRadius: {
+        antd: "12px",
+      },
+      maxWidth: {
+        page: "56rem",
       },
     },
   },

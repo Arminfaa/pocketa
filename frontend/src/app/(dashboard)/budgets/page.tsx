@@ -27,6 +27,7 @@ import { getJalaliMonthYear, MONTH_LABELS } from "@/lib/finance-ui";
 import { Skeleton } from "@/components/ui/skeleton";
 import { QueryError } from "@/components/ui/query-error";
 import { EmptyState } from "@/components/ui/empty-state";
+import { cn } from "@/lib/cn";
 
 const { Title, Text } = Typography;
 
@@ -95,9 +96,9 @@ export default function BudgetsPage() {
   const summary = budgetsQ.data?.summary;
 
   return (
-    <Space direction="vertical" size="large" style={{ width: "100%", maxWidth: 768 }}>
+    <Space direction="vertical" size="large" className="w-full max-w-3xl">
       <div>
-        <Title level={4} style={{ margin: 0 }}>
+        <Title level={4} className="!m-0">
           بودجه‌بندی
         </Title>
         <Text type="secondary">برای هر دسته هزینه سقف ماهانه تعیین کنید و مصرف را ببینید.</Text>
@@ -107,7 +108,7 @@ export default function BudgetsPage() {
         <Col xs={24} sm={12}>
           <Text type="secondary">ماه</Text>
           <Select
-            style={{ width: "100%", marginTop: 8 }}
+            className="w-full mt-2"
             value={month}
             onChange={setMonth}
             options={MONTH_LABELS.map((label, idx) => ({
@@ -119,7 +120,7 @@ export default function BudgetsPage() {
         <Col xs={24} sm={12}>
           <Text type="secondary">سال</Text>
           <Input
-            style={{ marginTop: 8 }}
+            className="mt-2"
             dir="ltr"
             value={year}
             onChange={(e) => setYear(Number(e.target.value) || current.year)}
@@ -144,7 +145,7 @@ export default function BudgetsPage() {
               <Statistic
                 title="هشدارها"
                 value={`${summary.warningCount} نزدیک · ${summary.dangerCount} رد شده`}
-                valueStyle={{ fontSize: 16 }}
+                className="[&_.ant-statistic-content-value]:text-base"
               />
             </Card>
           </Col>
@@ -168,12 +169,12 @@ export default function BudgetsPage() {
           </Space>
         }
       >
-        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+        <Space direction="vertical" size="middle" className="w-full">
           <Row gutter={[12, 12]}>
             <Col xs={24} md={12}>
               <Text type="secondary">دسته هزینه</Text>
               <Select
-                style={{ width: "100%", marginTop: 8 }}
+                className="w-full mt-2"
                 placeholder="انتخاب کنید"
                 value={categoryId || undefined}
                 onChange={setCategoryId}
@@ -186,7 +187,7 @@ export default function BudgetsPage() {
             <Col xs={24} md={12}>
               <Text type="secondary">سقف ماهانه (تومان)</Text>
               <Input
-                style={{ marginTop: 8 }}
+                className="mt-2"
                 dir="ltr"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
@@ -228,25 +229,16 @@ export default function BudgetsPage() {
           return (
             <Col key={b.id} xs={24} md={12}>
               <Card
-                style={{
-                  borderColor:
-                    b.status === "danger"
-                      ? "rgba(239, 68, 68, 0.4)"
-                      : b.status === "warning"
-                        ? "rgba(245, 158, 11, 0.4)"
-                        : undefined,
-                }}
+                className={cn(
+                  b.status === "danger" && "border-red-400/40",
+                  b.status === "warning" && "border-amber-500/40"
+                )}
               >
                 <Flex justify="space-between" align="center" gap="small">
-                  <Flex align="center" gap="small" style={{ minWidth: 0, flex: 1 }}>
+                  <Flex align="center" gap="small" className="min-w-0 flex-1">
                     <div
-                      style={{
-                        width: 28,
-                        height: 28,
-                        borderRadius: 12,
-                        background: b.category?.color ?? "#06b6d4",
-                        flexShrink: 0,
-                      }}
+                      className="w-7 h-7 rounded-xl shrink-0"
+                      style={{ background: b.category?.color ?? "#06b6d4" }}
                     />
                     <Text strong ellipsis>
                       {b.category?.name ?? "دسته"}
@@ -270,12 +262,12 @@ export default function BudgetsPage() {
                   </Popconfirm>
                 </Flex>
 
-                <Flex justify="space-between" style={{ marginTop: 12 }} wrap="wrap" gap="small">
+                <Flex justify="space-between" className="mt-3" wrap="wrap" gap="small">
                   <Text type="secondary">مصرف: {formatToman(b.consumed)}</Text>
                   <Text type="secondary">سقف: {formatToman(b.amount)}</Text>
                 </Flex>
-                <Flex wrap="wrap" gap="small" align="center" style={{ marginTop: 4 }}>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
+                <Flex wrap="wrap" gap="small" align="center" className="mt-1">
+                  <Text type="secondary" className="text-xs">
                     باقیمانده: {formatToman(b.remaining)} · {b.rawPercent.toFixed(0)}%
                   </Text>
                   <Tag color={statusColor}>{statusLabel}</Tag>
@@ -285,7 +277,7 @@ export default function BudgetsPage() {
                   percent={b.percent}
                   showInfo={false}
                   strokeColor={progressColor}
-                  style={{ marginTop: 8 }}
+                  className="mt-2"
                 />
               </Card>
             </Col>

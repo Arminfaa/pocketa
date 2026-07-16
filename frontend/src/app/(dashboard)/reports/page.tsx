@@ -36,6 +36,9 @@ import { getJalaliMonthYear, MONTH_LABELS } from "@/lib/finance-ui";
 import { Skeleton } from "@/components/ui/skeleton";
 import { QueryError } from "@/components/ui/query-error";
 
+const CARD_EXTRA_STACK =
+  "[&_.ant-card-head]:flex-wrap [&_.ant-card-head]:gap-2 [&_.ant-card-extra]:!ms-0 [&_.ant-card-extra]:w-full [&_.ant-card-extra_.ant-select]:w-full";
+
 const { Title, Text } = Typography;
 
 const PIE_FALLBACK = ["#06b6d4", "#8b5cf6", "#f59e0b", "#ef4444", "#22c55e", "#3b82f6", "#ec4899"];
@@ -80,9 +83,9 @@ export default function ReportsPage() {
   }, [categoriesQ.data]);
 
   return (
-    <Space direction="vertical" size="large" style={{ width: "100%" }}>
+    <Space direction="vertical" size="large" className="w-full">
       <div>
-        <Title level={4} style={{ margin: 0 }}>
+        <Title level={4} className="!m-0">
           گزارش‌ها
         </Title>
         <Text type="secondary">
@@ -102,7 +105,7 @@ export default function ReportsPage() {
                   ? "—"
                   : formatToman(monthlyQ.data?.summary.totalIncome ?? 0)
               }
-              valueStyle={{ color: "#34d399", fontSize: 20 }}
+              className="[&_.ant-statistic-content-value]:text-emerald-400 [&_.ant-statistic-content-value]:text-xl"
               loading={monthlyQ.isLoading}
             />
           </Card>
@@ -116,7 +119,7 @@ export default function ReportsPage() {
                   ? "—"
                   : formatToman(monthlyQ.data?.summary.totalExpense ?? 0)
               }
-              valueStyle={{ color: "#f87171", fontSize: 20 }}
+              className="[&_.ant-statistic-content-value]:text-red-400 [&_.ant-statistic-content-value]:text-xl"
               loading={monthlyQ.isLoading}
             />
           </Card>
@@ -128,7 +131,7 @@ export default function ReportsPage() {
               value={
                 monthlyQ.isLoading ? "—" : formatToman(monthlyQ.data?.summary.totalNet ?? 0)
               }
-              valueStyle={{ color: "#06b6d4", fontSize: 20 }}
+              className="[&_.ant-statistic-content-value]:text-brand-500 [&_.ant-statistic-content-value]:text-xl"
               loading={monthlyQ.isLoading}
             />
           </Card>
@@ -137,13 +140,13 @@ export default function ReportsPage() {
 
       <Card
         title="روند ماهانه درآمد و هزینه"
-        className={isMobile ? "pocketa-card-extra-stack" : undefined}
+        className={isMobile ? CARD_EXTRA_STACK : undefined}
         extra={
           !isMobile ? (
             <Select
               value={months}
               onChange={setMonths}
-              style={{ width: 120 }}
+              className="w-[120px]"
               options={[
                 { value: 3, label: "۳ ماه" },
                 { value: 6, label: "۶ ماه" },
@@ -157,7 +160,7 @@ export default function ReportsPage() {
           <Select
             value={months}
             onChange={setMonths}
-            style={{ width: "100%", marginBottom: 12 }}
+            className="w-full mb-3"
             options={[
               { value: 3, label: "۳ ماه" },
               { value: 6, label: "۶ ماه" },
@@ -204,7 +207,7 @@ export default function ReportsPage() {
         <Col xs={24} sm={12}>
           <Text type="secondary">ماه تحلیل دسته‌ها</Text>
           <Select
-            style={{ width: "100%", marginTop: 8 }}
+            className="w-full mt-2"
             value={month}
             onChange={setMonth}
             options={MONTH_LABELS.map((label, idx) => ({
@@ -216,7 +219,7 @@ export default function ReportsPage() {
         <Col xs={24} sm={12}>
           <Text type="secondary">سال</Text>
           <Input
-            style={{ marginTop: 8 }}
+            className="mt-2"
             dir="ltr"
             value={year}
             onChange={(e) => setYear(Number(e.target.value) || current.year)}
@@ -241,7 +244,7 @@ export default function ReportsPage() {
                 </PieChart>
               </ResponsiveContainer>
             ) : !categoriesQ.isLoading ? (
-              <Flex align="center" justify="center" style={{ height: 260 }}>
+              <Flex align="center" justify="center" className="h-[260px]">
                 <Text type="secondary">هزینه‌ای در این ماه ثبت نشده است.</Text>
               </Flex>
             ) : null}
@@ -272,7 +275,7 @@ export default function ReportsPage() {
                 </BarChart>
               </ResponsiveContainer>
             ) : !categoriesQ.isLoading ? (
-              <Flex align="center" justify="center" style={{ height: 260 }}>
+              <Flex align="center" justify="center" className="h-[260px]">
                 <Text type="secondary">داده‌ای برای نمودار نیست.</Text>
               </Flex>
             ) : null}
@@ -287,18 +290,18 @@ export default function ReportsPage() {
           locale={{ emptyText: "هزینه‌ای برای نمایش وجود ندارد." }}
           renderItem={(tx) => (
             <List.Item>
-              <Flex justify="space-between" align="center" gap="middle" style={{ width: "100%" }}>
-                <div style={{ minWidth: 0 }}>
+              <Flex justify="space-between" align="center" gap="middle" className="w-full">
+                <div className="min-w-0">
                   <Text strong ellipsis>
                     {tx.title}
                   </Text>
                   <div>
-                    <Text type="secondary" style={{ fontSize: 12 }}>
+                    <Text type="secondary" className="text-xs">
                       {formatJalaliDate(tx.date)} · {tx.category} · {tx.account}
                     </Text>
                   </div>
                 </div>
-                <Text strong style={{ color: "#f87171", whiteSpace: "nowrap" }}>
+                <Text strong className="text-red-400 whitespace-nowrap">
                   {formatToman(tx.amount)}
                 </Text>
               </Flex>

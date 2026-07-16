@@ -16,20 +16,11 @@ export default function HomePage() {
     <main className="relative min-h-screen overflow-hidden">
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(ellipse 80% 60% at 70% 10%, rgba(6,182,212,0.22), transparent 55%), radial-gradient(ellipse 70% 50% at 10% 90%, rgba(245,158,11,0.12), transparent 50%), radial-gradient(ellipse 50% 40% at 90% 80%, rgba(139,92,246,0.14), transparent 45%)",
-        }}
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_70%_10%,rgba(6,182,212,0.22),transparent_55%),radial-gradient(ellipse_70%_50%_at_10%_90%,rgba(245,158,11,0.12),transparent_50%),radial-gradient(ellipse_50%_40%_at_90%_80%,rgba(139,92,246,0.14),transparent_45%)]"
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-[0.035]"
-        style={{
-          backgroundImage:
-            "linear-gradient(rgba(255,255,255,.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.6) 1px, transparent 1px)",
-          backgroundSize: "48px 48px",
-        }}
+        className="pointer-events-none absolute inset-0 opacity-[0.035] bg-[linear-gradient(rgba(255,255,255,.6)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.6)_1px,transparent_1px)] bg-[length:48px_48px]"
       />
 
       <div className="relative z-10 mx-auto flex min-h-screen max-w-5xl flex-col justify-center px-6 py-16 md:py-20">
@@ -91,7 +82,7 @@ export default function HomePage() {
               <Space wrap size={[20, 8]} className="pt-2">
                 {FEATURES.map((f) => (
                   <Flex key={f} align="center" gap={8}>
-                    <span className="h-1.5 w-1.5 rounded-full bg-[#06b6d4]" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-brand-500" />
                     <Typography.Text type="secondary">{f}</Typography.Text>
                   </Flex>
                 ))}

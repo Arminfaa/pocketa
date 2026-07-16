@@ -30,6 +30,7 @@ import { CATEGORY_COLORS } from "@/lib/finance-ui";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { QueryError } from "@/components/ui/query-error";
+import { cn } from "@/lib/cn";
 
 const { Title, Text } = Typography;
 
@@ -107,9 +108,9 @@ export default function GoalsPage() {
   const summary = q.data?.summary;
 
   return (
-    <Space direction="vertical" size="large" style={{ width: "100%", maxWidth: 768 }}>
+    <Space direction="vertical" size="large" className="w-full max-w-3xl">
       <div>
-        <Title level={4} style={{ margin: 0 }}>
+        <Title level={4} className="!m-0">
           <Space>
             <AimOutlined />
             اهداف پس‌انداز
@@ -132,7 +133,7 @@ export default function GoalsPage() {
               <Statistic
                 title="پس‌انداز شده"
                 value={formatToman(summary.totalSaved)}
-                valueStyle={{ color: "#06b6d4" }}
+                className="[&_.ant-statistic-content-value]:text-brand-500"
               />
             </Card>
           </Col>
@@ -152,7 +153,7 @@ export default function GoalsPage() {
           </Space>
         }
       >
-        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+        <Space direction="vertical" size="middle" className="w-full">
           <Input
             placeholder="مثلاً سفر شمال"
             value={title}
@@ -191,17 +192,13 @@ export default function GoalsPage() {
                     type="text"
                     aria-label={c}
                     onClick={() => setColor(c)}
-                    style={{
-                      width: 32,
-                      height: 32,
-                      minWidth: 32,
-                      padding: 0,
-                      borderRadius: 12,
-                      background: c,
-                      border:
-                        color === c ? "2px solid #fff" : "1px solid rgba(148, 163, 184, 0.22)",
-                      boxShadow: color === c ? "0 0 0 2px #06b6d4" : undefined,
-                    }}
+                    className={cn(
+                      "w-8 h-8 min-w-8 p-0 rounded-xl",
+                      color === c
+                        ? "border-2 border-white ring-2 ring-brand-500"
+                        : "border border-slate-400/20"
+                    )}
+                    style={{ background: c }}
                   />
                 ))}
               </Flex>
@@ -222,30 +219,23 @@ export default function GoalsPage() {
         <QueryError message="خطا در دریافت اهداف." onRetry={() => void q.refetch()} />
       ) : null}
 
-      <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+      <Space direction="vertical" size="middle" className="w-full">
         {items.map((goal) => (
           <Card
             key={goal.id}
-            style={{
-              borderColor: goal.completed ? "rgba(52, 211, 153, 0.4)" : undefined,
-            }}
+            className={cn(goal.completed && "border-emerald-400/40")}
           >
             <Flex justify="space-between" align="flex-start" gap="middle" wrap="wrap">
-              <Flex align="center" gap="middle" style={{ minWidth: 0, flex: 1 }}>
+              <Flex align="center" gap="middle" className="min-w-0 flex-1">
                 <div
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 12,
-                    background: goal.color,
-                    flexShrink: 0,
-                  }}
+                  className="w-10 h-10 rounded-xl shrink-0"
+                  style={{ background: goal.color }}
                 />
-                <div style={{ minWidth: 0 }}>
+                <div className="min-w-0">
                   <Text strong ellipsis>
                     {goal.title}
                     {goal.completed ? (
-                      <Tag color="green" style={{ marginInlineStart: 8 }}>
+                      <Tag color="green" className="!ms-2">
                         تکمیل
                       </Tag>
                     ) : null}
@@ -279,18 +269,23 @@ export default function GoalsPage() {
               percent={goal.percent}
               showInfo={false}
               strokeColor={goal.color}
-              style={{ marginTop: 12 }}
+              className="mt-3"
             />
-            <Text type="secondary" style={{ fontSize: 12 }}>
+            <Text type="secondary" className="text-xs">
               {goal.percent.toFixed(0)}% · باقیمانده {formatToman(goal.remaining)}
             </Text>
 
             {!goal.completed ? (
-              <Flex gap="small" wrap="wrap" vertical={isMobile} style={{ marginTop: 12, width: "100%" }}>
+              <Flex
+                gap="small"
+                wrap="wrap"
+                vertical={isMobile}
+                className={cn("mt-3", isMobile && "w-full")}
+              >
                 <Input
                   dir="ltr"
                   placeholder="مبلغ افزودنی"
-                  style={{ flex: 1, minWidth: isMobile ? "100%" : 120 }}
+                  className={cn("flex-1", isMobile ? "min-w-full" : "min-w-[120px]")}
                   value={contributeAmounts[goal.id] ?? ""}
                   onChange={(e) =>
                     setContributeAmounts((s) => ({ ...s, [goal.id]: e.target.value }))

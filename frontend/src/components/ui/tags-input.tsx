@@ -12,7 +12,7 @@ export function TagsInput({ value, onChange, placeholder = "تگ + Enter" }: Pro
   return (
     <Select
       mode="tags"
-      style={{ width: "100%" }}
+      className="w-full"
       value={value}
       onChange={(next) => onChange((next as string[]).slice(0, 20).map((t) => t.slice(0, 30)))}
       placeholder={placeholder}
@@ -21,7 +21,7 @@ export function TagsInput({ value, onChange, placeholder = "تگ + Enter" }: Pro
       tagRender={(props) => {
         const { label, closable, onClose } = props;
         return (
-          <Tag color="cyan" closable={closable} onClose={onClose} style={{ marginInlineEnd: 4 }}>
+          <Tag color="cyan" closable={closable} onClose={onClose} className="!me-1">
             {label}
           </Tag>
         );

@@ -39,7 +39,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   if (!hydrated || (accessToken && !user)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-[var(--muted)]">در حال آماده‌سازی...</div>
+        <div className="text-app-muted">در حال آماده‌سازی...</div>
       </div>
     );
   }
