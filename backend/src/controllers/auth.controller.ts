@@ -51,10 +51,12 @@ function signRefreshToken(userId: string): string {
 }
 
 function baseCookieOptions(): CookieOptions {
+  // Cross-site (Vercel frontend + Render API) requires SameSite=None + Secure.
+  // Localhost same-site uses Lax.
   return {
     httpOnly: true,
     secure: env.COOKIE_SECURE,
-    sameSite: "lax",
+    sameSite: env.COOKIE_SECURE ? "none" : "lax",
   };
 }
 
