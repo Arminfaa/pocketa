@@ -3,12 +3,26 @@
 import axios, { type AxiosError, type AxiosRequestConfig } from "axios";
 import { useAuthStore } from "@/stores/auth.store";
 
-const baseURL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-
-if (!process.env.NEXT_PUBLIC_API_URL) {
-  // eslint-disable-next-line no-console
-  console.warn("NEXT_PUBLIC_API_URL is not set; falling back to http://localhost:4000");
+/**
+ * Local: call backend directly via NEXT_PUBLIC_API_URL (localhost).
+ * Production: same-origin "" so requests hit Vercel /api/* rewrites → Render.
+ * That keeps auth cookies first-party and working on mobile browsers.
+ */
+function resolveBaseURL(): string {
+  const configured = process.env.NEXT_PUBLIC_API_URL?.trim() ?? "";
+  if (
+    configured.includes("localhost") ||
+    configured.includes("127.0.0.1")
+  ) {
+    return configured;
+  }
+  if (process.env.NODE_ENV === "production") {
+    return "";
+  }
+  return configured || "http://localhost:4000";
 }
+
+const baseURL = resolveBaseURL();
 
 const api = axios.create({
   baseURL,
@@ -34,6 +48,13 @@ async function refreshSession(): Promise<void> {
   await refreshPromise;
 }
 
+function redirectToLogin() {
+  if (typeof window === "undefined") return;
+  const path = window.location.pathname;
+  if (path === "/login" || path.startsWith("/login?")) return;
+  window.location.replace("/login");
+}
+
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
@@ -53,6 +74,7 @@ api.interceptors.response.use(
         return api(original);
       } catch {
         useAuthStore.getState().logout();
+        redirectToLogin();
       }
     }
 
