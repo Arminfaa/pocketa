@@ -43,7 +43,7 @@ import type { Category } from "@/services/categories";
 import type { BankAccount } from "@/types/account";
 import { formatJalaliDate, formatToman, toPersianDigits } from "@/lib/format";
 import { getTodayJalali } from "@/lib/transaction-helpers";
-import { enablePushNotifications, fetchPushStatus } from "@/lib/push";
+import { enablePushNotifications, disablePushNotifications, fetchPushStatus } from "@/lib/push";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { QueryError } from "@/components/ui/query-error";
@@ -169,11 +169,22 @@ export default function RecurringPage() {
   const pushMutation = useMutation({
     mutationFn: enablePushNotifications,
     onSuccess: () => {
-      message.success("یادآوری پوش فعال شد");
+      message.success("یادآوری پوش روی این دستگاه فعال شد");
       void queryClient.invalidateQueries({ queryKey: ["push-status"] });
     },
     onError: (err: unknown) => {
       message.error(err instanceof Error ? err.message : "فعال‌سازی پوش ناموفق بود");
+    },
+  });
+
+  const pushDisableMutation = useMutation({
+    mutationFn: disablePushNotifications,
+    onSuccess: () => {
+      message.success("پوش این دستگاه خاموش شد");
+      void queryClient.invalidateQueries({ queryKey: ["push-status"] });
+    },
+    onError: (err: unknown) => {
+      message.error(err instanceof Error ? err.message : "خاموش کردن پوش ناموفق بود");
     },
   });
 
@@ -233,20 +244,32 @@ export default function RecurringPage() {
             </Text>
             <div>
               <Text type="secondary" className="text-xs">
-                از ۳ روز قبل موعد، هر روز در ساعت مشخص‌شده نوتیف می‌آید.
+                روی هر دستگاه جداگانه فعال کنید. از ۳ روز قبل موعد، در ساعت مشخص‌شده نوتیف می‌آید.
               </Text>
             </div>
           </div>
-          {pushStatusQ.data?.subscribed ? (
-            <Tag color="success">فعال است</Tag>
+          {pushStatusQ.data?.thisDevice ? (
+            <Space size="small" wrap>
+              <Tag color="success">فعال روی این دستگاه</Tag>
+              <Button
+                size="small"
+                loading={pushDisableMutation.isPending}
+                onClick={() => pushDisableMutation.mutate()}
+              >
+                خاموش کردن
+              </Button>
+            </Space>
           ) : (
             <Button
               icon={<BellOutlined />}
               loading={pushMutation.isPending}
               onClick={() => pushMutation.mutate()}
-              disabled={pushStatusQ.data?.configured === false}
+              disabled={
+                pushStatusQ.data?.configured === false ||
+                pushStatusQ.data?.supported === false
+              }
             >
-              فعال‌سازی پوش
+              فعال‌سازی روی این دستگاه
             </Button>
           )}
         </Flex>

@@ -63,10 +63,28 @@ export const status = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user?.userId;
   if (!userId) throw new AppError(401, "عدم دسترسی");
 
-  const count = await PushSubscriptionModel.countDocuments({ userId });
+  const configured = isWebPushConfigured();
+  const subscriptionCount = await PushSubscriptionModel.countDocuments({ userId });
+  const endpoint = typeof req.query.endpoint === "string" ? req.query.endpoint.trim() : "";
+
+  // Without endpoint: only account-level count (not "this device")
+  if (!endpoint) {
+    return sendSuccess(res, {
+      configured,
+      subscribed: false,
+      thisDevice: false,
+      subscriptionCount,
+    });
+  }
+
+  const thisDevice = Boolean(
+    await PushSubscriptionModel.exists({ userId, endpoint })
+  );
+
   return sendSuccess(res, {
-    configured: isWebPushConfigured(),
-    subscribed: count > 0,
-    subscriptionCount: count,
+    configured,
+    subscribed: thisDevice,
+    thisDevice,
+    subscriptionCount,
   });
 });
