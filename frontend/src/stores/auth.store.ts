@@ -10,47 +10,33 @@ export type AuthUser = {
 };
 
 type AuthState = {
-  accessToken: string | null;
   user: AuthUser | null;
   hydrated: boolean;
-  loadingMe: boolean;
+  sessionChecked: boolean;
 
   hydrate: () => void;
-  setAccessToken: (token: string | null) => void;
   setUser: (user: AuthUser | null) => void;
-
+  setSessionChecked: (checked: boolean) => void;
   logout: () => void;
 };
 
 export const useAuthStore = create<AuthState>((set) => ({
-  accessToken: null,
   user: null,
   hydrated: false,
-  loadingMe: false,
+  sessionChecked: false,
 
   hydrate: () => {
-    const token = typeof window !== "undefined" ? window.localStorage.getItem("pocketa-access-token") : null;
-    set({
-      accessToken: token,
-      hydrated: true,
-    });
-  },
-
-  setAccessToken: (token) => {
     if (typeof window !== "undefined") {
-      if (token) window.localStorage.setItem("pocketa-access-token", token);
-      else window.localStorage.removeItem("pocketa-access-token");
+      window.localStorage.removeItem("pocketa-access-token");
     }
-    set({ accessToken: token });
+    set({ hydrated: true });
   },
 
   setUser: (user) => set({ user }),
 
+  setSessionChecked: (checked) => set({ sessionChecked: checked }),
+
   logout: () => {
-    if (typeof window !== "undefined") {
-      window.localStorage.removeItem("pocketa-access-token");
-    }
-    set({ accessToken: null, user: null, hydrated: true });
+    set({ user: null, hydrated: true, sessionChecked: true });
   },
 }));
-

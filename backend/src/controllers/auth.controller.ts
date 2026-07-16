@@ -1,4 +1,4 @@
-import type { Request, Response } from "express";
+import type { CookieOptions, Request, Response } from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
@@ -11,6 +11,11 @@ import { UserModel } from "../models/User";
 import { CategoryModel } from "../models/Category";
 import { RefreshTokenModel } from "../models/RefreshToken";
 import { BankAccountModel } from "../models/BankAccount";
+
+const ACCESS_COOKIE = "accessToken";
+const REFRESH_COOKIE = "refreshToken";
+const ACCESS_COOKIE_PATH = "/";
+const REFRESH_COOKIE_PATH = "/api/auth";
 
 function sha256(input: string) {
   return crypto.createHash("sha256").update(input).digest("hex");
@@ -43,6 +48,44 @@ function signRefreshToken(userId: string): string {
   return jwt.sign({ sub: userId }, env.REFRESH_TOKEN_SECRET, {
     expiresIn: env.JWT_REFRESH_EXPIRES_IN,
   } as any);
+}
+
+function baseCookieOptions(): CookieOptions {
+  return {
+    httpOnly: true,
+    secure: env.COOKIE_SECURE,
+    sameSite: "lax",
+  };
+}
+
+function setAuthCookies(
+  res: Response,
+  accessToken: string,
+  refreshToken: string,
+  refreshExpiresAt: Date
+) {
+  const accessExpiresAt = tokenExpiryToDate(env.JWT_ACCESS_EXPIRES_IN);
+  const base = baseCookieOptions();
+
+  res.cookie(ACCESS_COOKIE, accessToken, {
+    ...base,
+    path: ACCESS_COOKIE_PATH,
+    maxAge: Math.max(accessExpiresAt.getTime() - Date.now(), 0),
+  });
+
+  res.cookie(REFRESH_COOKIE, refreshToken, {
+    ...base,
+    path: REFRESH_COOKIE_PATH,
+    maxAge: Math.max(refreshExpiresAt.getTime() - Date.now(), 0),
+  });
+}
+
+function clearAuthCookies(res: Response) {
+  const base = baseCookieOptions();
+  res.clearCookie(ACCESS_COOKIE, { ...base, path: ACCESS_COOKIE_PATH });
+  res.clearCookie(REFRESH_COOKIE, { ...base, path: REFRESH_COOKIE_PATH });
+  // Clear legacy refresh cookie path from older deployments
+  res.clearCookie(REFRESH_COOKIE, { ...base, path: "/api/auth/refresh" });
 }
 
 const defaultCategories = [
@@ -126,20 +169,14 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
     revokedAt: null,
   });
 
-  res.cookie("refreshToken", refreshToken, {
-    httpOnly: true,
-    secure: env.COOKIE_SECURE,
-    sameSite: "lax",
-    path: "/api/auth/refresh",
-    maxAge: expiresAt.getTime() - Date.now(),
-  });
+  setAuthCookies(res, accessToken, refreshToken, expiresAt);
 
   const userSafe = { id: user._id, name: user.name, email: user.email, avatar: user.avatar ?? null };
-  return sendSuccess(res, { accessToken, user: userSafe }, "ورود با موفقیت انجام شد");
+  return sendSuccess(res, { user: userSafe }, "ورود با موفقیت انجام شد");
 });
 
 export const logout = asyncHandler(async (req: Request, res: Response) => {
-  const refreshToken = req.cookies?.refreshToken as string | undefined;
+  const refreshToken = req.cookies?.[REFRESH_COOKIE] as string | undefined;
 
   if (refreshToken) {
     try {
@@ -157,7 +194,7 @@ export const logout = asyncHandler(async (req: Request, res: Response) => {
     }
   }
 
-  res.clearCookie("refreshToken", { path: "/api/auth/refresh" });
+  clearAuthCookies(res);
   return sendSuccess(res, {}, "خروج با موفقیت انجام شد");
 });
 
@@ -174,7 +211,7 @@ export const me = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const refresh = asyncHandler(async (req: Request, res: Response) => {
-  const refreshToken = req.cookies?.refreshToken as string | undefined;
+  const refreshToken = req.cookies?.[REFRESH_COOKIE] as string | undefined;
   if (!refreshToken) throw new AppError(401, "توکن refresh موجود نیست");
 
   let payload: jwt.JwtPayload;
@@ -210,14 +247,7 @@ export const refresh = asyncHandler(async (req: Request, res: Response) => {
     revokedAt: null,
   });
 
-  res.cookie("refreshToken", newRefreshToken, {
-    httpOnly: true,
-    secure: env.COOKIE_SECURE,
-    sameSite: "lax",
-    path: "/api/auth/refresh",
-    maxAge: newExpiresAt.getTime() - Date.now(),
-  });
+  setAuthCookies(res, newAccessToken, newRefreshToken, newExpiresAt);
 
-  return sendSuccess(res, { accessToken: newAccessToken }, "توکن جدید صادر شد");
+  return sendSuccess(res, {}, "توکن جدید صادر شد");
 });
-

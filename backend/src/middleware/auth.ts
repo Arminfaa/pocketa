@@ -3,13 +3,24 @@ import jwt from "jsonwebtoken";
 import { env } from "../config/env";
 import { AppError } from "../utils/AppError";
 
-export function requireAuth(req: Request, res: Response, next: NextFunction) {
+function extractAccessToken(req: Request): string | null {
+  const cookieToken = req.cookies?.accessToken as string | undefined;
+  if (cookieToken) return cookieToken;
+
   const header = req.headers.authorization;
-  if (!header?.startsWith("Bearer ")) {
+  if (header?.startsWith("Bearer ")) {
+    return header.slice("Bearer ".length);
+  }
+
+  return null;
+}
+
+export function requireAuth(req: Request, res: Response, next: NextFunction) {
+  const token = extractAccessToken(req);
+  if (!token) {
     return next(new AppError(401, "عدم دسترسی"));
   }
 
-  const token = header.slice("Bearer ".length);
   try {
     const payload = jwt.verify(token, env.JWT_SECRET) as jwt.JwtPayload;
     const userId = payload.sub;
@@ -21,4 +32,3 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
     next(new AppError(401, "توکن معتبر نیست"));
   }
 }
-

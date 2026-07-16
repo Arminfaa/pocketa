@@ -14,8 +14,8 @@ type LoginForm = {
 export default function LoginPage() {
   const router = useRouter();
   const { message } = App.useApp();
-  const setAccessToken = useAuthStore((s) => s.setAccessToken);
   const setUser = useAuthStore((s) => s.setUser);
+  const setSessionChecked = useAuthStore((s) => s.setSessionChecked);
   const [form] = Form.useForm<LoginForm>();
   const [submitting, setSubmitting] = useState(false);
 
@@ -24,12 +24,11 @@ export default function LoginPage() {
     try {
       const res = await api.post("/api/auth/login", values);
       const payload = res.data?.data;
-      const accessToken = payload?.accessToken as string | undefined;
       const user = payload?.user as AuthUser | undefined;
-      if (!accessToken) throw new Error("Access token missing");
+      if (!user) throw new Error("User missing");
 
-      setAccessToken(accessToken);
-      setUser(user ?? null);
+      setUser(user);
+      setSessionChecked(true);
       message.success("ورود موفقیت‌آمیز بود");
       router.replace("/dashboard");
     } catch (err: unknown) {
