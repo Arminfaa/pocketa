@@ -64,11 +64,21 @@ export default function AppLayout({ children }: PropsWithChildren) {
         open={isDrawerNav && drawerOpen}
         onClose={() => setDrawerOpen(false)}
         width={280}
-        classNames={{ body: "p-0", header: "border-b border-app-border" }}
-        title="منو"
+        classNames={{ body: "!p-0", header: "border-b border-app-border" }}
+        title={
+          <div className="flex items-center gap-2.5 min-w-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo.png"
+              alt="Pocketa"
+              className="h-8 w-8 object-contain shrink-0"
+            />
+            <span className="font-semibold text-app-fg truncate">Pocketa</span>
+          </div>
+        }
         destroyOnClose
       >
-        <Sidebar forceExpanded onNavigate={() => setDrawerOpen(false)} />
+        <Sidebar forceExpanded hideBrand onNavigate={() => setDrawerOpen(false)} />
       </Drawer>
 
       <Layout className="!bg-transparent min-w-0 max-w-full flex-1 h-dvh max-h-dvh overflow-hidden flex flex-col">
