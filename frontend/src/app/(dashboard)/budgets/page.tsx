@@ -23,7 +23,9 @@ import { DeleteOutlined, PlusOutlined, WarningOutlined } from "@ant-design/icons
 import { deleteBudget, fetchBudgets, upsertBudget } from "@/services/budgets";
 import { fetchCategories } from "@/services/categories";
 import { formatToman } from "@/lib/format";
+import { parseAmountInput } from "@/lib/amount";
 import { getJalaliMonthYear, MONTH_LABELS } from "@/lib/finance-ui";
+import { AmountInput } from "@/components/ui/amount-input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { QueryError } from "@/components/ui/query-error";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -57,7 +59,7 @@ export default function BudgetsPage() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const value = Number(amount.replace(/,/g, ""));
+      const value = parseAmountInput(amount);
       if (!categoryId) throw new Error("دسته را انتخاب کنید");
       if (!Number.isFinite(value) || value <= 0) throw new Error("مبلغ معتبر نیست");
       return upsertBudget({ categoryId, amount: value, month, year });
@@ -186,13 +188,13 @@ export default function BudgetsPage() {
             </Col>
             <Col xs={24} md={12}>
               <Text type="secondary">سقف ماهانه (تومان)</Text>
-              <Input
-                className="mt-2"
-                dir="ltr"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="3000000"
-              />
+              <div className="mt-2">
+                <AmountInput
+                  value={amount}
+                  onChange={setAmount}
+                  placeholder="۳٬۰۰۰٬۰۰۰"
+                />
+              </div>
             </Col>
           </Row>
           <Button
