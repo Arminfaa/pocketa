@@ -16,7 +16,7 @@ export const BudgetUpdateSchema = BudgetCreateSchema.partial().extend({
 
 export const BudgetQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(100).default(10),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
   month: z.coerce.number().int().min(1).max(12).optional().nullable(),
   year: z.coerce.number().int().min(1300).max(2000).optional().nullable(),
 });

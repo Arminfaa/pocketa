@@ -35,7 +35,7 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
   const updated = await CategoryModel.findOneAndUpdate(
     { _id: id, userId },
     { $set: parsed.data },
-    { new: true }
+    { returnDocument: "after" }
   );
 
   if (!updated) throw new AppError(404, "دسته‌بندی یافت نشد");
