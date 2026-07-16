@@ -63,7 +63,7 @@ export default function AppLayout({ children }: PropsWithChildren) {
         placement="right"
         open={isDrawerNav && drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        width={280}
+        size={280}
         classNames={{ body: "!p-0", header: "border-b border-app-border" }}
         title={
           <div className="flex items-center gap-2.5 min-w-0">

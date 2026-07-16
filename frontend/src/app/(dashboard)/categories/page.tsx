@@ -115,7 +115,7 @@ export default function CategoriesPage() {
   }
 
   return (
-    <Space direction="vertical" size="large" className="w-full max-w-3xl">
+    <Space orientation="vertical" size="large" className="w-full max-w-3xl">
       <div>
         <Title level={4} className="!m-0">
           دسته‌بندی‌ها
@@ -131,7 +131,7 @@ export default function CategoriesPage() {
           </Space>
         }
       >
-        <Space direction="vertical" size="middle" className="w-full">
+        <Space orientation="vertical" size="middle" className="w-full">
           <div>
             <Text type="secondary">نام</Text>
             <Input

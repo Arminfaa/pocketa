@@ -144,7 +144,7 @@ export default function AccountsPage() {
   }
 
   return (
-    <Space direction="vertical" size="large" className="w-full max-w-3xl">
+    <Space orientation="vertical" size="large" className="w-full max-w-3xl">
       <Flex justify="space-between" align="flex-end" gap="middle" wrap="wrap">
         <div>
           <Title level={4} className="!m-0">
@@ -174,7 +174,7 @@ export default function AccountsPage() {
           </Space>
         }
       >
-        <Space direction="vertical" size="middle" className="w-full">
+        <Space orientation="vertical" size="middle" className="w-full">
           <Flex gap="middle" wrap="wrap">
             <div className="flex-[1_1_200px]">
               <Text type="secondary">نام حساب</Text>
@@ -242,7 +242,7 @@ export default function AccountsPage() {
       </Card>
 
       {q.isLoading ? (
-        <Space direction="vertical" size="middle" className="w-full">
+        <Space orientation="vertical" size="middle" className="w-full">
           <Skeleton className="h-24 w-full" rows={2} />
           <Skeleton className="h-24 w-full" rows={2} />
         </Space>

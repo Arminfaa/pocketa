@@ -52,7 +52,7 @@ export default function RegisterPage() {
   return (
     <Flex align="center" justify="center" className="min-h-screen p-6">
       <Card className="w-full max-w-md shadow-soft">
-        <Space direction="vertical" size="middle" className="w-full">
+        <Space orientation="vertical" size="middle" className="w-full">
           <div className="text-center">
             <Typography.Title level={2} className="!mb-1 !mt-0">
               ثبت‌نام در Pocketa

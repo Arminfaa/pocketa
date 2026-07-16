@@ -117,7 +117,7 @@ export default function ReviewPage() {
   const items = listQ.data?.items ?? [];
 
   return (
-    <Space direction="vertical" size="middle" className="w-full max-w-3xl">
+    <Space orientation="vertical" size="middle" className="w-full max-w-3xl">
       <div>
         <Title level={4} className="!m-0 whitespace-normal">
           <Flex wrap="wrap" gap="small" align="center">
@@ -139,13 +139,13 @@ export default function ReviewPage() {
         />
       ) : null}
 
-      <Space direction="vertical" size="middle" className="w-full">
+      <Space orientation="vertical" size="middle" className="w-full">
         {items.map((tx) => {
           const draft = getDraft(tx);
           const cats = (categoriesQ.data ?? []).filter((c) => c.type === tx.type);
           return (
             <Card key={tx._id}>
-              <Space direction="vertical" size="middle" className="w-full">
+              <Space orientation="vertical" size="middle" className="w-full">
                 <Flex
                   justify="space-between"
                   align="flex-start"

@@ -83,7 +83,7 @@ export default function ReportsPage() {
   }, [categoriesQ.data]);
 
   return (
-    <Space direction="vertical" size="large" className="w-full">
+    <Space orientation="vertical" size="large" className="w-full">
       <div>
         <Title level={4} className="!m-0">
           گزارش‌ها
