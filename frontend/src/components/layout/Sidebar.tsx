@@ -12,6 +12,8 @@ import {
   Landmark,
   FileInput,
   ClipboardCheck,
+  CalendarClock,
+  Target,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useUiStore } from "@/stores/ui.store";
@@ -21,6 +23,8 @@ const items = [
   { href: "/transactions", label: "تراکنش‌ها", icon: ReceiptText },
   { href: "/imports/bank-sms", label: "ایمپورت پیامک", icon: FileInput },
   { href: "/review", label: "نام‌گذاری", icon: ClipboardCheck },
+  { href: "/recurring", label: "تکرارشونده", icon: CalendarClock },
+  { href: "/goals", label: "اهداف پس‌انداز", icon: Target },
   { href: "/accounts", label: "حساب‌های بانکی", icon: Landmark },
   { href: "/categories", label: "دسته‌بندی‌ها", icon: Tags },
   { href: "/budgets", label: "بودجه‌بندی", icon: Wallet },
