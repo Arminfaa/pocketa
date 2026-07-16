@@ -1,20 +1,24 @@
 "use client";
 
 import api from "@/services/api";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatToman } from "@/lib/format";
-import { Card, Col, Flex, Grid, Row, Statistic, Typography } from "antd";
+import { App, Button, Card, Col, Flex, Grid, Row, Statistic, Typography } from "antd";
+import { BellOutlined } from "@ant-design/icons";
 import { Skeleton } from "@/components/ui/skeleton";
 import { QueryError } from "@/components/ui/query-error";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from "recharts";
 import { BarChart, Bar, Legend } from "recharts";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
+import { enablePushNotifications, fetchPushStatus } from "@/lib/push";
 
 const { Text } = Typography;
 
 export default function DashboardPage() {
   const screens = Grid.useBreakpoint();
   const isMobile = !screens.md;
+  const { message } = App.useApp();
+  const queryClient = useQueryClient();
   const selectedAccountId = useAccountFilterStore((s) => s.selectedAccountId);
 
   const dashboardQ = useQuery({
@@ -44,7 +48,25 @@ export default function DashboardPage() {
     },
   });
 
+  const pushStatusQ = useQuery({ queryKey: ["push-status"], queryFn: fetchPushStatus });
+
+  const pushMutation = useMutation({
+    mutationFn: enablePushNotifications,
+    onSuccess: () => {
+      message.success("یادآوری پوش روی این دستگاه فعال شد");
+      void queryClient.invalidateQueries({ queryKey: ["push-status"] });
+    },
+    onError: (err: unknown) => {
+      message.error(err instanceof Error ? err.message : "فعال‌سازی پوش ناموفق بود");
+    },
+  });
+
   const dashboard = dashboardQ.data;
+  const showPushPrompt =
+    pushStatusQ.isSuccess &&
+    !pushStatusQ.data.thisDevice &&
+    pushStatusQ.data.configured !== false &&
+    pushStatusQ.data.supported !== false;
 
   if (dashboardQ.isLoading) {
     return (
@@ -71,6 +93,31 @@ export default function DashboardPage() {
 
   return (
     <Flex vertical gap="large">
+      {showPushPrompt ? (
+        <Card size="small">
+          <Flex justify="space-between" align="center" gap="middle" wrap="wrap">
+            <div className="min-w-0">
+              <Text strong>
+                <BellOutlined className="me-1" />
+                یادآوری پوش
+              </Text>
+              <div>
+                <Text type="secondary" className="text-xs">
+                  از ۳ روز قبل موعد بدهی/قسط، در ساعت مشخص‌شده نوتیف می‌آید. خاموش کردن از تنظیمات.
+                </Text>
+              </div>
+            </div>
+            <Button
+              icon={<BellOutlined />}
+              loading={pushMutation.isPending}
+              onClick={() => pushMutation.mutate()}
+            >
+              فعال‌سازی روی این دستگاه
+            </Button>
+          </Flex>
+        </Card>
+      ) : null}
+
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} lg={6}>
           <Card>

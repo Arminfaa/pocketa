@@ -1,12 +1,23 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/auth.store";
 import api from "@/services/api";
 import { useRouter } from "next/navigation";
-import { App, Button, Card, Flex, Grid, Input, Space, Spin, Typography } from "antd";
-import { CameraOutlined, LoadingOutlined, LogoutOutlined } from "@ant-design/icons";
+import { App, Button, Card, Flex, Grid, Input, Space, Spin, Tag, Typography } from "antd";
+import {
+  BellOutlined,
+  CameraOutlined,
+  LoadingOutlined,
+  LogoutOutlined,
+} from "@ant-design/icons";
 import { cn } from "@/lib/cn";
+import {
+  disablePushNotifications,
+  enablePushNotifications,
+  fetchPushStatus,
+} from "@/lib/push";
 
 const { Title, Text } = Typography;
 
@@ -14,6 +25,7 @@ export default function SettingsPage() {
   const screens = Grid.useBreakpoint();
   const isMobile = !screens.md;
   const { message } = App.useApp();
+  const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
   const logout = useAuthStore((s) => s.logout);
@@ -22,6 +34,30 @@ export default function SettingsPage() {
   const [uploading, setUploading] = useState(false);
   const [name, setName] = useState(user?.name ?? "");
   const [saving, setSaving] = useState(false);
+
+  const pushStatusQ = useQuery({ queryKey: ["push-status"], queryFn: fetchPushStatus });
+
+  const pushEnableMutation = useMutation({
+    mutationFn: enablePushNotifications,
+    onSuccess: () => {
+      message.success("یادآوری پوش روی این دستگاه فعال شد");
+      void queryClient.invalidateQueries({ queryKey: ["push-status"] });
+    },
+    onError: (err: unknown) => {
+      message.error(err instanceof Error ? err.message : "فعال‌سازی پوش ناموفق بود");
+    },
+  });
+
+  const pushDisableMutation = useMutation({
+    mutationFn: disablePushNotifications,
+    onSuccess: () => {
+      message.success("پوش این دستگاه خاموش شد");
+      void queryClient.invalidateQueries({ queryKey: ["push-status"] });
+    },
+    onError: (err: unknown) => {
+      message.error(err instanceof Error ? err.message : "خاموش کردن پوش ناموفق بود");
+    },
+  });
 
   async function onLogout() {
     try {
@@ -90,6 +126,10 @@ export default function SettingsPage() {
       setSaving(false);
     }
   }
+
+  const pushConfigured = pushStatusQ.data?.configured !== false;
+  const pushSupported = pushStatusQ.data?.supported !== false;
+  const pushActive = Boolean(pushStatusQ.data?.thisDevice);
 
   return (
     <Space orientation="vertical" size="large" className="w-full max-w-xl">
@@ -167,6 +207,47 @@ export default function SettingsPage() {
             {saving ? "در حال ذخیره..." : "ذخیره تغییرات"}
           </Button>
         </Space>
+      </Card>
+
+      <Card
+        title={
+          <Space>
+            <BellOutlined />
+            یادآوری پوش
+          </Space>
+        }
+      >
+        <Flex justify="space-between" align="center" gap="middle" wrap="wrap">
+          <div className="min-w-0">
+            <Text type="secondary" className="text-xs">
+              یادآوری بدهی/قسط از ۳ روز قبل موعد. روی هر دستگاه جداگانه فعال می‌شود.
+            </Text>
+            <div className="mt-2">
+              {pushActive ? (
+                <Tag color="success">فعال روی این دستگاه</Tag>
+              ) : (
+                <Tag>غیرفعال روی این دستگاه</Tag>
+              )}
+            </div>
+          </div>
+          {pushActive ? (
+            <Button
+              loading={pushDisableMutation.isPending}
+              onClick={() => pushDisableMutation.mutate()}
+            >
+              خاموش کردن
+            </Button>
+          ) : (
+            <Button
+              icon={<BellOutlined />}
+              loading={pushEnableMutation.isPending}
+              onClick={() => pushEnableMutation.mutate()}
+              disabled={!pushConfigured || !pushSupported}
+            >
+              فعال‌سازی روی این دستگاه
+            </Button>
+          )}
+        </Flex>
       </Card>
 
       <Button icon={<LogoutOutlined />} onClick={onLogout}>

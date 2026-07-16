@@ -24,7 +24,6 @@ import {
   CaretRightOutlined,
   CheckSquareOutlined,
   DeleteOutlined,
-  BellOutlined,
   PlusOutlined,
   AccountBookOutlined,
 } from "@ant-design/icons";
@@ -43,7 +42,6 @@ import type { Category } from "@/services/categories";
 import type { BankAccount } from "@/types/account";
 import { formatJalaliDate, formatToman, toPersianDigits } from "@/lib/format";
 import { getTodayJalali } from "@/lib/transaction-helpers";
-import { enablePushNotifications, disablePushNotifications, fetchPushStatus } from "@/lib/push";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { QueryError } from "@/components/ui/query-error";
@@ -104,7 +102,6 @@ export default function RecurringPage() {
   const listQ = useQuery({ queryKey: ["recurring"], queryFn: fetchRecurring });
   const accountsQ = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const categoriesQ = useQuery({ queryKey: ["categories"], queryFn: fetchCategories });
-  const pushStatusQ = useQuery({ queryKey: ["push-status"], queryFn: fetchPushStatus });
 
   const categories = useMemo(
     () => (categoriesQ.data ?? []).filter((c: Category) => c.type === type),
@@ -166,28 +163,6 @@ export default function RecurringPage() {
     },
   });
 
-  const pushMutation = useMutation({
-    mutationFn: enablePushNotifications,
-    onSuccess: () => {
-      message.success("یادآوری پوش روی این دستگاه فعال شد");
-      void queryClient.invalidateQueries({ queryKey: ["push-status"] });
-    },
-    onError: (err: unknown) => {
-      message.error(err instanceof Error ? err.message : "فعال‌سازی پوش ناموفق بود");
-    },
-  });
-
-  const pushDisableMutation = useMutation({
-    mutationFn: disablePushNotifications,
-    onSuccess: () => {
-      message.success("پوش این دستگاه خاموش شد");
-      void queryClient.invalidateQueries({ queryKey: ["push-status"] });
-    },
-    onError: (err: unknown) => {
-      message.error(err instanceof Error ? err.message : "خاموش کردن پوش ناموفق بود");
-    },
-  });
-
   const generateMutation = useMutation({
     mutationFn: ({ id, accountId }: { id: string; accountId: string }) =>
       generateRecurring(id, accountId),
@@ -234,46 +209,6 @@ export default function RecurringPage() {
           اقساط ماهانه یا بدهی یک‌باره را ثبت کنید؛ حساب بانکی را موقع ثبت تراکنش انتخاب کنید.
         </Text>
       </div>
-
-      <Card size="small">
-        <Flex justify="space-between" align="center" gap="middle" wrap="wrap">
-          <div className="min-w-0">
-            <Text strong>
-              <BellOutlined className="me-1" />
-              یادآوری پوش
-            </Text>
-            <div>
-              <Text type="secondary" className="text-xs">
-                روی هر دستگاه جداگانه فعال کنید. از ۳ روز قبل موعد، در ساعت مشخص‌شده نوتیف می‌آید.
-              </Text>
-            </div>
-          </div>
-          {pushStatusQ.data?.thisDevice ? (
-            <Space size="small" wrap>
-              <Tag color="success">فعال روی این دستگاه</Tag>
-              <Button
-                size="small"
-                loading={pushDisableMutation.isPending}
-                onClick={() => pushDisableMutation.mutate()}
-              >
-                خاموش کردن
-              </Button>
-            </Space>
-          ) : (
-            <Button
-              icon={<BellOutlined />}
-              loading={pushMutation.isPending}
-              onClick={() => pushMutation.mutate()}
-              disabled={
-                pushStatusQ.data?.configured === false ||
-                pushStatusQ.data?.supported === false
-              }
-            >
-              فعال‌سازی روی این دستگاه
-            </Button>
-          )}
-        </Flex>
-      </Card>
 
       {(listQ.data?.dueCount ?? 0) > 0 ? (
         <Alert
