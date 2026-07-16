@@ -33,6 +33,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { QueryError } from "@/components/ui/query-error";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { BankAccount } from "@/types/account";
+import { cn } from "@/lib/cn";
 
 const { Title, Text } = Typography;
 
@@ -143,22 +144,22 @@ export default function AccountsPage() {
   }
 
   return (
-    <Space direction="vertical" size="large" style={{ width: "100%", maxWidth: 768 }}>
+    <Space direction="vertical" size="large" className="w-full max-w-3xl">
       <Flex justify="space-between" align="flex-end" gap="middle" wrap="wrap">
         <div>
-          <Title level={4} style={{ margin: 0 }}>
+          <Title level={4} className="!m-0">
             حساب‌های بانکی
           </Title>
           <Text type="secondary">
             هر بانک یا کارت را جدا اضافه کنید؛ بعد می‌توانید تراکنش‌ها را جدا یا یکجا ببینید.
           </Text>
         </div>
-        <div style={{ textAlign: "left" }}>
-          <Text type="secondary" style={{ fontSize: 12 }}>
+        <div className="text-left">
+          <Text type="secondary" className="text-xs">
             مجموع موجودی
           </Text>
           <div>
-            <Text strong style={{ color: "#06b6d4", fontSize: 16 }}>
+            <Text strong className="text-brand-500 text-base">
               {formatToman(totalBalance)}
             </Text>
           </div>
@@ -173,55 +174,51 @@ export default function AccountsPage() {
           </Space>
         }
       >
-        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+        <Space direction="vertical" size="middle" className="w-full">
           <Flex gap="middle" wrap="wrap">
-            <div style={{ flex: "1 1 200px" }}>
+            <div className="flex-[1_1_200px]">
               <Text type="secondary">نام حساب</Text>
               <Input
-                style={{ marginTop: 8 }}
+                className="mt-2"
                 value={form.name}
                 onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
                 placeholder="مثلاً کارت پاسارگاد"
               />
             </div>
-            <div style={{ flex: "1 1 200px" }}>
+            <div className="flex-[1_1_200px]">
               <Text type="secondary">نام بانک (اختیاری)</Text>
               <Input
-                style={{ marginTop: 8 }}
+                className="mt-2"
                 value={form.bankName}
                 onChange={(e) => setForm((s) => ({ ...s, bankName: e.target.value }))}
                 placeholder="پاسارگاد / ملی / ..."
               />
             </div>
-            <div style={{ flex: "1 1 200px" }}>
+            <div className="flex-[1_1_200px]">
               <Text type="secondary">موجودی اولیه (تومان)</Text>
               <Input
-                style={{ marginTop: 8 }}
+                className="mt-2"
                 dir="ltr"
                 value={form.initialBalance}
                 onChange={(e) => setForm((s) => ({ ...s, initialBalance: e.target.value }))}
               />
             </div>
-            <div style={{ flex: "1 1 200px" }}>
+            <div className="flex-[1_1_200px]">
               <Text type="secondary">رنگ</Text>
-              <Flex gap={8} wrap="wrap" style={{ marginTop: 8 }}>
+              <Flex gap={8} wrap="wrap" className="mt-2">
                 {COLORS.map((c) => (
                   <Button
                     key={c}
                     type="text"
                     aria-label={c}
                     onClick={() => setForm((s) => ({ ...s, color: c }))}
-                    style={{
-                      width: 32,
-                      height: 32,
-                      minWidth: 32,
-                      padding: 0,
-                      borderRadius: 12,
-                      background: c,
-                      border:
-                        form.color === c ? "2px solid #fff" : "1px solid rgba(148, 163, 184, 0.22)",
-                      boxShadow: form.color === c ? "0 0 0 2px #06b6d4" : undefined,
-                    }}
+                    className={cn(
+                      "w-8 h-8 min-w-8 p-0 rounded-xl",
+                      form.color === c
+                        ? "border-2 border-white ring-2 ring-brand-500"
+                        : "border border-slate-400/20"
+                    )}
+                    style={{ background: c }}
                   />
                 ))}
               </Flex>
@@ -245,7 +242,7 @@ export default function AccountsPage() {
       </Card>
 
       {q.isLoading ? (
-        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+        <Space direction="vertical" size="middle" className="w-full">
           <Skeleton className="h-24 w-full" rows={2} />
           <Skeleton className="h-24 w-full" rows={2} />
         </Space>
@@ -264,8 +261,8 @@ export default function AccountsPage() {
         <List
           dataSource={q.data ?? []}
           renderItem={(account) => (
-            <List.Item style={{ padding: 0, border: "none", marginBottom: 12 }}>
-              <Card style={{ width: "100%" }} styles={{ body: { padding: 16 } }}>
+            <List.Item className="!p-0 !border-none mb-3">
+              <Card className="w-full" classNames={{ body: "p-4" }}>
                 <Flex
                   justify="space-between"
                   align={isMobile ? "stretch" : "center"}
@@ -273,28 +270,19 @@ export default function AccountsPage() {
                   wrap="wrap"
                   vertical={isMobile}
                 >
-                  <Flex align="center" gap="middle" style={{ minWidth: 0, flex: 1 }}>
+                  <Flex align="center" gap="middle" className="min-w-0 flex-1">
                     <div
-                      style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: 16,
-                        background: account.color,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        color: "#fff",
-                        flexShrink: 0,
-                      }}
+                      className="w-11 h-11 rounded-2xl flex items-center justify-center text-white shrink-0"
+                      style={{ background: account.color }}
                     >
-                      <BankOutlined style={{ fontSize: 20 }} />
+                      <BankOutlined className="text-xl" />
                     </div>
-                    <div style={{ minWidth: 0 }}>
+                    <div className="min-w-0">
                       <Text strong ellipsis>
                         {account.name}
                       </Text>
                       <div>
-                        <Text type="secondary" ellipsis style={{ fontSize: 13 }}>
+                        <Text type="secondary" ellipsis className="text-sm">
                           {account.bankName || "بدون نام بانک"} · موجودی اولیه{" "}
                           {formatToman(account.initialBalance)}
                         </Text>
@@ -306,10 +294,15 @@ export default function AccountsPage() {
                     align="center"
                     gap="small"
                     wrap="wrap"
-                    style={{ flexShrink: 0, width: isMobile ? "100%" : undefined }}
+                    className={cn("shrink-0", isMobile && "w-full")}
                   >
-                    <div style={{ textAlign: "left", marginInlineEnd: isMobile ? 0 : 8, flex: isMobile ? 1 : undefined }}>
-                      <Text type="secondary" style={{ fontSize: 12 }}>
+                    <div
+                      className={cn(
+                        "text-left",
+                        isMobile ? "flex-1 me-0" : "me-2"
+                      )}
+                    >
+                      <Text type="secondary" className="text-xs">
                         موجودی
                       </Text>
                       <div>

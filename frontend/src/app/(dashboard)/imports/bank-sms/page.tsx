@@ -30,6 +30,7 @@ import { confirmBankSms, previewBankSms, type ParsedImportItem } from "@/service
 import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { formatToman, formatJalaliDate } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/cn";
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -136,9 +137,9 @@ export default function BankSmsImportPage() {
   );
 
   return (
-    <Space direction="vertical" size="large" style={{ width: "100%", maxWidth: 896 }}>
+    <Space direction="vertical" size="large" className="w-full max-w-4xl">
       <div>
-        <Title level={4} style={{ margin: 0 }}>
+        <Title level={4} className="!m-0">
           <Space>
             <FileTextOutlined />
             ایمپورت پیامک بانکی
@@ -152,7 +153,7 @@ export default function BankSmsImportPage() {
       </div>
 
       <Card>
-        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+        <Space direction="vertical" size="middle" className="w-full">
           <Row gutter={[12, 12]}>
             <Col xs={24} md={12}>
               <Text type="secondary">حساب مقصد</Text>
@@ -160,7 +161,7 @@ export default function BankSmsImportPage() {
                 <Skeleton className="h-11 w-full mt-2" rows={1} />
               ) : (
                 <Select
-                  style={{ width: "100%", marginTop: 8 }}
+                  className="w-full mt-2"
                   value={effectiveAccountId}
                   onChange={setAccountId}
                   options={(accountsQ.data ?? []).map((a) => ({
@@ -174,7 +175,7 @@ export default function BankSmsImportPage() {
             <Col xs={24} md={12}>
               <Text type="secondary">سال شمسی (برای تاریخ‌های بدون سال)</Text>
               <Input
-                style={{ marginTop: 8 }}
+                className="mt-2"
                 dir="ltr"
                 value={jalaliYear}
                 onChange={(e) => setJalaliYear(e.target.value)}
@@ -185,7 +186,7 @@ export default function BankSmsImportPage() {
           <div>
             <Text type="secondary">متن پیامک‌ها</Text>
             <TextArea
-              style={{ marginTop: 8, fontFamily: "monospace" }}
+              className="mt-2 font-mono"
               dir="ltr"
               rows={10}
               placeholder={`مثال:\n777.888.12322409.1\n-9,500,000\n04/23_21:47\nمانده: 20,929,124`}
@@ -216,9 +217,9 @@ export default function BankSmsImportPage() {
       ) : null}
 
       {items.length > 0 ? (
-        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+        <Space direction="vertical" size="middle" className="w-full">
           <Flex justify="space-between" align="center" gap="small" wrap="wrap">
-            <Title level={5} style={{ margin: 0 }}>
+            <Title level={5} className="!m-0">
               پیش‌نمایش تراکنش‌ها
             </Title>
             <Space>
@@ -243,15 +244,13 @@ export default function BankSmsImportPage() {
           <List
             dataSource={items}
             renderItem={(item) => (
-              <List.Item style={{ padding: 0, border: "none", marginBottom: 8 }}>
+              <List.Item className="!p-0 !border-none mb-2">
                 <Card
                   size="small"
-                  style={{
-                    width: "100%",
-                    opacity: item.isDuplicate ? 0.8 : 1,
-                    borderColor: item.isDuplicate ? "rgba(251, 191, 36, 0.3)" : undefined,
-                    background: item.isDuplicate ? "rgba(245, 158, 11, 0.05)" : undefined,
-                  }}
+                  className={cn(
+                    "w-full",
+                    item.isDuplicate && "opacity-80 border-amber-400/30 bg-amber-500/5"
+                  )}
                 >
                   <Flex gap="middle" align="flex-start">
                     <Checkbox
@@ -261,7 +260,7 @@ export default function BankSmsImportPage() {
                         setSelected((s) => ({ ...s, [item.importHash]: e.target.checked }))
                       }
                     />
-                    <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="flex-1 min-w-0">
                       <Flex justify="space-between" align="center" gap="small" wrap="wrap">
                         <Text strong>
                           {item.type === "income" ? "واریز" : "برداشت"}
@@ -269,13 +268,15 @@ export default function BankSmsImportPage() {
                         </Text>
                         <Text
                           strong
-                          style={{ color: item.type === "income" ? "#34d399" : "#f87171" }}
+                          className={cn(
+                            item.type === "income" ? "text-emerald-400" : "text-red-400"
+                          )}
                         >
                           {item.type === "income" ? "+" : "-"}
                           {formatToman(item.amount)}
                         </Text>
                       </Flex>
-                      <Text type="secondary" style={{ fontSize: 13 }}>
+                      <Text type="secondary" className="text-sm">
                         {formatJalaliDate(item.date)}
                         {item.time ? ` · ${item.time}` : ""}
                         {item.balanceAfter !== undefined
@@ -283,13 +284,13 @@ export default function BankSmsImportPage() {
                           : ""}
                       </Text>
                       {item.isDuplicate ? (
-                        <div style={{ marginTop: 4 }}>
+                        <div className="mt-1">
                           <Tag icon={<WarningOutlined />} color="warning">
                             قبلاً ایمپورت شده — رد می‌شود
                           </Tag>
                         </div>
                       ) : (
-                        <div style={{ marginTop: 4 }}>
+                        <div className="mt-1">
                           <Tag icon={<CheckCircleOutlined />} color="success">
                             آماده ورود · نیاز به نام‌گذاری بعداً
                           </Tag>
@@ -326,18 +327,11 @@ export default function BankSmsImportPage() {
           showIcon
           message={`${failedBlocks.length} بلوک قابل parse نبود`}
           description={
-            <Space direction="vertical" size="small" style={{ width: "100%" }}>
+            <Space direction="vertical" size="small" className="w-full">
               {failedBlocks.slice(0, 3).map((b, i) => (
                 <pre
                   key={i}
-                  style={{
-                    margin: 0,
-                    fontSize: 12,
-                    whiteSpace: "pre-wrap",
-                    padding: 8,
-                    borderRadius: 12,
-                    border: "1px solid rgba(148, 163, 184, 0.22)",
-                  }}
+                  className="m-0 text-xs whitespace-pre-wrap p-2 rounded-xl border border-slate-400/20"
                 >
                   {b}
                 </pre>

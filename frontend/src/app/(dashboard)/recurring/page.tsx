@@ -33,6 +33,7 @@ import { getTodayJalali } from "@/lib/transaction-helpers";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { QueryError } from "@/components/ui/query-error";
+import { cn } from "@/lib/cn";
 
 const { Title, Text } = Typography;
 
@@ -127,14 +128,9 @@ export default function RecurringPage() {
   const items = listQ.data?.items ?? [];
 
   return (
-    <Space
-      direction="vertical"
-      size="large"
-      className="pocketa-page"
-      style={{ width: "100%", maxWidth: "100%", minWidth: 0 }}
-    >
+    <Space direction="vertical" size="large" className="w-full max-w-full min-w-0">
       <div>
-        <Title level={4} style={{ margin: 0 }}>
+        <Title level={4} className="!m-0">
           <Space>
             <CalendarOutlined />
             پرداخت‌های تکرارشونده
@@ -161,7 +157,7 @@ export default function RecurringPage() {
           </Space>
         }
       >
-        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+        <Space direction="vertical" size="middle" className="w-full">
           <Radio.Group
             value={type}
             onChange={(e) => {
@@ -191,7 +187,7 @@ export default function RecurringPage() {
           <Row gutter={[12, 12]}>
             <Col xs={24} md={12}>
               <Select
-                style={{ width: "100%" }}
+                className="w-full"
                 value={frequency}
                 onChange={setFrequency}
                 options={[
@@ -211,7 +207,7 @@ export default function RecurringPage() {
             </Col>
             <Col xs={24} md={12}>
               <Select
-                style={{ width: "100%" }}
+                className="w-full"
                 value={accountId || accountsQ.data?.[0]?.id || undefined}
                 onChange={setAccountId}
                 options={(accountsQ.data ?? []).map((a) => ({
@@ -222,7 +218,7 @@ export default function RecurringPage() {
             </Col>
             <Col xs={24} md={12}>
               <Select
-                style={{ width: "100%" }}
+                className="w-full"
                 placeholder="انتخاب دسته"
                 value={categoryId || undefined}
                 onChange={setCategoryId}
@@ -252,7 +248,7 @@ export default function RecurringPage() {
         />
       ) : null}
 
-      <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+      <Space direction="vertical" size="middle" className="w-full">
         {items.map((item) => {
           const accountName =
             typeof item.account === "object" && item.account ? item.account.name : "—";
@@ -261,9 +257,7 @@ export default function RecurringPage() {
           return (
             <Card
               key={item.id}
-              style={{
-                borderColor: item.isDue ? "rgba(245, 158, 11, 0.4)" : undefined,
-              }}
+              className={cn(item.isDue && "border-amber-500/40")}
             >
               <Flex
                 justify="space-between"
@@ -272,14 +266,14 @@ export default function RecurringPage() {
                 wrap="wrap"
                 vertical={isMobile}
               >
-                <div style={{ minWidth: 0, flex: 1 }}>
+                <div className="min-w-0 flex-1">
                   <Text strong>{item.title}</Text>
                   <div>
-                    <Text type="secondary" style={{ wordBreak: "break-word" }}>
+                    <Text type="secondary" className="break-words">
                       {FREQ_LABEL[item.frequency] ?? item.frequency} · موعد{" "}
                       {formatJalaliDate(item.nextPaymentDate)} · {accountName} · {categoryName}
                       {item.isDue ? (
-                        <Tag color="orange" style={{ marginInlineStart: 4 }}>
+                        <Tag color="orange" className="!ms-1">
                           سررسید شده
                         </Tag>
                       ) : null}
@@ -288,7 +282,7 @@ export default function RecurringPage() {
                 </div>
                 <Text
                   strong
-                  style={{ color: item.type === "income" ? "#34d399" : "#f87171" }}
+                  className={cn(item.type === "income" ? "text-emerald-400" : "text-red-400")}
                 >
                   {formatToman(item.amount)}
                 </Text>
@@ -297,7 +291,7 @@ export default function RecurringPage() {
                 gap="small"
                 wrap="wrap"
                 vertical={isMobile}
-                style={{ marginTop: 12, width: isMobile ? "100%" : undefined }}
+                className={cn("mt-3", isMobile && "w-full")}
               >
                 <Button
                   type="primary"

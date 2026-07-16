@@ -19,9 +19,9 @@ export function EmptyState({ title, description, action, className }: Props) {
         image={Empty.PRESENTED_IMAGE_SIMPLE}
         description={
           <div className="space-y-1">
-            <div className="font-medium text-[var(--text)]">{title}</div>
+            <div className="font-medium text-app-fg">{title}</div>
             {description ? (
-              <div className="text-sm text-[var(--muted)]">{description}</div>
+              <div className="text-sm text-app-muted">{description}</div>
             ) : null}
           </div>
         }

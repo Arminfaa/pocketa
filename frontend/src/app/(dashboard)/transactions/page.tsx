@@ -46,6 +46,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { QueryError } from "@/components/ui/query-error";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TransactionFormModal } from "@/features/transactions/TransactionFormModal";
+import { cn } from "@/lib/cn";
 
 const { useBreakpoint } = Grid;
 const { Title, Text } = Typography;
@@ -263,7 +264,7 @@ export default function TransactionsPage() {
         <Text
           strong
           type={tx.type === "income" ? "success" : "danger"}
-          style={{ whiteSpace: "nowrap" }}
+          className="whitespace-nowrap"
         >
           {tx.type === "income" ? "+" : "-"}
           {formatToman(amount)}
@@ -305,10 +306,10 @@ export default function TransactionsPage() {
   ];
 
   return (
-    <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+    <Space direction="vertical" size="middle" className="w-full">
       <Flex justify="space-between" align="flex-end" gap="middle" wrap="wrap">
         <div>
-          <Title level={4} style={{ margin: 0 }}>
+          <Title level={4} className="!m-0">
             تراکنش‌ها
           </Title>
           <Text type="secondary">
@@ -334,10 +335,10 @@ export default function TransactionsPage() {
       </Flex>
 
       <Card size="small">
-        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+        <Space direction="vertical" size="middle" className="w-full">
           <Flex gap="small" wrap="wrap">
             <Input.Search
-              style={{ flex: 1, minWidth: isMobile ? "100%" : 200, width: isMobile ? "100%" : undefined }}
+              className={cn("flex-1", isMobile ? "min-w-full w-full" : "min-w-[200px]")}
               placeholder="جستجو در عنوان یا توضیحات..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
@@ -348,7 +349,7 @@ export default function TransactionsPage() {
 
           <Flex gap="small" wrap="wrap">
             <Select
-              style={{ minWidth: isMobile ? "100%" : 140, flex: 1, width: isMobile ? "100%" : undefined }}
+              className={cn("flex-1", isMobile ? "min-w-full w-full" : "min-w-[140px]")}
               value={filters.type}
               onChange={(value) => {
                 setPage(1);
@@ -366,7 +367,7 @@ export default function TransactionsPage() {
             />
 
             <Select
-              style={{ minWidth: isMobile ? "100%" : 140, flex: 1, width: isMobile ? "100%" : undefined }}
+              className={cn("flex-1", isMobile ? "min-w-full w-full" : "min-w-[140px]")}
               value={filters.categoryId || undefined}
               placeholder="همه دسته‌ها"
               allowClear
@@ -381,7 +382,7 @@ export default function TransactionsPage() {
             />
 
             <Input
-              style={{ minWidth: isMobile ? "100%" : 120, flex: 1, width: isMobile ? "100%" : undefined }}
+              className={cn("flex-1", isMobile ? "min-w-full w-full" : "min-w-[120px]")}
               placeholder="فیلتر تگ"
               value={filters.tag}
               onChange={(e) => {
@@ -421,11 +422,11 @@ export default function TransactionsPage() {
       ) : null}
 
       {isMobile && items.length > 0 ? (
-        <Space direction="vertical" size="small" style={{ width: "100%" }}>
+        <Space direction="vertical" size="small" className="w-full">
           {items.map((tx) => (
             <Card key={tx._id} size="small">
               <Flex justify="space-between" align="flex-start" gap="middle">
-                <div style={{ minWidth: 0, flex: 1 }}>
+                <div className="min-w-0 flex-1">
                   <Space size={4} wrap>
                     <Text strong ellipsis>
                       {tx.title}
@@ -437,12 +438,12 @@ export default function TransactionsPage() {
                     ) : null}
                   </Space>
                   {(tx.tags?.length ?? 0) > 0 ? (
-                    <Flex gap={4} wrap="wrap" style={{ marginTop: 4 }}>
+                    <Flex gap={4} wrap="wrap" className="mt-1">
                       {tx.tags!.map((tag) => (
                         <Tag
                           key={tag}
                           color="cyan"
-                          style={{ cursor: "pointer", margin: 0 }}
+                          className="cursor-pointer !m-0"
                           onClick={() => filterByTag(tag)}
                         >
                           {tag}
@@ -450,8 +451,8 @@ export default function TransactionsPage() {
                       ))}
                     </Flex>
                   ) : null}
-                  <div style={{ marginTop: 4 }}>
-                    <Text type="secondary" style={{ fontSize: 13 }}>
+                  <div className="mt-1">
+                    <Text type="secondary" className="text-sm">
                       {formatJalaliDate(tx.date)} · {categoryName(tx.categoryId)} ·{" "}
                       {accountName(tx.accountId)}
                     </Text>
@@ -460,13 +461,13 @@ export default function TransactionsPage() {
                 <Text
                   strong
                   type={tx.type === "income" ? "success" : "danger"}
-                  style={{ whiteSpace: "nowrap" }}
+                  className="whitespace-nowrap"
                 >
                   {tx.type === "income" ? "+" : "-"}
                   {formatToman(tx.amount)}
                 </Text>
               </Flex>
-              <Flex gap="small" style={{ marginTop: 12 }}>
+              <Flex gap="small" className="mt-3">
                 <Button block onClick={() => openEdit(tx)}>
                   ویرایش
                 </Button>

@@ -21,6 +21,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TagsInput } from "@/components/ui/tags-input";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
+import { cn } from "@/lib/cn";
 
 const { Title, Text } = Typography;
 
@@ -116,11 +117,11 @@ export default function ReviewPage() {
   const items = listQ.data?.items ?? [];
 
   return (
-    <Space direction="vertical" size="middle" style={{ width: "100%", maxWidth: 768 }}>
+    <Space direction="vertical" size="middle" className="w-full max-w-3xl">
       <div>
-        <Title level={4} style={{ margin: 0, whiteSpace: "normal" }}>
+        <Title level={4} className="!m-0 whitespace-normal">
           <Flex wrap="wrap" gap="small" align="center">
-            <WarningOutlined style={{ color: "#fbbf24" }} />
+            <WarningOutlined className="text-brandGold-400" />
             نام‌گذاری تراکنش‌های ایمپورت‌شده
           </Flex>
         </Title>
@@ -138,13 +139,13 @@ export default function ReviewPage() {
         />
       ) : null}
 
-      <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+      <Space direction="vertical" size="middle" className="w-full">
         {items.map((tx) => {
           const draft = getDraft(tx);
           const cats = (categoriesQ.data ?? []).filter((c) => c.type === tx.type);
           return (
             <Card key={tx._id}>
-              <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+              <Space direction="vertical" size="middle" className="w-full">
                 <Flex
                   justify="space-between"
                   align="flex-start"
@@ -152,10 +153,7 @@ export default function ReviewPage() {
                   wrap="wrap"
                   vertical={isMobile}
                 >
-                  <Text
-                    type="secondary"
-                    style={{ fontSize: 13, minWidth: 0, wordBreak: "break-word", flex: 1 }}
-                  >
+                  <Text type="secondary" className="text-sm min-w-0 break-words flex-1">
                     {formatJalaliDate(tx.date)}
                     {tx.bankMeta?.time ? ` · ${tx.bankMeta.time}` : ""}
                     {" · "}
@@ -165,7 +163,7 @@ export default function ReviewPage() {
                   </Text>
                   <Text
                     strong
-                    style={{ color: tx.type === "income" ? "#34d399" : "#f87171" }}
+                    className={cn(tx.type === "income" ? "text-emerald-400" : "text-red-400")}
                   >
                     {tx.type === "income" ? "+" : "-"}
                     {formatToman(tx.amount)}
@@ -190,7 +188,7 @@ export default function ReviewPage() {
 
                 <Flex gap="small" align="center" wrap="wrap">
                   <Select
-                    style={{ flex: 1, minWidth: isMobile ? "100%" : 160 }}
+                    className={cn("flex-1", isMobile ? "min-w-full" : "min-w-40")}
                     value={draft.categoryId}
                     onChange={(categoryId) =>
                       setDrafts((d) => ({

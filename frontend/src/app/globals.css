@@ -2,80 +2,43 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --bg: #f8fafc;
-  --text: #0f172a;
-  --muted: #475569;
-  --card: #ffffff;
-  --border: rgba(15, 23, 42, 0.12);
-  --ring: rgba(6, 182, 212, 0.35);
-  --accent: #06b6d4;
-  --accent-2: #8b5cf6;
-  --gold: #f59e0b;
-}
-
-.dark {
-  --bg: #0b1220;
-  --text: #e5e7eb;
-  --muted: #93a4b8;
-  --card: #0f1a2e;
-  --border: rgba(148, 163, 184, 0.22);
-  --ring: rgba(6, 182, 212, 0.35);
-  --accent: #22d3ee;
-  --accent-2: #a78bfa;
-  --gold: #fbbf24;
-}
-
-html,
-body {
-  height: 100%;
-  overflow-x: hidden;
-}
-
-body {
-  background: var(--bg);
-  color: var(--text);
-}
-
-#__next,
-body > div {
-  max-width: 100%;
-}
-
-.bg-app {
-  background:
-    radial-gradient(circle at top right, rgba(6, 182, 212, 0.08), transparent 28%),
-    radial-gradient(circle at bottom left, rgba(139, 92, 246, 0.1), transparent 24%),
-    var(--bg);
-}
-
-.brand-border {
-  border-image: linear-gradient(90deg, #06b6d4, #8b5cf6, #f59e0b) 1;
-}
-
-/* Ant Design helpers for narrow screens */
-.pocketa-page {
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-}
-
-.pocketa-card-extra-stack .ant-card-head {
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.pocketa-card-extra-stack .ant-card-extra {
-  margin-inline-start: 0 !important;
-  width: 100%;
-}
-
-@media (max-width: 575px) {
-  .pocketa-card-extra-stack .ant-card-extra {
-    width: 100%;
+@layer base {
+  :root {
+    --bg: #f8fafc;
+    --text: #0f172a;
+    --muted: #475569;
+    --card: #ffffff;
+    --border: rgba(15, 23, 42, 0.12);
+    --ring: rgba(6, 182, 212, 0.35);
+    --accent: #06b6d4;
+    --accent-2: #8b5cf6;
+    --gold: #f59e0b;
   }
 
-  .pocketa-card-extra-stack .ant-card-extra .ant-select {
-    width: 100% !important;
+  .dark {
+    --bg: #0b1220;
+    --text: #e5e7eb;
+    --muted: #93a4b8;
+    --card: #0f1a2e;
+    --border: rgba(148, 163, 184, 0.22);
+    --ring: rgba(6, 182, 212, 0.35);
+    --accent: #22d3ee;
+    --accent-2: #a78bfa;
+    --gold: #fbbf24;
+  }
+
+  html,
+  body {
+    @apply h-full overflow-x-hidden;
+  }
+
+  body {
+    @apply bg-app text-app-fg font-sans antialiased;
+  }
+}
+
+@layer utilities {
+  .bg-app-surface {
+    @apply bg-app-mesh bg-app;
   }
 }

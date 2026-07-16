@@ -27,6 +27,7 @@ import { CATEGORY_COLORS, CATEGORY_ICONS } from "@/lib/finance-ui";
 import { Skeleton } from "@/components/ui/skeleton";
 import { QueryError } from "@/components/ui/query-error";
 import { EmptyState } from "@/components/ui/empty-state";
+import { cn } from "@/lib/cn";
 
 const { Title, Text } = Typography;
 
@@ -114,9 +115,9 @@ export default function CategoriesPage() {
   }
 
   return (
-    <Space direction="vertical" size="large" style={{ width: "100%", maxWidth: 768 }}>
+    <Space direction="vertical" size="large" className="w-full max-w-3xl">
       <div>
-        <Title level={4} style={{ margin: 0 }}>
+        <Title level={4} className="!m-0">
           دسته‌بندی‌ها
         </Title>
         <Text type="secondary">دسته‌های درآمد و هزینه را با رنگ و آیکون مدیریت کنید.</Text>
@@ -130,11 +131,11 @@ export default function CategoriesPage() {
           </Space>
         }
       >
-        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+        <Space direction="vertical" size="middle" className="w-full">
           <div>
             <Text type="secondary">نام</Text>
             <Input
-              style={{ marginTop: 8 }}
+              className="mt-2"
               value={form.name}
               onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
               placeholder="مثلاً خوراک"
@@ -144,7 +145,7 @@ export default function CategoriesPage() {
           <div>
             <Text type="secondary">نوع</Text>
             <Radio.Group
-              style={{ marginTop: 8, width: "100%" }}
+              className="mt-2 w-full"
               value={form.type}
               onChange={(e) => setForm((s) => ({ ...s, type: e.target.value }))}
               optionType="button"
@@ -158,24 +159,20 @@ export default function CategoriesPage() {
 
           <div>
             <Text type="secondary">رنگ</Text>
-            <Flex gap={8} wrap="wrap" style={{ marginTop: 8 }}>
+            <Flex gap={8} wrap="wrap" className="mt-2">
               {CATEGORY_COLORS.map((c) => (
                 <Button
                   key={c}
                   type="text"
                   aria-label={c}
                   onClick={() => setForm((s) => ({ ...s, color: c }))}
-                  style={{
-                    width: 32,
-                    height: 32,
-                    minWidth: 32,
-                    padding: 0,
-                    borderRadius: 12,
-                    background: c,
-                    border:
-                      form.color === c ? "2px solid #fff" : "1px solid rgba(148, 163, 184, 0.22)",
-                    boxShadow: form.color === c ? "0 0 0 2px #06b6d4" : undefined,
-                  }}
+                  className={cn(
+                    "w-8 h-8 min-w-8 p-0 rounded-xl",
+                    form.color === c
+                      ? "border-2 border-white ring-2 ring-brand-500"
+                      : "border border-slate-400/20"
+                  )}
+                  style={{ background: c }}
                 />
               ))}
             </Flex>
@@ -183,7 +180,7 @@ export default function CategoriesPage() {
 
           <div>
             <Text type="secondary">آیکون</Text>
-            <Flex gap={8} wrap="wrap" style={{ marginTop: 8 }}>
+            <Flex gap={8} wrap="wrap" className="mt-2">
               {CATEGORY_ICONS.map((icon) => (
                 <Button
                   key={icon}
@@ -240,28 +237,17 @@ export default function CategoriesPage() {
         dataSource={items}
         renderItem={(c) => (
           <List.Item>
-            <Card style={{ width: "100%" }} styles={{ body: { padding: 16 } }}>
+            <Card className="w-full" classNames={{ body: "p-4" }}>
               <Flex justify="space-between" align="center" gap="middle" wrap="wrap">
-                <Flex align="center" gap="middle" style={{ minWidth: 0, flex: 1 }}>
+                <Flex align="center" gap="middle" className="min-w-0 flex-1">
                   <div
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 12,
-                      background: c.color,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: "#fff",
-                      fontSize: 10,
-                      fontWeight: 600,
-                      flexShrink: 0,
-                    }}
+                    className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-[10px] font-semibold shrink-0"
+                    style={{ background: c.color }}
                     title={c.icon}
                   >
                     {c.icon?.slice(0, 2) ?? "?"}
                   </div>
-                  <div style={{ minWidth: 0 }}>
+                  <div className="min-w-0">
                     <Text strong ellipsis>
                       {c.name}
                     </Text>
@@ -269,7 +255,7 @@ export default function CategoriesPage() {
                       <Tag color={c.type === "income" ? "green" : "red"}>
                         {c.type === "income" ? "درآمد" : "هزینه"}
                       </Tag>
-                      <Text type="secondary" style={{ fontSize: 12 }}>
+                      <Text type="secondary" className="text-xs">
                         {c.icon}
                       </Text>
                     </div>
