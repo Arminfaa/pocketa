@@ -10,7 +10,7 @@ type RegisterForm = {
   name: string;
   email: string;
   password: string;
-  avatar?: string;
+  confirmPassword: string;
 };
 
 export default function RegisterPage() {
@@ -24,12 +24,11 @@ export default function RegisterPage() {
   async function onFinish(values: RegisterForm) {
     setSubmitting(true);
     try {
-      const payload = {
-        ...values,
-        avatar: values.avatar?.trim() ? values.avatar.trim() : null,
-      };
-
-      const res = await api.post("/api/auth/register", payload);
+      const res = await api.post("/api/auth/register", {
+        name: values.name,
+        email: values.email,
+        password: values.password,
+      });
       message.success(res.data?.message ?? "ثبت‌نام انجام شد");
 
       const loginRes = await api.post("/api/auth/login", {
@@ -50,7 +49,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <Flex align="center" justify="center" className="min-h-dvh p-6">
+    <Flex align="center" justify="center" className="min-h-dvh !p-6">
       <Card className="w-full max-w-md shadow-soft">
         <Space orientation="vertical" size="middle" className="w-full">
           <div className="text-center">
@@ -67,7 +66,7 @@ export default function RegisterPage() {
             layout="vertical"
             requiredMark={false}
             onFinish={onFinish}
-            initialValues={{ name: "", email: "", password: "", avatar: "" }}
+            initialValues={{ name: "", email: "", password: "", confirmPassword: "" }}
             className="w-full"
           >
             <Form.Item
@@ -104,25 +103,22 @@ export default function RegisterPage() {
             </Form.Item>
 
             <Form.Item
-              label="آواتار (اختیاری)"
-              name="avatar"
+              label="تکرار رمز عبور"
+              name="confirmPassword"
+              dependencies={["password"]}
               rules={[
-                {
-                  validator: (_, value) => {
-                    if (!value || !String(value).trim()) {
+                { required: true, message: "تکرار رمز عبور را وارد کنید" },
+                ({ getFieldValue }) => ({
+                  validator(_, value) {
+                    if (!value || getFieldValue("password") === value) {
                       return Promise.resolve();
                     }
-                    try {
-                      new URL(String(value).trim());
-                      return Promise.resolve();
-                    } catch {
-                      return Promise.reject(new Error("آدرس تصویر معتبر است"));
-                    }
+                    return Promise.reject(new Error("رمز عبور و تکرار آن یکسان نیستند"));
                   },
-                },
+                }),
               ]}
             >
-              <Input type="url" placeholder="https://..." dir="ltr" />
+              <Input.Password autoComplete="new-password" />
             </Form.Item>
 
             <Form.Item className="!mb-2">
