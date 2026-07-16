@@ -2,27 +2,32 @@
 
 import { PropsWithChildren, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Button, Drawer, Flex, Grid, Layout, Select } from "antd";
+import { App, Button, Drawer, Flex, Grid, Layout, Select } from "antd";
 import { cn } from "@/lib/cn";
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   MenuOutlined,
   BulbOutlined,
+  LogoutOutlined,
 } from "@ant-design/icons";
 import { Sidebar } from "./Sidebar";
 import { useUiStore } from "@/stores/ui.store";
 import { useThemeStore } from "@/stores/theme.store";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
+import { useAuthStore } from "@/stores/auth.store";
 import { fetchAccounts } from "@/services/accounts";
+import api from "@/services/api";
 import { PageMotion } from "@/components/ui/page-motion";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 const { Header, Sider, Content } = Layout;
 const { useBreakpoint } = Grid;
 
 export default function AppLayout({ children }: PropsWithChildren) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { message } = App.useApp();
   const screens = useBreakpoint();
   /** Below Ant Design `lg` (~992px): menu button + Drawer only */
   const isDrawerNav = !screens.lg;
@@ -31,9 +36,11 @@ export default function AppLayout({ children }: PropsWithChildren) {
   const toggleCollapse = useUiStore((s) => s.toggleSidebarCollapsed);
   const mode = useThemeStore((s) => s.mode);
   const toggleTheme = useThemeStore((s) => s.toggle);
+  const logout = useAuthStore((s) => s.logout);
   const selectedAccountId = useAccountFilterStore((s) => s.selectedAccountId);
   const setSelectedAccountId = useAccountFilterStore((s) => s.setSelectedAccountId);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const accountsQ = useQuery({
     queryKey: ["accounts"],
@@ -43,6 +50,20 @@ export default function AppLayout({ children }: PropsWithChildren) {
   useEffect(() => {
     if (!isDrawerNav) setDrawerOpen(false);
   }, [isDrawerNav]);
+
+  async function onLogout() {
+    setLoggingOut(true);
+    try {
+      await api.post("/api/auth/logout");
+    } catch {
+      // ignore — clear local session anyway
+    } finally {
+      logout();
+      message.success("خارج شدید");
+      router.replace("/login");
+      setLoggingOut(false);
+    }
+  }
 
   return (
     <Layout className="h-dvh max-h-dvh !bg-transparent overflow-hidden">
@@ -113,14 +134,23 @@ export default function AppLayout({ children }: PropsWithChildren) {
               popupMatchSelectWidth={false}
             />
 
-            <Button
-              type="default"
-              icon={<BulbOutlined />}
-              onClick={toggleTheme}
-              aria-label="تغییر تم"
-              title={mode === "dark" ? "حالت روشن" : "حالت تاریک"}
-              className="!ms-auto"
-            />
+            <Flex align="center" gap={8} className="!ms-auto shrink-0">
+              <Button
+                type="default"
+                icon={<BulbOutlined />}
+                onClick={toggleTheme}
+                aria-label="تغییر تم"
+                title={mode === "dark" ? "حالت روشن" : "حالت تاریک"}
+              />
+              <Button
+                type="default"
+                icon={<LogoutOutlined />}
+                onClick={onLogout}
+                loading={loggingOut}
+                aria-label="خروج از حساب"
+                title="خروج از حساب"
+              />
+            </Flex>
           </Flex>
         </Header>
 
