@@ -5,7 +5,13 @@ import { sendSuccess } from "../utils/apiResponse";
 import { BankAccountModel } from "../models/BankAccount";
 import { TransactionModel } from "../models/Transaction";
 import { BankAccountCreateSchema, BankAccountUpdateSchema } from "../validations/accounts";
-import { computeAccountBalance, ensureDefaultAccount, findLatestSmsBalance, syncInitialBalanceToTarget } from "../services/account.service";
+import {
+  computeAccountBalance,
+  createOpeningBalanceTransaction,
+  ensureDefaultAccount,
+  findLatestSmsBalance,
+  syncInitialBalanceToTarget,
+} from "../services/account.service";
 import { SyncBalanceSchema } from "../validations/transactions";
 
 export const list = asyncHandler(async (req: Request, res: Response) => {
@@ -48,15 +54,25 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
   const parsed = BankAccountCreateSchema.safeParse(req.body);
   if (!parsed.success) throw new AppError(400, "خطا در اعتبارسنجی داده‌ها", parsed.error.flatten());
 
+  const openingBalance = parsed.data.initialBalance;
+
+  // Keep initialBalance at 0; opening cash becomes an income transaction so
+  // reports / category totals stay consistent with the account balance.
   const account = await BankAccountModel.create({
     userId,
     name: parsed.data.name,
     bankName: parsed.data.bankName ?? "",
     color: parsed.data.color,
     icon: parsed.data.icon,
-    initialBalance: parsed.data.initialBalance,
+    initialBalance: 0,
     isActive: true,
   });
+
+  if (openingBalance > 0) {
+    await createOpeningBalanceTransaction(userId, account._id, openingBalance);
+  }
+
+  const balance = await computeAccountBalance(userId, account._id, account.initialBalance);
 
   return sendSuccess(
     res,
@@ -69,7 +85,7 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
         icon: account.icon,
         initialBalance: account.initialBalance,
         isActive: account.isActive,
-        balance: account.initialBalance,
+        balance,
       },
     },
     "حساب بانکی ایجاد شد",

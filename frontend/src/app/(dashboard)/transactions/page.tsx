@@ -30,6 +30,7 @@ import {
 import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { fetchAccounts } from "@/services/accounts";
 import {
+  bulkDeleteTransactions,
   createTransaction,
   deleteTransaction,
   fetchCategories,
@@ -37,7 +38,7 @@ import {
   updateTransaction,
 } from "@/services/transactions";
 import type { Transaction } from "@/types/transaction";
-import { formatJalaliDate, formatToman } from "@/lib/format";
+import { formatJalaliDate, formatToman, toPersianDigits } from "@/lib/format";
 import { accountName, categoryName } from "@/lib/transaction-helpers";
 import { exportTransactionsCsv } from "@/lib/export-transactions-csv";
 import { useAppMessage } from "@/lib/antd-app";
@@ -76,6 +77,7 @@ export default function TransactionsPage() {
   const [searchInput, setSearchInput] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const accountsQ = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const categoriesQ = useQuery({ queryKey: ["categories"], queryFn: fetchCategories });
@@ -137,6 +139,7 @@ export default function TransactionsPage() {
           pagination: { ...data.pagination, total: Math.max(0, data.pagination.total - 1) },
         };
       });
+      setSelectedIds((ids) => ids.filter((x) => x !== id));
       return { previous };
     },
     onError: (err: unknown, _id, ctx) => {
@@ -156,9 +159,47 @@ export default function TransactionsPage() {
     },
   });
 
+  const bulkDeleteMutation = useMutation({
+    mutationFn: (ids: string[]) => bulkDeleteTransactions(ids),
+    onSuccess: (data) => {
+      message.success(`${toPersianDigits(String(data.deletedCount))} تراکنش حذف شد`);
+      setSelectedIds([]);
+      void queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      void queryClient.invalidateQueries({ queryKey: ["accounts"] });
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        "حذف گروهی ناموفق بود";
+      message.error(msg);
+    },
+  });
+
   const items = listQ.data?.items ?? [];
   const total = listQ.data?.pagination.total ?? 0;
   const rowOffset = (page - 1) * pageSize;
+  const pageIds = items.map((t) => t._id);
+  const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
+  const somePageSelected = pageIds.some((id) => selectedIds.includes(id));
+
+  function toggleSelect(id: string, checked: boolean) {
+    setSelectedIds((prev) => {
+      if (checked) return prev.includes(id) ? prev : [...prev, id];
+      return prev.filter((x) => x !== id);
+    });
+  }
+
+  function toggleSelectAllPage(checked: boolean) {
+    setSelectedIds((prev) => {
+      if (checked) {
+        const set = new Set(prev);
+        for (const id of pageIds) set.add(id);
+        return Array.from(set);
+      }
+      return prev.filter((id) => !pageIds.includes(id));
+    });
+  }
 
   const filteredCategories = (categoriesQ.data ?? []).filter((c) =>
     filters.type ? c.type === filters.type : true
@@ -166,12 +207,14 @@ export default function TransactionsPage() {
 
   function applySearch() {
     setPage(1);
+    setSelectedIds([]);
     setFilters((f) => ({ ...f, search: searchInput.trim() }));
   }
 
   function clearFilters() {
     setSearchInput("");
     setPage(1);
+    setSelectedIds([]);
     setFilters({ search: "", type: "", categoryId: "", tag: "", needsReviewOnly: false });
   }
 
@@ -317,6 +360,19 @@ export default function TransactionsPage() {
           </Text>
         </div>
         <Space wrap>
+          {selectedIds.length > 0 ? (
+            <Popconfirm
+              title={`${toPersianDigits(String(selectedIds.length))} تراکنش انتخاب‌شده حذف شود؟`}
+              okText="حذف همه"
+              cancelText="انصراف"
+              okButtonProps={{ danger: true, loading: bulkDeleteMutation.isPending }}
+              onConfirm={() => bulkDeleteMutation.mutate(selectedIds)}
+            >
+              <Button danger icon={<DeleteOutlined />} loading={bulkDeleteMutation.isPending}>
+                حذف انتخاب‌شده‌ها ({toPersianDigits(String(selectedIds.length))})
+              </Button>
+            </Popconfirm>
+          ) : null}
           <Button icon={<DownloadOutlined />} onClick={() => void handleExport()}>
             خروجی CSV
           </Button>
@@ -427,44 +483,60 @@ export default function TransactionsPage() {
 
       {isMobile && items.length > 0 ? (
         <Space orientation="vertical" size="small" className="w-full">
+          <Flex align="center" gap="small" className="px-1">
+            <Checkbox
+              checked={allPageSelected}
+              indeterminate={somePageSelected && !allPageSelected}
+              onChange={(e) => toggleSelectAllPage(e.target.checked)}
+            >
+              انتخاب همه در این صفحه
+            </Checkbox>
+          </Flex>
           {items.map((tx, index) => (
             <Card key={tx._id} size="small">
               <Flex justify="space-between" align="flex-start" gap="middle">
-                <div className="min-w-0 flex-1 mb-3">
-                  <Space size={4} wrap>
-                    <Text type="secondary" className="tabular-nums">
-                      #{rowOffset + index + 1}
-                    </Text>
-                    <Text strong ellipsis>
-                      {tx.title}
-                    </Text>
-                    {tx.needsReview ? (
-                      <Tag icon={<ExclamationCircleOutlined />} color="warning">
-                        بررسی
-                      </Tag>
-                    ) : null}
-                  </Space>
-                  {(tx.tags?.length ?? 0) > 0 ? (
-                    <Flex gap={4} wrap="wrap" className="mt-1">
-                      {tx.tags!.map((tag) => (
-                        <Tag
-                          key={tag}
-                          color="cyan"
-                          className="cursor-pointer !m-0"
-                          onClick={() => filterByTag(tag)}
-                        >
-                          {tag}
+                <Flex align="flex-start" gap="small" className="min-w-0 flex-1 mb-3">
+                  <Checkbox
+                    className="mt-1"
+                    checked={selectedIds.includes(tx._id)}
+                    onChange={(e) => toggleSelect(tx._id, e.target.checked)}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <Space size={4} wrap>
+                      <Text type="secondary" className="tabular-nums">
+                        #{rowOffset + index + 1}
+                      </Text>
+                      <Text strong ellipsis>
+                        {tx.title}
+                      </Text>
+                      {tx.needsReview ? (
+                        <Tag icon={<ExclamationCircleOutlined />} color="warning">
+                          بررسی
                         </Tag>
-                      ))}
-                    </Flex>
-                  ) : null}
-                  <div className="mt-1">
-                    <Text type="secondary" className="text-sm">
-                      {formatJalaliDate(tx.date)} · {categoryName(tx.categoryId)} ·{" "}
-                      {accountName(tx.accountId)}
-                    </Text>
+                      ) : null}
+                    </Space>
+                    {(tx.tags?.length ?? 0) > 0 ? (
+                      <Flex gap={4} wrap="wrap" className="mt-1">
+                        {tx.tags!.map((tag) => (
+                          <Tag
+                            key={tag}
+                            color="cyan"
+                            className="cursor-pointer !m-0"
+                            onClick={() => filterByTag(tag)}
+                          >
+                            {tag}
+                          </Tag>
+                        ))}
+                      </Flex>
+                    ) : null}
+                    <div className="mt-1">
+                      <Text type="secondary" className="text-sm">
+                        {formatJalaliDate(tx.date)} · {categoryName(tx.categoryId)} ·{" "}
+                        {accountName(tx.accountId)}
+                      </Text>
+                    </div>
                   </div>
-                </div>
+                </Flex>
                 <Text
                   strong
                   type={tx.type === "income" ? "success" : "danger"}
@@ -503,6 +575,10 @@ export default function TransactionsPage() {
           scroll={{ x: 960 }}
           pagination={false}
           size="middle"
+          rowSelection={{
+            selectedRowKeys: selectedIds,
+            onChange: (keys) => setSelectedIds(keys.map(String)),
+          }}
         />
       ) : null}
 
@@ -519,6 +595,7 @@ export default function TransactionsPage() {
               if (nextSize !== pageSize) {
                 setPageSize(nextSize);
                 setPage(1);
+                setSelectedIds([]);
                 return;
               }
               setPage(nextPage);

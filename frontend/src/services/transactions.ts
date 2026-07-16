@@ -52,6 +52,13 @@ export async function deleteTransaction(id: string): Promise<void> {
   await api.delete(`/api/transactions/${id}`);
 }
 
+export async function bulkDeleteTransactions(
+  ids: string[]
+): Promise<{ deletedCount: number }> {
+  const res = await api.post("/api/transactions/bulk-delete", { ids });
+  return res.data.data as { deletedCount: number };
+}
+
 export async function fetchCategories(): Promise<
   Array<{ _id: string; name: string; type: "income" | "expense"; color?: string }>
 > {

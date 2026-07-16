@@ -18,6 +18,8 @@ import {
   updateAccount,
 } from "@/services/accounts";
 import { formatToman } from "@/lib/format";
+import { parseAmountInput } from "@/lib/amount";
+import { AmountInput } from "@/components/ui/amount-input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { QueryError } from "@/components/ui/query-error";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -57,11 +59,14 @@ export default function AccountsPage() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      const opening = parseAmountInput(form.initialBalance);
       const payload = {
         name: form.name.trim(),
         bankName: form.bankName.trim() || undefined,
         color: form.color,
-        initialBalance: Number(form.initialBalance.replace(/,/g, "")) || 0,
+        ...(editingId
+          ? {}
+          : { initialBalance: Number.isFinite(opening) && opening > 0 ? opening : 0 }),
       };
       if (editingId) return updateAccount(editingId, payload);
       return createAccount(payload);
@@ -72,6 +77,8 @@ export default function AccountsPage() {
       setEditingId(null);
       void queryClient.invalidateQueries({ queryKey: ["accounts"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      void queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      void queryClient.invalidateQueries({ queryKey: ["categories"] });
     },
     onError: (err: unknown) => {
       const msg =
@@ -123,7 +130,7 @@ export default function AccountsPage() {
       name: account.name,
       bankName: account.bankName,
       color: account.color,
-      initialBalance: String(account.initialBalance),
+      initialBalance: "0",
     });
   }
 
@@ -183,15 +190,21 @@ export default function AccountsPage() {
                 placeholder="پاسارگاد / ملی / ..."
               />
             </Col>
-            <Col xs={24} md={12}>
-              <Text type="secondary">موجودی اولیه (تومان)</Text>
-              <Input
-                className="mt-2"
-                dir="ltr"
-                value={form.initialBalance}
-                onChange={(e) => setForm((s) => ({ ...s, initialBalance: e.target.value }))}
-              />
-            </Col>
+            {!editingId ? (
+              <Col xs={24} md={12}>
+                <Text type="secondary">موجودی اولیه (تومان)</Text>
+                <div className="mt-2">
+                  <AmountInput
+                    value={form.initialBalance}
+                    onChange={(v) => setForm((s) => ({ ...s, initialBalance: v }))}
+                    placeholder="۱۰٬۰۰۰٬۰۰۰"
+                  />
+                </div>
+                <Text type="secondary" className="mt-1 block text-xs">
+                  به‌صورت خودکار یک تراکنش درآمد «موجودی اولیه» ثبت می‌شود.
+                </Text>
+              </Col>
+            ) : null}
             <Col xs={24} md={12}>
               <Text type="secondary">رنگ</Text>
               <Flex gap={8} wrap="wrap" className="mt-2">
@@ -268,8 +281,7 @@ export default function AccountsPage() {
                     </Text>
                     <div>
                       <Text type="secondary" ellipsis className="text-sm">
-                        {account.bankName || "بدون نام بانک"} · موجودی اولیه{" "}
-                        {formatToman(account.initialBalance)}
+                        {account.bankName || "بدون نام بانک"}
                       </Text>
                     </div>
                   </div>
