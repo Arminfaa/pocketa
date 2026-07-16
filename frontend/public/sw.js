@@ -1,6 +1,18 @@
 /* global self, clients */
 /* eslint-disable no-undef */
 
+self.addEventListener("install", () => {
+  self.skipWaiting();
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(clients.claim());
+});
+
+self.addEventListener("fetch", (event) => {
+  event.respondWith(fetch(event.request));
+});
+
 self.addEventListener("push", (event) => {
   let data = { title: "Pocketa", body: "یادآوری بدهی / قسط", url: "/recurring" };
   try {
@@ -14,8 +26,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || "Pocketa", {
       body: data.body || "",
-      icon: "/logo.png",
-      badge: "/logo.png",
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
       data: { url: data.url || "/recurring" },
       dir: "rtl",
       lang: "fa",
