@@ -153,7 +153,7 @@ export default function GoalsPage() {
             onChange={(e) => setTitle(e.target.value)}
           />
           <Row gutter={[12, 12]}>
-            <Col xs={24} md={12}>
+            <Col xs={24} sm={12} md={8}>
               <Input
                 dir="ltr"
                 placeholder="مبلغ هدف (تومان)"
@@ -161,7 +161,7 @@ export default function GoalsPage() {
                 onChange={(e) => setTargetAmount(e.target.value)}
               />
             </Col>
-            <Col xs={24} md={12}>
+            <Col xs={24} sm={12} md={8}>
               <Input
                 dir="ltr"
                 placeholder="پس‌انداز فعلی"
@@ -169,15 +169,15 @@ export default function GoalsPage() {
                 onChange={(e) => setCurrentAmount(e.target.value)}
               />
             </Col>
-            <Col xs={24} md={12}>
+            <Col xs={24} sm={12} md={8}>
               <Input
                 dir="ltr"
-                placeholder="مهلت اختیاری YYYY/MM/DD"
+                placeholder="مهلت YYYY/MM/DD"
                 value={deadline}
                 onChange={(e) => setDeadline(e.target.value)}
               />
             </Col>
-            <Col xs={24} md={12}>
+            <Col xs={24}>
               <Flex gap={8} wrap="wrap" align="center">
                 {CATEGORY_COLORS.slice(0, 6).map((c) => (
                   <Button

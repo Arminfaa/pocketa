@@ -359,16 +359,6 @@ export default function RecurringPage() {
             }}
           />
 
-          <Select
-            className="w-full"
-            value={kind}
-            onChange={setKind}
-            options={[
-              { value: "recurring", label: "تکرارشونده (قسط ماهانه)" },
-              { value: "one_time", label: "بدهی یک‌باره" },
-            ]}
-          />
-
           <Input
             placeholder={
               kind === "one_time" ? "عنوان (مثلاً بدهی به علی)" : "عنوان (مثلاً قسط وام)"
@@ -376,99 +366,124 @@ export default function RecurringPage() {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
           />
-          <Input
-            dir="ltr"
-            placeholder="مبلغ تومان"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            className={cn("font-semibold", financeTypeTextClass(type))}
-          />
 
-          {kind === "recurring" ? (
-            <Row gutter={[12, 12]}>
-              <Col xs={24} md={12}>
-                <Text type="secondary" className="mb-1 block text-xs">
-                  روز موعد هر ماه
-                </Text>
-                <Space.Compact className="w-full">
-                  <InputNumber
-                    className="!w-full"
-                    min={1}
-                    max={31}
-                    value={dayOfMonth}
-                    onChange={(v) => setDayOfMonth(v ?? 1)}
-                  />
-                  <Input className="!w-[7.5rem]" value="ام هر ماه" disabled />
-                </Space.Compact>
-              </Col>
-              <Col xs={24} md={12}>
-                <Text type="secondary" className="mb-1 block text-xs">
-                  مدت تکرار
-                </Text>
-                <Select
-                  className="w-full"
-                  value={endMode}
-                  onChange={setEndMode}
-                  options={[
-                    { value: "forever", label: "همیشگی (هر ماه)" },
-                    { value: "months", label: "تا چند ماه مشخص" },
-                  ]}
-                />
-              </Col>
-              {endMode === "months" ? (
+          <Row gutter={[12, 12]}>
+            <Col xs={24} md={12}>
+              <Text type="secondary" className="mb-1 block text-xs">
+                نوع بدهی
+              </Text>
+              <Select
+                className="w-full"
+                value={kind}
+                onChange={setKind}
+                options={[
+                  { value: "recurring", label: "تکرارشونده (قسط ماهانه)" },
+                  { value: "one_time", label: "بدهی یک‌باره" },
+                ]}
+              />
+            </Col>
+            <Col xs={24} md={12}>
+              <Text type="secondary" className="mb-1 block text-xs">
+                مبلغ (تومان)
+              </Text>
+              <Input
+                dir="ltr"
+                placeholder="مبلغ تومان"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className={cn("font-semibold", financeTypeTextClass(type))}
+              />
+            </Col>
+            <Col xs={24} md={12}>
+              <Text type="secondary" className="mb-1 block text-xs">
+                دسته‌بندی
+              </Text>
+              <Select
+                className="w-full"
+                placeholder="انتخاب دسته"
+                value={categoryId || undefined}
+                onChange={setCategoryId}
+                options={categories.map((c: Category) => ({
+                  value: c._id,
+                  label: c.name,
+                }))}
+              />
+            </Col>
+            <Col xs={24} md={12}>
+              <Text type="secondary" className="mb-1 block text-xs">
+                ساعت یادآوری پوش (۳ روز قبل)
+              </Text>
+              <Select
+                className="w-full"
+                value={reminderHour}
+                onChange={setReminderHour}
+                options={HOUR_OPTIONS}
+              />
+            </Col>
+
+            {kind === "recurring" ? (
+              <>
                 <Col xs={24} md={12}>
                   <Text type="secondary" className="mb-1 block text-xs">
-                    تعداد ماه‌ها
+                    روز موعد هر ماه
                   </Text>
                   <Space.Compact className="w-full">
                     <InputNumber
                       className="!w-full"
                       min={1}
-                      max={600}
-                      value={endMonths}
-                      onChange={(v) => setEndMonths(v)}
+                      max={31}
+                      value={dayOfMonth}
+                      onChange={(v) => setDayOfMonth(v ?? 1)}
                     />
-                    <Input className="!w-16" value="ماه" disabled />
+                    <Input className="!w-[7.5rem]" value="ام هر ماه" disabled />
                   </Space.Compact>
                 </Col>
-              ) : null}
-            </Row>
-          ) : (
-            <div>
-              <Text type="secondary" className="mb-1 block text-xs">
-                تاریخ سررسید
-              </Text>
-              <Input
-                dir="ltr"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                placeholder="1405/04/25"
-              />
-            </div>
-          )}
-
-          <div>
-            <Text type="secondary" className="mb-1 block text-xs">
-              ساعت یادآوری پوش (۳ روز قبل از موعد)
-            </Text>
-            <Select
-              className="w-full"
-              value={reminderHour}
-              onChange={setReminderHour}
-              options={HOUR_OPTIONS}
-            />
-          </div>
-
-          <Select
-            className="w-full"
-            placeholder="انتخاب دسته"
-            value={categoryId || undefined}
-            onChange={setCategoryId}
-            options={categories.map((c: Category) => ({
-              value: c._id,
-              label: c.name,
-            }))}
-          />
+                <Col xs={24} md={12}>
+                  <Text type="secondary" className="mb-1 block text-xs">
+                    مدت تکرار
+                  </Text>
+                  <Select
+                    className="w-full"
+                    value={endMode}
+                    onChange={setEndMode}
+                    options={[
+                      { value: "forever", label: "همیشگی (هر ماه)" },
+                      { value: "months", label: "تا چند ماه مشخص" },
+                    ]}
+                  />
+                </Col>
+                {endMode === "months" ? (
+                  <Col xs={24} md={12}>
+                    <Text type="secondary" className="mb-1 block text-xs">
+                      تعداد ماه‌ها
+                    </Text>
+                    <Space.Compact className="w-full">
+                      <InputNumber
+                        className="!w-full"
+                        min={1}
+                        max={600}
+                        value={endMonths}
+                        onChange={(v) => setEndMonths(v)}
+                      />
+                      <Input className="!w-16" value="ماه" disabled />
+                    </Space.Compact>
+                  </Col>
+                ) : null}
+              </>
+            ) : (
+              <Col xs={24} md={12}>
+                <Text type="secondary" className="mb-1 block text-xs">
+                  تاریخ سررسید
+                </Text>
+                <Input
+                  dir="ltr"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                  placeholder="1405/04/25"
+                />
+              </Col>
+            )}
+          </Row>
 
           <Button
             type="primary"

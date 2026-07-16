@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { App, Button, Card, Flex, Grid, Input, Popconfirm, Space, Typography } from "antd";
+import { App, Button, Card, Col, Flex, Grid, Input, Popconfirm, Row, Space, Typography } from "antd";
 import {
   BankOutlined,
   DeleteOutlined,
@@ -164,8 +164,8 @@ export default function AccountsPage() {
         }
       >
         <Space orientation="vertical" size="middle" className="w-full">
-          <Flex gap="middle" wrap="wrap">
-            <div className="flex-[1_1_200px]">
+          <Row gutter={[12, 12]}>
+            <Col xs={24} md={12}>
               <Text type="secondary">نام حساب</Text>
               <Input
                 className="mt-2"
@@ -173,8 +173,8 @@ export default function AccountsPage() {
                 onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
                 placeholder="مثلاً کارت پاسارگاد"
               />
-            </div>
-            <div className="flex-[1_1_200px]">
+            </Col>
+            <Col xs={24} md={12}>
               <Text type="secondary">نام بانک (اختیاری)</Text>
               <Input
                 className="mt-2"
@@ -182,8 +182,8 @@ export default function AccountsPage() {
                 onChange={(e) => setForm((s) => ({ ...s, bankName: e.target.value }))}
                 placeholder="پاسارگاد / ملی / ..."
               />
-            </div>
-            <div className="flex-[1_1_200px]">
+            </Col>
+            <Col xs={24} md={12}>
               <Text type="secondary">موجودی اولیه (تومان)</Text>
               <Input
                 className="mt-2"
@@ -191,8 +191,8 @@ export default function AccountsPage() {
                 value={form.initialBalance}
                 onChange={(e) => setForm((s) => ({ ...s, initialBalance: e.target.value }))}
               />
-            </div>
-            <div className="flex-[1_1_200px]">
+            </Col>
+            <Col xs={24} md={12}>
               <Text type="secondary">رنگ</Text>
               <Flex gap={8} wrap="wrap" className="mt-2">
                 {COLORS.map((c) => (
@@ -211,8 +211,8 @@ export default function AccountsPage() {
                   />
                 ))}
               </Flex>
-            </div>
-          </Flex>
+            </Col>
+          </Row>
 
           <Space>
             <Button
