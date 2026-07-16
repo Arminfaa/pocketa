@@ -2,6 +2,7 @@
 
 import { PropsWithChildren } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { usePathname } from "next/navigation";
 import { Sidebar } from "./Sidebar";
 import { useUiStore } from "@/stores/ui.store";
 import { useThemeStore } from "@/stores/theme.store";
@@ -9,8 +10,10 @@ import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { fetchAccounts } from "@/services/accounts";
 import { LayoutGrid, SunMoon } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { PageMotion } from "@/components/ui/page-motion";
 
 export default function AppLayout({ children }: PropsWithChildren) {
+  const pathname = usePathname();
   const collapsed = useUiStore((s) => s.sidebarCollapsed);
   const toggleCollapse = useUiStore((s) => s.toggleSidebarCollapsed);
   const mode = useThemeStore((s) => s.mode);
@@ -66,7 +69,9 @@ export default function AppLayout({ children }: PropsWithChildren) {
           </div>
         </header>
 
-        <main className="p-4 md:p-6">{children}</main>
+        <main className="p-4 md:p-6">
+          <PageMotion key={pathname}>{children}</PageMotion>
+        </main>
       </div>
     </div>
   );

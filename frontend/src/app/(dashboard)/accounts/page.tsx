@@ -12,6 +12,8 @@ import {
 } from "@/services/accounts";
 import { formatToman } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
+import { QueryError } from "@/components/ui/query-error";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { BankAccount } from "@/types/account";
 
 const COLORS = ["#06b6d4", "#8b5cf6", "#f59e0b", "#ef4444", "#22c55e", "#3b82f6", "#ec4899"];
@@ -199,9 +201,7 @@ export default function AccountsPage() {
       ) : null}
 
       {q.error ? (
-        <div className="rounded-2xl border border-[var(--border)] p-6 text-[var(--muted)]">
-          خطا در دریافت حساب‌ها.
-        </div>
+        <QueryError message="خطا در دریافت حساب‌ها." onRetry={() => void q.refetch()} />
       ) : null}
 
       <div className="space-y-3">
@@ -256,9 +256,11 @@ export default function AccountsPage() {
         ))}
 
         {!q.isLoading && (q.data?.length ?? 0) === 0 ? (
-          <div className="rounded-2xl border border-dashed border-[var(--border)] p-8 text-center text-[var(--muted)]">
-            هنوز حسابی ثبت نشده است.
-          </div>
+          <EmptyState
+            icon={Landmark}
+            title="هنوز حسابی ثبت نشده است"
+            description="اولین حساب بانکی خود را بسازید تا تراکنش‌ها و ایمپورت به آن وصل شوند."
+          />
         ) : null}
       </div>
     </div>

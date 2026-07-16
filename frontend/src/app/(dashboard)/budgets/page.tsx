@@ -3,12 +3,14 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AlertTriangle, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, Plus, Trash2, Wallet } from "lucide-react";
 import { deleteBudget, fetchBudgets, upsertBudget } from "@/services/budgets";
 import { fetchCategories } from "@/services/categories";
 import { formatToman } from "@/lib/format";
 import { getJalaliMonthYear, MONTH_LABELS } from "@/lib/finance-ui";
 import { Skeleton } from "@/components/ui/skeleton";
+import { QueryError } from "@/components/ui/query-error";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export default function BudgetsPage() {
   const queryClient = useQueryClient();
@@ -178,7 +180,10 @@ export default function BudgetsPage() {
 
       {budgetsQ.isLoading ? <Skeleton className="h-40 w-full" /> : null}
       {budgetsQ.error ? (
-        <div className="text-[var(--muted)]">خطا در دریافت بودجه‌ها.</div>
+        <QueryError
+          message="خطا در دریافت بودجه‌ها."
+          onRetry={() => void budgetsQ.refetch()}
+        />
       ) : null}
 
       <div className="grid gap-3 md:grid-cols-2">
@@ -243,9 +248,11 @@ export default function BudgetsPage() {
       </div>
 
       {!budgetsQ.isLoading && items.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[var(--border)] p-8 text-center text-[var(--muted)]">
-          بودجه‌ای برای {MONTH_LABELS[month - 1]} {year} ثبت نشده است.
-        </div>
+        <EmptyState
+          icon={Wallet}
+          title={`بودجه‌ای برای ${MONTH_LABELS[month - 1]} ${year} ثبت نشده`}
+          description="برای دسته‌های هزینه سقف ماهانه تعریف کنید."
+        />
       ) : null}
     </div>
   );

@@ -10,8 +10,13 @@ const vazir = Vazirmatn({
 });
 
 export const metadata: Metadata = {
-  title: "Pocketa - مدیریت مالی شخصی",
-  description: "مدیریت درآمدها، هزینه‌ها و بودجه‌بندی با Pocketa",
+  title: {
+    default: "Pocketa — مدیریت مالی شخصی",
+    template: "%s | Pocketa",
+  },
+  description:
+    "SaaS مدیریت مالی شخصی فارسی و RTL: تراکنش، بودجه، ایمپورت پیامک بانکی، گزارش شمسی و تومان.",
+  applicationName: "Pocketa",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

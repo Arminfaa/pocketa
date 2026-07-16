@@ -14,6 +14,7 @@ import {
   Search,
   Trash2,
   AlertCircle,
+  ReceiptText,
 } from "lucide-react";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { fetchAccounts } from "@/services/accounts";
@@ -29,6 +30,8 @@ import { formatJalaliDate, formatToman } from "@/lib/format";
 import { accountName, categoryName } from "@/lib/transaction-helpers";
 import { exportTransactionsCsv } from "@/lib/export-transactions-csv";
 import { Skeleton } from "@/components/ui/skeleton";
+import { QueryError } from "@/components/ui/query-error";
+import { EmptyState } from "@/components/ui/empty-state";
 import { TransactionFormModal } from "@/features/transactions/TransactionFormModal";
 
 type Filters = {
@@ -289,15 +292,18 @@ export default function TransactionsPage() {
 
       {listQ.isLoading ? <Skeleton className="h-64 w-full" /> : null}
       {listQ.error ? (
-        <div className="rounded-2xl border border-[var(--border)] p-6 text-[var(--muted)]">
-          خطا در دریافت تراکنش‌ها.
-        </div>
+        <QueryError
+          message="خطا در دریافت تراکنش‌ها."
+          onRetry={() => void listQ.refetch()}
+        />
       ) : null}
 
       {!listQ.isLoading && items.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[var(--border)] p-10 text-center text-[var(--muted)]">
-          تراکنشی یافت نشد. یک تراکنش جدید اضافه کنید.
-        </div>
+        <EmptyState
+          icon={ReceiptText}
+          title="تراکنشی یافت نشد"
+          description="یک تراکنش جدید اضافه کنید یا فیلترها را تغییر دهید."
+        />
       ) : null}
 
       {/* Mobile cards */}

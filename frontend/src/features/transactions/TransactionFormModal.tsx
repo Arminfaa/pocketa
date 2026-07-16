@@ -4,6 +4,7 @@ import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
 import type { Transaction } from "@/types/transaction";
 import type { BankAccount } from "@/types/account";
@@ -107,17 +108,26 @@ export function TransactionFormModal({
     }
   }, [type, filteredCategories, form]);
 
-  if (!open) return null;
-
   return (
+    <AnimatePresence>
+      {open ? (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <button
+      <motion.button
         type="button"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
         className="absolute inset-0 bg-black/55"
         aria-label="بستن"
         onClick={onClose}
       />
-      <div className="relative w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-soft max-h-[90vh] overflow-y-auto">
+      <motion.div
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 16 }}
+        transition={{ duration: 0.22, ease: "easeOut" }}
+        className="relative w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-soft max-h-[90vh] overflow-y-auto"
+      >
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">
             {initial ? "ویرایش تراکنش" : "افزودن تراکنش"}
@@ -266,7 +276,9 @@ export function TransactionFormModal({
             {submitting ? "در حال ذخیره..." : initial ? "ذخیره تغییرات" : "ثبت تراکنش"}
           </button>
         </form>
-      </div>
+      </motion.div>
     </div>
+      ) : null}
+    </AnimatePresence>
   );
 }
