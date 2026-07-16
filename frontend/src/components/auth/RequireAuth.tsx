@@ -24,8 +24,10 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
 
       try {
         const res = await api.get("/api/auth/me");
-        setUser(res.data?.data?.user ?? null);
+        const nextUser = res.data?.data?.user ?? null;
+        setUser(nextUser);
         setSessionChecked(true);
+        if (!nextUser) router.replace("/login");
       } catch {
         useAuthStore.getState().logout();
         router.replace("/login");
@@ -33,6 +35,13 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
     }
     void run();
   }, [hydrated, router, sessionChecked, setSessionChecked, setUser]);
+
+  // Avoid infinite "preparing" when session was marked checked but user cleared (e.g. 401 logout).
+  useEffect(() => {
+    if (hydrated && sessionChecked && !user) {
+      router.replace("/login");
+    }
+  }, [hydrated, sessionChecked, user, router]);
 
   if (!hydrated || !sessionChecked || !user) {
     return (

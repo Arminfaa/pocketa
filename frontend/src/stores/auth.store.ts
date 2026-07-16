@@ -32,7 +32,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ hydrated: true });
   },
 
-  setUser: (user) => set({ user }),
+  setUser: (user) => set({ user, hydrated: true }),
 
   setSessionChecked: (checked) => set({ sessionChecked: checked }),
 
@@ -40,3 +40,4 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ user: null, hydrated: true, sessionChecked: true });
   },
 }));
+
