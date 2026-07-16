@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import { AlertCircle, Check, ClipboardCheck, Sparkles } from "lucide-react";
+import { App, Button, Card, Flex, Input, Select, Space, Typography } from "antd";
+import { CheckOutlined, WarningOutlined, ThunderboltOutlined } from "@ant-design/icons";
 import {
   fetchCategories,
   fetchTransactions,
@@ -22,7 +22,10 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { TagsInput } from "@/components/ui/tags-input";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
 
+const { Title, Text } = Typography;
+
 export default function ReviewPage() {
+  const { message } = App.useApp();
   const queryClient = useQueryClient();
   const selectedAccountId = useAccountFilterStore((s) => s.selectedAccountId);
 
@@ -69,7 +72,7 @@ export default function ReviewPage() {
       });
     },
     onSuccess: (_data, tx) => {
-      toast.success("عنوان ذخیره شد");
+      message.success("عنوان ذخیره شد");
       setDrafts((d) => {
         const next = { ...d };
         delete next[tx._id];
@@ -79,12 +82,12 @@ export default function ReviewPage() {
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
     onError: (err: unknown) => {
-      const message =
+      const msg =
         err instanceof Error
           ? err.message
           : (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
             "خطا در ذخیره";
-      toast.error(message);
+      message.error(msg);
     },
   });
 
@@ -96,7 +99,7 @@ export default function ReviewPage() {
     },
     onSuccess: (result, tx) => {
       if (!result.suggestion) {
-        toast.message("پیشنهادی پیدا نشد");
+        message.info("پیشنهادی پیدا نشد");
         return;
       }
       const draft = getDraft(tx);
@@ -104,131 +107,120 @@ export default function ReviewPage() {
         ...d,
         [tx._id]: { ...draft, categoryId: result.suggestion!._id },
       }));
-      toast.success(`پیشنهاد: ${result.suggestion.name}`);
+      message.success(`پیشنهاد: ${result.suggestion.name}`);
     },
   });
 
   const items = listQ.data?.items ?? [];
 
   return (
-    <div className="space-y-4 max-w-3xl">
+    <Space direction="vertical" size="middle" style={{ width: "100%", maxWidth: 768 }}>
       <div>
-        <h1 className="text-xl font-semibold flex items-center gap-2">
-          <AlertCircle size={22} className="text-amber-300" />
-          نام‌گذاری تراکنش‌های ایمپورت‌شده
-        </h1>
-        <p className="text-sm text-[var(--muted)] mt-1">
+        <Title level={4} style={{ margin: 0 }}>
+          <Space>
+            <WarningOutlined style={{ color: "#fbbf24" }} />
+            نام‌گذاری تراکنش‌های ایمپورت‌شده
+          </Space>
+        </Title>
+        <Text type="secondary">
           برای هر واریز/برداشت مشخص کنید برای چه بوده، سپس ذخیره کنید.
-        </p>
+        </Text>
       </div>
 
       {listQ.isLoading ? <Skeleton className="h-48 w-full" /> : null}
 
       {!listQ.isLoading && items.length === 0 ? (
         <EmptyState
-          icon={ClipboardCheck}
           title="موردی برای بررسی نیست"
           description="از صفحه ایمپورت پیامک بانکی شروع کنید تا تراکنش‌های جدید اینجا بیایند."
         />
       ) : null}
 
-      <div className="space-y-3">
+      <Space direction="vertical" size="middle" style={{ width: "100%" }}>
         {items.map((tx) => {
           const draft = getDraft(tx);
           const cats = (categoriesQ.data ?? []).filter((c) => c.type === tx.type);
           return (
-            <div
-              key={tx._id}
-              className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4 space-y-3"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="text-sm text-[var(--muted)]">
-                  {formatJalaliDate(tx.date)}
-                  {tx.bankMeta?.time ? ` · ${tx.bankMeta.time}` : ""}
-                  {" · "}
-                  {accountName(tx.accountId)}
-                  {" · "}
-                  {categoryName(tx.categoryId)}
-                </div>
-                <div
-                  className={
-                    tx.type === "income"
-                      ? "text-emerald-400 font-semibold"
-                      : "text-red-400 font-semibold"
-                  }
-                >
-                  {tx.type === "income" ? "+" : "-"}
-                  {formatToman(tx.amount)}
-                </div>
-              </div>
+            <Card key={tx._id}>
+              <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+                <Flex justify="space-between" align="flex-start" gap="middle" wrap="wrap">
+                  <Text type="secondary" style={{ fontSize: 13 }}>
+                    {formatJalaliDate(tx.date)}
+                    {tx.bankMeta?.time ? ` · ${tx.bankMeta.time}` : ""}
+                    {" · "}
+                    {accountName(tx.accountId)}
+                    {" · "}
+                    {categoryName(tx.categoryId)}
+                  </Text>
+                  <Text
+                    strong
+                    style={{ color: tx.type === "income" ? "#34d399" : "#f87171" }}
+                  >
+                    {tx.type === "income" ? "+" : "-"}
+                    {formatToman(tx.amount)}
+                  </Text>
+                </Flex>
 
-              <input
-                className="w-full rounded-xl border border-[var(--border)] bg-transparent px-3 py-3 outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                placeholder="مثلاً اجاره / حقوق / خرید لپ‌تاپ"
-                value={draft.title}
-                onChange={(e) =>
-                  setDrafts((d) => ({
-                    ...d,
-                    [tx._id]: { ...draft, title: e.target.value },
-                  }))
-                }
-                onBlur={() => {
-                  if (draft.title.trim().length >= 2) {
-                    suggestMutation.mutate(tx);
-                  }
-                }}
-              />
-
-              <div className="flex gap-2 items-center">
-                <select
-                  className="flex-1 rounded-xl border border-[var(--border)] bg-transparent px-3 py-3 outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                  value={draft.categoryId}
+                <Input
+                  placeholder="مثلاً اجاره / حقوق / خرید لپ‌تاپ"
+                  value={draft.title}
                   onChange={(e) =>
                     setDrafts((d) => ({
                       ...d,
-                      [tx._id]: { ...draft, categoryId: e.target.value },
+                      [tx._id]: { ...draft, title: e.target.value },
                     }))
                   }
-                >
-                  {cats.map((c) => (
-                    <option key={c._id} value={c._id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  title="پیشنهاد دسته از عنوان"
-                  onClick={() => suggestMutation.mutate(tx)}
-                  className="h-11 w-11 rounded-xl border border-[var(--border)] flex items-center justify-center text-brand-400 hover:bg-white/5"
-                >
-                  <Sparkles size={16} />
-                </button>
-              </div>
+                  onBlur={() => {
+                    if (draft.title.trim().length >= 2) {
+                      suggestMutation.mutate(tx);
+                    }
+                  }}
+                />
 
-              <TagsInput
-                value={draft.tags}
-                onChange={(tags) =>
-                  setDrafts((d) => ({
-                    ...d,
-                    [tx._id]: { ...draft, tags },
-                  }))
-                }
-              />
+                <Flex gap="small" align="center">
+                  <Select
+                    style={{ flex: 1 }}
+                    value={draft.categoryId}
+                    onChange={(categoryId) =>
+                      setDrafts((d) => ({
+                        ...d,
+                        [tx._id]: { ...draft, categoryId },
+                      }))
+                    }
+                    options={cats.map((c) => ({ value: c._id, label: c.name }))}
+                  />
+                  <Button
+                    type="default"
+                    icon={<ThunderboltOutlined />}
+                    title="پیشنهاد دسته از عنوان"
+                    loading={suggestMutation.isPending}
+                    onClick={() => suggestMutation.mutate(tx)}
+                  />
+                </Flex>
 
-              <button
-                type="button"
-                disabled={saveMutation.isPending}
-                onClick={() => saveMutation.mutate(tx)}
-                className="inline-flex items-center gap-2 rounded-xl bg-brand-500 text-white px-4 py-2.5 text-sm font-medium hover:opacity-95 disabled:opacity-60"
-              >
-                <Check size={16} />
-                ذخیره و خروج از بررسی
-              </button>
-            </div>
+                <TagsInput
+                  value={draft.tags}
+                  onChange={(tags) =>
+                    setDrafts((d) => ({
+                      ...d,
+                      [tx._id]: { ...draft, tags },
+                    }))
+                  }
+                />
+
+                <Button
+                  type="primary"
+                  icon={<CheckOutlined />}
+                  loading={saveMutation.isPending}
+                  onClick={() => saveMutation.mutate(tx)}
+                >
+                  ذخیره و خروج از بررسی
+                </Button>
+              </Space>
+            </Card>
           );
         })}
-      </div>
-    </div>
+      </Space>
+    </Space>
   );
 }

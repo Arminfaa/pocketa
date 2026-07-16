@@ -2,8 +2,23 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import { CalendarClock, Play, Plus, Trash2 } from "lucide-react";
+import {
+  Alert,
+  App,
+  Button,
+  Card,
+  Col,
+  Flex,
+  Input,
+  Popconfirm,
+  Radio,
+  Row,
+  Select,
+  Space,
+  Tag,
+  Typography,
+} from "antd";
+import { CaretRightOutlined, DeleteOutlined, PlusOutlined, CalendarOutlined } from "@ant-design/icons";
 import {
   createRecurring,
   deleteRecurring,
@@ -18,6 +33,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { QueryError } from "@/components/ui/query-error";
 
+const { Title, Text } = Typography;
+
 const FREQ_LABEL: Record<string, string> = {
   weekly: "هفتگی",
   monthly: "ماهانه",
@@ -25,6 +42,7 @@ const FREQ_LABEL: Record<string, string> = {
 };
 
 export default function RecurringPage() {
+  const { message } = App.useApp();
   const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
@@ -62,43 +80,43 @@ export default function RecurringPage() {
       });
     },
     onSuccess: () => {
-      toast.success("پرداخت تکرارشونده ثبت شد");
+      message.success("پرداخت تکرارشونده ثبت شد");
       setTitle("");
       setAmount("");
       setCategoryId("");
       void queryClient.invalidateQueries({ queryKey: ["recurring"] });
     },
     onError: (err: unknown) => {
-      const message =
+      const msg =
         err instanceof Error
           ? err.message
           : (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
             "خطا در ذخیره";
-      toast.error(message);
+      message.error(msg);
     },
   });
 
   const generateMutation = useMutation({
     mutationFn: (id: string) => generateRecurring(id),
     onSuccess: () => {
-      toast.success("تراکنش ساخته شد و موعد بعدی جلو رفت");
+      message.success("تراکنش ساخته شد و موعد بعدی جلو رفت");
       void queryClient.invalidateQueries({ queryKey: ["recurring"] });
       void queryClient.invalidateQueries({ queryKey: ["transactions"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       void queryClient.invalidateQueries({ queryKey: ["accounts"] });
     },
     onError: (err: unknown) => {
-      const message =
+      const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         "خطا در تولید تراکنش";
-      toast.error(message);
+      message.error(msg);
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteRecurring(id),
     onSuccess: () => {
-      toast.success("حذف شد");
+      message.success("حذف شد");
       void queryClient.invalidateQueries({ queryKey: ["recurring"] });
     },
   });
@@ -106,125 +124,117 @@ export default function RecurringPage() {
   const items = listQ.data?.items ?? [];
 
   return (
-    <div className="space-y-5 max-w-3xl">
+    <Space direction="vertical" size="large" style={{ width: "100%", maxWidth: 768 }}>
       <div>
-        <h1 className="text-xl font-semibold flex items-center gap-2">
-          <CalendarClock size={22} />
-          پرداخت‌های تکرارشونده
-        </h1>
-        <p className="text-sm text-[var(--muted)] mt-1">
+        <Title level={4} style={{ margin: 0 }}>
+          <Space>
+            <CalendarOutlined />
+            پرداخت‌های تکرارشونده
+          </Space>
+        </Title>
+        <Text type="secondary">
           اجاره، اینترنت، حقوق و ... را ثبت کنید و در موعد با یک کلیک به تراکنش تبدیل کنید.
-        </p>
+        </Text>
       </div>
 
       {(listQ.data?.dueCount ?? 0) > 0 ? (
-        <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-amber-200">
-          {listQ.data?.dueCount} مورد به موعد رسیده یا گذشته است.
-        </div>
+        <Alert
+          type="warning"
+          showIcon
+          message={`${listQ.data?.dueCount} مورد به موعد رسیده یا گذشته است.`}
+        />
       ) : null}
 
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4 space-y-3">
-        <div className="font-medium flex items-center gap-2">
-          <Plus size={18} />
-          افزودن مورد جدید
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              setType("expense");
+      <Card
+        title={
+          <Space>
+            <PlusOutlined />
+            افزودن مورد جدید
+          </Space>
+        }
+      >
+        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+          <Radio.Group
+            value={type}
+            onChange={(e) => {
+              setType(e.target.value);
               setCategoryId("");
             }}
-            className={`rounded-xl py-3 border ${
-              type === "expense"
-                ? "border-red-400/50 bg-red-500/10 text-red-300"
-                : "border-[var(--border)]"
-            }`}
+            optionType="button"
+            buttonStyle="solid"
+            block
           >
-            هزینه
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setType("income");
-              setCategoryId("");
-            }}
-            className={`rounded-xl py-3 border ${
-              type === "income"
-                ? "border-emerald-400/50 bg-emerald-500/10 text-emerald-300"
-                : "border-[var(--border)]"
-            }`}
-          >
-            درآمد
-          </button>
-        </div>
+            <Radio.Button value="expense">هزینه</Radio.Button>
+            <Radio.Button value="income">درآمد</Radio.Button>
+          </Radio.Group>
 
-        <input
-          className="w-full rounded-xl border border-[var(--border)] bg-transparent px-3 py-3"
-          placeholder="عنوان (مثلاً اینترنت)"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-        <input
-          dir="ltr"
-          className="w-full rounded-xl border border-[var(--border)] bg-transparent px-3 py-3"
-          placeholder="مبلغ تومان"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-        />
-
-        <div className="grid gap-3 md:grid-cols-2">
-          <select
-            className="rounded-xl border border-[var(--border)] bg-transparent px-3 py-3"
-            value={frequency}
-            onChange={(e) => setFrequency(e.target.value as typeof frequency)}
-          >
-            <option value="weekly">هفتگی</option>
-            <option value="monthly">ماهانه</option>
-            <option value="yearly">سالانه</option>
-          </select>
-          <input
-            dir="ltr"
-            className="rounded-xl border border-[var(--border)] bg-transparent px-3 py-3"
-            value={nextPaymentDate}
-            onChange={(e) => setNextPaymentDate(e.target.value)}
-            placeholder="1405/04/01"
+          <Input
+            placeholder="عنوان (مثلاً اینترنت)"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
           />
-          <select
-            className="rounded-xl border border-[var(--border)] bg-transparent px-3 py-3"
-            value={accountId || accountsQ.data?.[0]?.id || ""}
-            onChange={(e) => setAccountId(e.target.value)}
-          >
-            {(accountsQ.data ?? []).map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </select>
-          <select
-            className="rounded-xl border border-[var(--border)] bg-transparent px-3 py-3"
-            value={categoryId}
-            onChange={(e) => setCategoryId(e.target.value)}
-          >
-            <option value="">انتخاب دسته</option>
-            {categories.map((c) => (
-              <option key={c._id} value={c._id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
+          <Input
+            dir="ltr"
+            placeholder="مبلغ تومان"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+          />
 
-        <button
-          type="button"
-          disabled={createMutation.isPending}
-          onClick={() => createMutation.mutate()}
-          className="rounded-xl bg-brand-500 text-white px-4 py-3 font-medium hover:opacity-95 disabled:opacity-60"
-        >
-          {createMutation.isPending ? "در حال ذخیره..." : "ثبت"}
-        </button>
-      </div>
+          <Row gutter={[12, 12]}>
+            <Col xs={24} md={12}>
+              <Select
+                style={{ width: "100%" }}
+                value={frequency}
+                onChange={setFrequency}
+                options={[
+                  { value: "weekly", label: "هفتگی" },
+                  { value: "monthly", label: "ماهانه" },
+                  { value: "yearly", label: "سالانه" },
+                ]}
+              />
+            </Col>
+            <Col xs={24} md={12}>
+              <Input
+                dir="ltr"
+                value={nextPaymentDate}
+                onChange={(e) => setNextPaymentDate(e.target.value)}
+                placeholder="1405/04/01"
+              />
+            </Col>
+            <Col xs={24} md={12}>
+              <Select
+                style={{ width: "100%" }}
+                value={accountId || accountsQ.data?.[0]?.id || undefined}
+                onChange={setAccountId}
+                options={(accountsQ.data ?? []).map((a) => ({
+                  value: a.id,
+                  label: a.name,
+                }))}
+              />
+            </Col>
+            <Col xs={24} md={12}>
+              <Select
+                style={{ width: "100%" }}
+                placeholder="انتخاب دسته"
+                value={categoryId || undefined}
+                onChange={setCategoryId}
+                options={categories.map((c) => ({
+                  value: c._id,
+                  label: c.name,
+                }))}
+              />
+            </Col>
+          </Row>
+
+          <Button
+            type="primary"
+            loading={createMutation.isPending}
+            onClick={() => createMutation.mutate()}
+          >
+            {createMutation.isPending ? "در حال ذخیره..." : "ثبت"}
+          </Button>
+        </Space>
+      </Card>
 
       {listQ.isLoading ? <Skeleton className="h-40 w-full" /> : null}
       {listQ.error ? (
@@ -234,70 +244,74 @@ export default function RecurringPage() {
         />
       ) : null}
 
-      <div className="space-y-3">
+      <Space direction="vertical" size="middle" style={{ width: "100%" }}>
         {items.map((item) => {
           const accountName =
             typeof item.account === "object" && item.account ? item.account.name : "—";
           const categoryName =
             typeof item.category === "object" && item.category ? item.category.name : "—";
           return (
-            <div
+            <Card
               key={item.id}
-              className={`rounded-2xl border bg-[var(--card)] p-4 space-y-3 ${
-                item.isDue ? "border-amber-400/40" : "border-[var(--border)]"
-              }`}
+              style={{
+                borderColor: item.isDue ? "rgba(245, 158, 11, 0.4)" : undefined,
+              }}
             >
-              <div className="flex items-start justify-between gap-3">
+              <Flex justify="space-between" align="flex-start" gap="middle">
                 <div>
-                  <div className="font-medium">{item.title}</div>
-                  <div className="text-sm text-[var(--muted)] mt-1">
-                    {FREQ_LABEL[item.frequency] ?? item.frequency} · موعد{" "}
-                    {formatJalaliDate(item.nextPaymentDate)} · {accountName} · {categoryName}
-                    {item.isDue ? " · سررسید شده" : ""}
+                  <Text strong>{item.title}</Text>
+                  <div>
+                    <Text type="secondary">
+                      {FREQ_LABEL[item.frequency] ?? item.frequency} · موعد{" "}
+                      {formatJalaliDate(item.nextPaymentDate)} · {accountName} · {categoryName}
+                      {item.isDue ? (
+                        <Tag color="orange" style={{ marginInlineStart: 4 }}>
+                          سررسید شده
+                        </Tag>
+                      ) : null}
+                    </Text>
                   </div>
                 </div>
-                <div
-                  className={
-                    item.type === "income"
-                      ? "text-emerald-400 font-semibold"
-                      : "text-red-400 font-semibold"
-                  }
+                <Text
+                  strong
+                  style={{ color: item.type === "income" ? "#34d399" : "#f87171" }}
                 >
                   {formatToman(item.amount)}
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
+                </Text>
+              </Flex>
+              <Space style={{ marginTop: 12 }}>
+                <Button
+                  type="primary"
+                  icon={<CaretRightOutlined />}
+                  loading={generateMutation.isPending}
                   onClick={() => generateMutation.mutate(item.id)}
-                  className="inline-flex items-center gap-2 rounded-xl bg-brand-500 text-white px-3 py-2 text-sm"
                 >
-                  <Play size={14} />
                   ثبت تراکنش الان
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (confirm("حذف شود؟")) deleteMutation.mutate(item.id);
-                  }}
-                  className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] px-3 py-2 text-sm text-red-300"
+                </Button>
+                <Popconfirm
+                  title="حذف مورد"
+                  description="حذف شود؟"
+                  okText="حذف"
+                  cancelText="انصراف"
+                  okButtonProps={{ danger: true }}
+                  onConfirm={() => deleteMutation.mutate(item.id)}
                 >
-                  <Trash2 size={14} />
-                  حذف
-                </button>
-              </div>
-            </div>
+                  <Button danger icon={<DeleteOutlined />}>
+                    حذف
+                  </Button>
+                </Popconfirm>
+              </Space>
+            </Card>
           );
         })}
-      </div>
+      </Space>
 
       {!listQ.isLoading && items.length === 0 ? (
         <EmptyState
-          icon={CalendarClock}
           title="هنوز پرداخت تکرارشونده‌ای ثبت نشده"
           description="اجاره، اینترنت یا حقوق را اینجا تعریف کنید."
         />
       ) : null}
-    </div>
+    </Space>
   );
 }

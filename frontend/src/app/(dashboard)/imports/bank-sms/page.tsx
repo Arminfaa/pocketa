@@ -3,13 +3,33 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
-import { FileInput, CheckCircle2, AlertTriangle } from "lucide-react";
+import {
+  Alert,
+  App,
+  Button,
+  Card,
+  Checkbox,
+  Flex,
+  Input,
+  List,
+  Select,
+  Space,
+  Tag,
+  Typography,
+} from "antd";
+import {
+  CheckCircleOutlined,
+  FileTextOutlined,
+  WarningOutlined,
+} from "@ant-design/icons";
 import { fetchAccounts } from "@/services/accounts";
 import { confirmBankSms, previewBankSms, type ParsedImportItem } from "@/services/imports";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { formatToman, formatJalaliDate } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
+
+const { Title, Text } = Typography;
+const { TextArea } = Input;
 
 function currentJalaliYearGuess(): number {
   try {
@@ -24,6 +44,7 @@ function currentJalaliYearGuess(): number {
 }
 
 export default function BankSmsImportPage() {
+  const { message } = App.useApp();
   const router = useRouter();
   const queryClient = useQueryClient();
   const selectedAccountId = useAccountFilterStore((s) => s.selectedAccountId);
@@ -60,13 +81,13 @@ export default function BankSmsImportPage() {
         next[item.importHash] = !item.isDuplicate;
       }
       setSelected(next);
-      toast.success(`${data.parsedCount} پیامک شناسایی شد`);
+      message.success(`${data.parsedCount} پیامک شناسایی شد`);
     },
     onError: (err: unknown) => {
-      const message =
+      const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         "خطا در پردازش پیامک‌ها";
-      toast.error(message);
+      message.error(msg);
     },
   });
 
@@ -84,9 +105,9 @@ export default function BankSmsImportPage() {
       });
     },
     onSuccess: (data) => {
-      toast.success(`${data.importedCount} تراکنش وارد شد`);
+      message.success(`${data.importedCount} تراکنش وارد شد`);
       if (data.balanceSync) {
-        toast.message(
+        message.info(
           `موجودی حساب همگام شد: ${formatToman(data.balanceSync.previousBalance)} → ${formatToman(data.balanceSync.balance)}`
         );
       }
@@ -97,10 +118,10 @@ export default function BankSmsImportPage() {
       router.push("/review");
     },
     onError: (err: unknown) => {
-      const message =
+      const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         "خطا در ذخیره ایمپورت";
-      toast.error(message);
+      message.error(msg);
     },
   });
 
@@ -110,88 +131,94 @@ export default function BankSmsImportPage() {
   );
 
   return (
-    <div className="space-y-5 max-w-4xl">
+    <Space direction="vertical" size="large" style={{ width: "100%", maxWidth: 896 }}>
       <div>
-        <h1 className="text-xl font-semibold flex items-center gap-2">
-          <FileInput size={22} />
-          ایمپورت پیامک بانکی
-        </h1>
-        <p className="text-sm text-[var(--muted)] mt-1">
+        <Title level={4} style={{ margin: 0 }}>
+          <Space>
+            <FileTextOutlined />
+            ایمپورت پیامک بانکی
+          </Space>
+        </Title>
+        <Text type="secondary">
           پیامک‌های بانک (پاسارگاد / ملی و ...) را Paste کنید. مبالغ به{" "}
-          <strong>ریال</strong> هستند و خودکار به <strong>تومان</strong> تبدیل می‌شوند
+          <Text strong>ریال</Text> هستند و خودکار به <Text strong>تومان</Text> تبدیل می‌شوند
           (÷۱۰). فرمت‌های ملی مثل انتقال، اصلاحیه، کارت و واریز پشتیبانی می‌شوند.
-        </p>
+        </Text>
       </div>
 
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4 space-y-4">
-        <div className="grid gap-3 md:grid-cols-2">
-          <label className="text-sm text-[var(--muted)]">
-            حساب مقصد
-            {accountsQ.isLoading ? <Skeleton className="h-11 w-full mt-2" /> : null}
-            {!accountsQ.isLoading ? (
-              <select
-                className="mt-2 w-full rounded-xl border border-[var(--border)] bg-transparent px-3 py-3 outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                value={effectiveAccountId}
-                onChange={(e) => setAccountId(e.target.value)}
-              >
-                {(accountsQ.data ?? []).map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                    {a.bankName ? ` · ${a.bankName}` : ""}
-                  </option>
-                ))}
-              </select>
-            ) : null}
-          </label>
+      <Card>
+        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+          <Flex gap="middle" wrap="wrap">
+            <div style={{ flex: "1 1 200px" }}>
+              <Text type="secondary">حساب مقصد</Text>
+              {accountsQ.isLoading ? (
+                <Skeleton className="h-11 w-full mt-2" rows={1} />
+              ) : (
+                <Select
+                  style={{ width: "100%", marginTop: 8 }}
+                  value={effectiveAccountId}
+                  onChange={setAccountId}
+                  options={(accountsQ.data ?? []).map((a) => ({
+                    value: a.id,
+                    label: `${a.name}${a.bankName ? ` · ${a.bankName}` : ""}`,
+                  }))}
+                />
+              )}
+            </div>
 
-          <label className="text-sm text-[var(--muted)]">
-            سال شمسی (برای تاریخ‌های بدون سال)
-            <input
+            <div style={{ flex: "1 1 200px" }}>
+              <Text type="secondary">سال شمسی (برای تاریخ‌های بدون سال)</Text>
+              <Input
+                style={{ marginTop: 8 }}
+                dir="ltr"
+                value={jalaliYear}
+                onChange={(e) => setJalaliYear(e.target.value)}
+              />
+            </div>
+          </Flex>
+
+          <div>
+            <Text type="secondary">متن پیامک‌ها</Text>
+            <TextArea
+              style={{ marginTop: 8, fontFamily: "monospace" }}
               dir="ltr"
-              className="mt-2 w-full rounded-xl border border-[var(--border)] bg-transparent px-3 py-3 outline-none focus:ring-2 focus:ring-[var(--ring)]"
-              value={jalaliYear}
-              onChange={(e) => setJalaliYear(e.target.value)}
+              rows={10}
+              placeholder={`مثال:\n777.888.12322409.1\n-9,500,000\n04/23_21:47\nمانده: 20,929,124`}
+              value={rawText}
+              onChange={(e) => setRawText(e.target.value)}
             />
-          </label>
-        </div>
+          </div>
 
-        <label className="block text-sm text-[var(--muted)]">
-          متن پیامک‌ها
-          <textarea
-            className="mt-2 w-full min-h-48 rounded-xl border border-[var(--border)] bg-transparent px-3 py-3 outline-none focus:ring-2 focus:ring-[var(--ring)] font-mono text-sm"
-            dir="ltr"
-            placeholder={`مثال:\n777.888.12322409.1\n-9,500,000\n04/23_21:47\nمانده: 20,929,124`}
-            value={rawText}
-            onChange={(e) => setRawText(e.target.value)}
-          />
-        </label>
-
-        <button
-          type="button"
-          disabled={previewMutation.isPending || rawText.trim().length < 10 || !effectiveAccountId}
-          onClick={() => previewMutation.mutate()}
-          className="rounded-xl bg-brand-500 text-white px-4 py-3 font-medium hover:opacity-95 disabled:opacity-60"
-        >
-          {previewMutation.isPending ? "در حال پردازش..." : "پیش‌نمایش"}
-        </button>
-      </div>
+          <Button
+            type="primary"
+            loading={previewMutation.isPending}
+            disabled={rawText.trim().length < 10 || !effectiveAccountId}
+            onClick={() => previewMutation.mutate()}
+          >
+            پیش‌نمایش
+          </Button>
+        </Space>
+      </Card>
 
       {previewMeta ? (
-        <div className="flex flex-wrap gap-3 text-sm text-[var(--muted)]">
-          {previewMeta.bankHint ? <span>بانک تشخیص‌داده‌شده: {previewMeta.bankHint}</span> : null}
-          <span>تکراری: {previewMeta.duplicateCount}</span>
-          <span>انتخاب‌شده برای ورود: {selectedCount}</span>
-        </div>
+        <Space wrap>
+          {previewMeta.bankHint ? (
+            <Tag color="cyan">بانک تشخیص‌داده‌شده: {previewMeta.bankHint}</Tag>
+          ) : null}
+          <Tag>تکراری: {previewMeta.duplicateCount}</Tag>
+          <Tag color="blue">انتخاب‌شده برای ورود: {selectedCount}</Tag>
+        </Space>
       ) : null}
 
       {items.length > 0 ? (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="font-semibold">پیش‌نمایش تراکنش‌ها</h2>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                className="text-sm rounded-xl border border-[var(--border)] px-3 py-2 hover:bg-white/5"
+        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+          <Flex justify="space-between" align="center" gap="small" wrap="wrap">
+            <Title level={5} style={{ margin: 0 }}>
+              پیش‌نمایش تراکنش‌ها
+            </Title>
+            <Space>
+              <Button
+                size="small"
                 onClick={() => {
                   const next: Record<string, boolean> = {};
                   for (const item of items) {
@@ -201,114 +228,116 @@ export default function BankSmsImportPage() {
                 }}
               >
                 انتخاب همه
-              </button>
-              <button
-                type="button"
-                className="text-sm rounded-xl border border-[var(--border)] px-3 py-2 hover:bg-white/5"
-                onClick={() => setSelected({})}
-              >
+              </Button>
+              <Button size="small" onClick={() => setSelected({})}>
                 هیچ‌کدام
-              </button>
-            </div>
-          </div>
+              </Button>
+            </Space>
+          </Flex>
 
-          <div className="space-y-2">
-            {items.map((item) => (
-              <label
-                key={item.importHash}
-                className={`flex gap-3 rounded-2xl border p-4 ${
-                  item.isDuplicate
-                    ? "border-amber-400/30 bg-amber-500/5 opacity-80"
-                    : "border-[var(--border)] bg-[var(--card)]"
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  className="mt-1"
-                  disabled={item.isDuplicate}
-                  checked={Boolean(selected[item.importHash])}
-                  onChange={(e) =>
-                    setSelected((s) => ({ ...s, [item.importHash]: e.target.checked }))
-                  }
-                />
-                <div className="flex-1 min-w-0 space-y-1">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="font-medium">
-                      {item.type === "income" ? "واریز" : "برداشت"}
-                      {item.bankName ? ` · ${item.bankName}` : ""}
-                    </div>
-                    <div
-                      className={
-                        item.type === "income"
-                          ? "text-emerald-400 font-semibold"
-                          : "text-red-400 font-semibold"
+          <List
+            dataSource={items}
+            renderItem={(item) => (
+              <List.Item style={{ padding: 0, border: "none", marginBottom: 8 }}>
+                <Card
+                  size="small"
+                  style={{
+                    width: "100%",
+                    opacity: item.isDuplicate ? 0.8 : 1,
+                    borderColor: item.isDuplicate ? "rgba(251, 191, 36, 0.3)" : undefined,
+                    background: item.isDuplicate ? "rgba(245, 158, 11, 0.05)" : undefined,
+                  }}
+                >
+                  <Flex gap="middle" align="flex-start">
+                    <Checkbox
+                      disabled={item.isDuplicate}
+                      checked={Boolean(selected[item.importHash])}
+                      onChange={(e) =>
+                        setSelected((s) => ({ ...s, [item.importHash]: e.target.checked }))
                       }
-                    >
-                      {item.type === "income" ? "+" : "-"}
-                      {formatToman(item.amount)}
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <Flex justify="space-between" align="center" gap="small" wrap="wrap">
+                        <Text strong>
+                          {item.type === "income" ? "واریز" : "برداشت"}
+                          {item.bankName ? ` · ${item.bankName}` : ""}
+                        </Text>
+                        <Text
+                          strong
+                          style={{ color: item.type === "income" ? "#34d399" : "#f87171" }}
+                        >
+                          {item.type === "income" ? "+" : "-"}
+                          {formatToman(item.amount)}
+                        </Text>
+                      </Flex>
+                      <Text type="secondary" style={{ fontSize: 13 }}>
+                        {formatJalaliDate(item.date)}
+                        {item.time ? ` · ${item.time}` : ""}
+                        {item.balanceAfter !== undefined
+                          ? ` · مانده ${formatToman(item.balanceAfter)}`
+                          : ""}
+                      </Text>
+                      {item.isDuplicate ? (
+                        <div style={{ marginTop: 4 }}>
+                          <Tag icon={<WarningOutlined />} color="warning">
+                            قبلاً ایمپورت شده — رد می‌شود
+                          </Tag>
+                        </div>
+                      ) : (
+                        <div style={{ marginTop: 4 }}>
+                          <Tag icon={<CheckCircleOutlined />} color="success">
+                            آماده ورود · نیاز به نام‌گذاری بعداً
+                          </Tag>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                  <div className="text-sm text-[var(--muted)]">
-                    {formatJalaliDate(item.date)}
-                    {item.time ? ` · ${item.time}` : ""}
-                    {item.balanceAfter !== undefined
-                      ? ` · مانده ${formatToman(item.balanceAfter)}`
-                      : ""}
-                  </div>
-                  {item.isDuplicate ? (
-                    <div className="text-xs text-amber-300 inline-flex items-center gap-1">
-                      <AlertTriangle size={12} />
-                      قبلاً ایمپورت شده — رد می‌شود
-                    </div>
-                  ) : (
-                    <div className="text-xs text-[var(--muted)] inline-flex items-center gap-1">
-                      <CheckCircle2 size={12} />
-                      آماده ورود · نیاز به نام‌گذاری بعداً
-                    </div>
-                  )}
-                </div>
-              </label>
-            ))}
-          </div>
+                  </Flex>
+                </Card>
+              </List.Item>
+            )}
+          />
 
-          <label className="flex items-center gap-2 text-sm text-[var(--muted)] cursor-pointer">
-            <input
-              type="checkbox"
-              checked={syncBalance}
-              onChange={(e) => setSyncBalance(e.target.checked)}
-              className="rounded border-[var(--border)]"
-            />
+          <Checkbox checked={syncBalance} onChange={(e) => setSyncBalance(e.target.checked)}>
             همگام‌سازی موجودی حساب با آخرین «مانده» پیامک در این دسته
-          </label>
+          </Checkbox>
 
-          <button
-            type="button"
-            disabled={confirmMutation.isPending || selectedCount === 0}
+          <Button
+            type="primary"
+            loading={confirmMutation.isPending}
+            disabled={selectedCount === 0}
             onClick={() => confirmMutation.mutate()}
-            className="rounded-xl bg-brand-500 text-white px-4 py-3 font-medium hover:opacity-95 disabled:opacity-60"
           >
-            {confirmMutation.isPending
-              ? "در حال ذخیره..."
-              : `تأیید و ورود ${selectedCount} تراکنش`}
-          </button>
-        </div>
+            {`تأیید و ورود ${selectedCount} تراکنش`}
+          </Button>
+        </Space>
       ) : null}
 
       {failedBlocks.length > 0 ? (
-        <div className="rounded-2xl border border-red-400/30 bg-red-500/5 p-4 space-y-2">
-          <div className="font-medium text-red-300">
-            {failedBlocks.length} بلوک قابل parse نبود
-          </div>
-          {failedBlocks.slice(0, 3).map((b, i) => (
-            <pre
-              key={i}
-              className="text-xs whitespace-pre-wrap text-[var(--muted)] border border-[var(--border)] rounded-xl p-2"
-            >
-              {b}
-            </pre>
-          ))}
-        </div>
+        <Alert
+          type="error"
+          showIcon
+          message={`${failedBlocks.length} بلوک قابل parse نبود`}
+          description={
+            <Space direction="vertical" size="small" style={{ width: "100%" }}>
+              {failedBlocks.slice(0, 3).map((b, i) => (
+                <pre
+                  key={i}
+                  style={{
+                    margin: 0,
+                    fontSize: 12,
+                    whiteSpace: "pre-wrap",
+                    padding: 8,
+                    borderRadius: 12,
+                    border: "1px solid rgba(148, 163, 184, 0.22)",
+                  }}
+                >
+                  {b}
+                </pre>
+              ))}
+            </Space>
+          }
+        />
       ) : null}
-    </div>
+    </Space>
   );
 }

@@ -1,76 +1,91 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { Menu, Typography } from "antd";
+import type { MenuProps } from "antd";
 import {
-  LayoutDashboard,
-  ReceiptText,
-  Wallet,
-  PieChart,
-  Settings,
-  Tags,
-  Landmark,
-  FileInput,
-  ClipboardCheck,
-  CalendarClock,
-  Target,
-} from "lucide-react";
-import { cn } from "@/lib/cn";
+  DashboardOutlined,
+  TransactionOutlined,
+  ImportOutlined,
+  FormOutlined,
+  CalendarOutlined,
+  AimOutlined,
+  BankOutlined,
+  TagsOutlined,
+  WalletOutlined,
+  PieChartOutlined,
+  SettingOutlined,
+} from "@ant-design/icons";
 import { useUiStore } from "@/stores/ui.store";
 
 const items = [
-  { href: "/dashboard", label: "داشبورد", icon: LayoutDashboard },
-  { href: "/transactions", label: "تراکنش‌ها", icon: ReceiptText },
-  { href: "/imports/bank-sms", label: "ایمپورت پیامک", icon: FileInput },
-  { href: "/review", label: "نام‌گذاری", icon: ClipboardCheck },
-  { href: "/recurring", label: "تکرارشونده", icon: CalendarClock },
-  { href: "/goals", label: "اهداف پس‌انداز", icon: Target },
-  { href: "/accounts", label: "حساب‌های بانکی", icon: Landmark },
-  { href: "/categories", label: "دسته‌بندی‌ها", icon: Tags },
-  { href: "/budgets", label: "بودجه‌بندی", icon: Wallet },
-  { href: "/reports", label: "گزارش‌ها", icon: PieChart },
-  { href: "/settings", label: "تنظیمات", icon: Settings },
+  { href: "/dashboard", label: "داشبورد", icon: <DashboardOutlined /> },
+  { href: "/transactions", label: "تراکنش‌ها", icon: <TransactionOutlined /> },
+  { href: "/imports/bank-sms", label: "ایمپورت پیامک", icon: <ImportOutlined /> },
+  { href: "/review", label: "نام‌گذاری", icon: <FormOutlined /> },
+  { href: "/recurring", label: "تکرارشونده", icon: <CalendarOutlined /> },
+  { href: "/goals", label: "اهداف پس‌انداز", icon: <AimOutlined /> },
+  { href: "/accounts", label: "حساب‌های بانکی", icon: <BankOutlined /> },
+  { href: "/categories", label: "دسته‌بندی‌ها", icon: <TagsOutlined /> },
+  { href: "/budgets", label: "بودجه‌بندی", icon: <WalletOutlined /> },
+  { href: "/reports", label: "گزارش‌ها", icon: <PieChartOutlined /> },
+  { href: "/settings", label: "تنظیمات", icon: <SettingOutlined /> },
 ];
 
-export function Sidebar() {
+type Props = {
+  onNavigate?: () => void;
+};
+
+export function Sidebar({ onNavigate }: Props) {
   const pathname = usePathname();
+  const router = useRouter();
   const collapsed = useUiStore((s) => s.sidebarCollapsed);
 
+  const selectedKey = useMemo(() => {
+    const match = items.find(
+      (it) => pathname === it.href || pathname?.startsWith(`${it.href}/`)
+    );
+    return match?.href ?? "/dashboard";
+  }, [pathname]);
+
+  const menuItems: MenuProps["items"] = items.map((it) => ({
+    key: it.href,
+    icon: it.icon,
+    label: it.label,
+  }));
+
   return (
-    <aside
-      className={cn(
-        "h-[calc(100vh-0px)] sticky top-0 border-l border-[var(--border)] bg-[var(--card)]",
-        collapsed ? "w-16" : "w-64"
-      )}
-    >
-      <div className="p-4 flex items-center justify-between">
-        <div className="flex items-center gap-3 overflow-hidden">
-          <div className="h-10 w-10 rounded-2xl bg-gradient-to-tr from-brand-500 to-brandViolet-500 flex items-center justify-center text-white font-bold">
+    <div className="h-full flex flex-col">
+      <div className="px-4 py-4 flex items-center gap-3">
+        <Link
+          href="/dashboard"
+          onClick={onNavigate}
+          className="flex items-center gap-3 min-w-0"
+        >
+          <div className="h-10 w-10 rounded-2xl bg-gradient-to-tr from-brand-500 to-brandViolet-500 flex items-center justify-center text-white font-bold shrink-0">
             P
           </div>
-          {!collapsed ? <div className="text-sm font-semibold">Pocketa</div> : null}
-        </div>
+          {!collapsed ? (
+            <Typography.Text strong className="!text-[var(--text)] truncate">
+              Pocketa
+            </Typography.Text>
+          ) : null}
+        </Link>
       </div>
 
-      <nav className="px-2 pb-4">
-        {items.map((it) => {
-          const Icon = it.icon;
-          const active = pathname === it.href || pathname?.startsWith(it.href + "/");
-          return (
-            <Link
-              key={it.href}
-              href={it.href}
-              className={cn(
-                "flex items-center gap-3 rounded-2xl px-3 py-3 mb-1 transition-colors",
-                active ? "bg-brand-500/12 text-brand-500" : "hover:bg-white/5 text-[var(--text)]"
-              )}
-            >
-              <Icon size={20} />
-              {!collapsed ? <span className="text-sm font-medium">{it.label}</span> : null}
-            </Link>
-          );
-        })}
-      </nav>
-    </aside>
+      <Menu
+        mode="inline"
+        selectedKeys={[selectedKey]}
+        inlineCollapsed={collapsed}
+        items={menuItems}
+        className="!border-none flex-1 overflow-y-auto"
+        onClick={({ key }) => {
+          router.push(String(key));
+          onNavigate?.();
+        }}
+      />
+    </div>
   );
 }
