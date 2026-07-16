@@ -15,6 +15,8 @@ export type ParsedBankSms = {
   parser: "pasargad" | "melli" | "generic";
   /** true when +/- was missing and type was inferred */
   typeInferred?: boolean;
+  /** Melli «اصلاحيه» — reverses a prior same-amount opposite tx */
+  isCorrection?: boolean;
 };
 
 /** بانک‌ها مبلغ را به ریال می‌فرستند؛ واحد اپ تومان است. */
@@ -98,6 +100,39 @@ function inferUnsignedTypes(items: ParsedBankSms[]): ParsedBankSms[] {
     if (!nextType) return item;
     return { ...item, type: nextType };
   });
+}
+
+/**
+ * Drop اصلاحیه and the prior same-amount opposite transaction it reverses.
+ * Paste order matters (e.g. برداشت → اصلاحیه → برداشت again → keep only the last).
+ */
+export function cancelCorrectedPairs(items: ParsedBankSms[]): ParsedBankSms[] {
+  const cancelled = new Set<number>();
+
+  for (let i = 0; i < items.length; i++) {
+    const cur = items[i]!;
+    if (!cur.isCorrection || cancelled.has(i)) continue;
+
+    for (let j = i - 1; j >= 0; j--) {
+      if (cancelled.has(j)) continue;
+      const prev = items[j]!;
+      if (prev.isCorrection) continue;
+      if (prev.amount !== cur.amount) continue;
+      if (prev.type === cur.type) continue;
+      if (
+        prev.accountHint &&
+        cur.accountHint &&
+        prev.accountHint !== cur.accountHint
+      ) {
+        continue;
+      }
+      cancelled.add(j);
+      cancelled.add(i);
+      break;
+    }
+  }
+
+  return items.filter((_, idx) => !cancelled.has(idx));
 }
 
 /** Split pasted text into individual SMS bodies. */
@@ -238,10 +273,11 @@ function parseMelliBlock(block: string, jalaliYear: number): ParsedBankSms | nul
   // 3) انتقال / اصلاحيه با علامت +/- و تاریخ MMDD-HH:mm
   // انتقال:34,418,600-
   // اصلاحيه:10,712,200+
-  const signedMatch = b.match(/(?:انتقال|اصلاحيه)\s*:\s*([\d,]+)\s*([+-])/);
+  const signedMatch = b.match(/(انتقال|اصلاحيه)\s*:\s*([\d,]+)\s*([+-])/);
   if (signedMatch) {
-    const amountRial = parseAmountNumber(signedMatch[1]!);
-    const sign = signedMatch[2]!;
+    const kind = signedMatch[1]!;
+    const amountRial = parseAmountNumber(signedMatch[2]!);
+    const sign = signedMatch[3]!;
     if (!Number.isFinite(amountRial) || amountRial <= 0) return null;
 
     const dateMatch = b.match(/(\d{2})(\d{2})-(\d{2}):(\d{2})/);
@@ -263,6 +299,7 @@ function parseMelliBlock(block: string, jalaliYear: number): ParsedBankSms | nul
       rawSnippet: b.slice(0, 500),
       importHash: "",
       parser: "melli",
+      isCorrection: kind === "اصلاحيه",
     };
   }
 
@@ -316,7 +353,7 @@ function extractMelliFromText(text: string, jalaliYear: number): ParsedBankSms[]
     if (parsed) items.push(parsed);
   }
 
-  return inferUnsignedTypes(items);
+  return cancelCorrectedPairs(inferUnsignedTypes(items));
 }
 
 function extractPasargadSafe(text: string, jalaliYear: number): ParsedBankSms[] {
@@ -374,5 +411,8 @@ export function parseBankSmsText(
     items.push(withHash(parsed, accountId));
   }
 
-  return { items: inferUnsignedTypes(items).map((i) => withHash(i, accountId)), failedBlocks };
+  return {
+    items: cancelCorrectedPairs(inferUnsignedTypes(items)).map((i) => withHash(i, accountId)),
+    failedBlocks,
+  };
 }
