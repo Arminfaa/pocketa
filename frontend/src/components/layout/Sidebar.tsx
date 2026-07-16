@@ -94,7 +94,7 @@ export function Sidebar({
         selectedKeys={[selectedKey]}
         inlineCollapsed={collapsed}
         items={menuItems}
-        className="!border-none flex-1 min-h-0 max-sm:scroll-none overflow-y-auto overscroll-contain"
+        className="!border-none !bg-transparent flex-1 min-h-0 max-sm:scroll-none overflow-y-auto overscroll-contain"
         onClick={({ key }) => {
           router.push(String(key));
           onNavigate?.();

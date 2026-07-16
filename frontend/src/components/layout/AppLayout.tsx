@@ -64,15 +64,14 @@ export default function AppLayout({ children }: PropsWithChildren) {
         open={isDrawerNav && drawerOpen}
         onClose={() => setDrawerOpen(false)}
         size={280}
-        classNames={{ body: "!p-0", header: "border-b border-app-border" }}
+        classNames={{
+          body: "!p-0 !bg-app-card",
+          header: "border-b border-app-border !bg-app-card",
+        }}
         title={
           <div className="flex items-center gap-2.5 min-w-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/logo.png"
-              alt="Pocketa"
-              className="h-8 w-8 object-contain shrink-0"
-            />
+            <img src="/logo.png" alt="Pocketa" className="h-8 w-8 object-contain shrink-0" />
             <span className="font-semibold text-app-fg truncate">Pocketa</span>
           </div>
         }
@@ -103,10 +102,7 @@ export default function AppLayout({ children }: PropsWithChildren) {
             <Select
               allowClear
               placeholder="همه حساب‌ها"
-              className={cn(
-                "flex-1 min-w-0",
-                isDrawerNav ? "max-w-full" : "min-w-40 max-w-60"
-              )}
+              className={cn("flex-1 min-w-0", isDrawerNav ? "max-w-full" : "min-w-40 max-w-60")}
               value={selectedAccountId ?? undefined}
               onChange={(v) => setSelectedAccountId(v ?? null)}
               options={(accountsQ.data ?? []).map((a) => ({

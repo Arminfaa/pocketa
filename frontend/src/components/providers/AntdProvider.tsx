@@ -38,6 +38,13 @@ export function AntdProvider({ children }: { children: React.ReactNode }) {
             },
             Menu: {
               itemBorderRadius: 12,
+              itemBg: "transparent",
+              subMenuItemBg: "transparent",
+              darkItemBg: "transparent",
+              darkSubMenuItemBg: "transparent",
+            },
+            Drawer: {
+              colorBgElevated: isDark ? "#0f1a2e" : "#ffffff",
             },
             Card: {
               borderRadiusLG: 16,
