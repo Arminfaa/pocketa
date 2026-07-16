@@ -124,7 +124,7 @@ export default function AppLayout({ children }: PropsWithChildren) {
           </Flex>
         </Header>
 
-        <Content className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6 overscroll-contain">
+        <Content className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6">
           <PageMotion key={pathname}>{children}</PageMotion>
         </Content>
       </Layout>

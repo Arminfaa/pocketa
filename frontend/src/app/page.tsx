@@ -5,15 +5,11 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { Button, Flex, Space, Typography } from "antd";
 
-const FEATURES = [
-  "ایمپورت پیامک بانکی",
-  "بودجه و گزارش شمسی",
-  "چند حساب بانکی",
-];
+const FEATURES = ["ایمپورت پیامک بانکی", "بودجه و گزارش شمسی", "چند حساب بانکی"];
 
 export default function HomePage() {
   return (
-    <main className="relative min-h-screen overflow-hidden">
+    <main className="relative min-h-dvh overflow-hidden">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_70%_10%,rgba(6,182,212,0.22),transparent_55%),radial-gradient(ellipse_70%_50%_at_10%_90%,rgba(245,158,11,0.12),transparent_50%),radial-gradient(ellipse_50%_40%_at_90%_80%,rgba(139,92,246,0.14),transparent_45%)]"
@@ -23,7 +19,7 @@ export default function HomePage() {
         className="pointer-events-none absolute inset-0 opacity-[0.035] bg-[linear-gradient(rgba(255,255,255,.6)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.6)_1px,transparent_1px)] bg-[length:48px_48px]"
       />
 
-      <div className="relative z-10 mx-auto flex min-h-screen max-w-5xl flex-col justify-center px-6 py-16 md:py-20">
+      <div className="relative z-10 mx-auto flex min-h-dvh max-w-5xl flex-col justify-center px-6 py-16 md:py-20">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
