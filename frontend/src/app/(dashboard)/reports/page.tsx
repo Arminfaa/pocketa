@@ -22,6 +22,7 @@ import { formatJalaliDate, formatToman } from "@/lib/format";
 import { getJalaliMonthYear, MONTH_LABELS } from "@/lib/finance-ui";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { QueryError } from "@/components/ui/query-error";
 
 const PIE_FALLBACK = ["#06b6d4", "#8b5cf6", "#f59e0b", "#ef4444", "#22c55e", "#3b82f6", "#ec4899"];
 
@@ -134,7 +135,10 @@ export default function ReportsPage() {
         <CardContent>
           {monthlyQ.isLoading ? <Skeleton className="h-[280px] w-full" /> : null}
           {monthlyQ.error ? (
-            <div className="text-[var(--muted)]">خطا در دریافت گزارش ماهانه.</div>
+            <QueryError
+              message="خطا در دریافت گزارش ماهانه."
+              onRetry={() => void monthlyQ.refetch()}
+            />
           ) : null}
           {monthlyQ.data ? (
             <ResponsiveContainer width="100%" height={280}>

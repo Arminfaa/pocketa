@@ -13,6 +13,8 @@ import {
 import { formatJalaliDate, formatToman } from "@/lib/format";
 import { CATEGORY_COLORS } from "@/lib/finance-ui";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
+import { QueryError } from "@/components/ui/query-error";
 
 export default function GoalsPage() {
   const queryClient = useQueryClient();
@@ -175,6 +177,9 @@ export default function GoalsPage() {
       </div>
 
       {q.isLoading ? <Skeleton className="h-40 w-full" /> : null}
+      {q.error ? (
+        <QueryError message="خطا در دریافت اهداف." onRetry={() => void q.refetch()} />
+      ) : null}
 
       <div className="space-y-3">
         {items.map((goal) => (
@@ -254,9 +259,11 @@ export default function GoalsPage() {
       </div>
 
       {!q.isLoading && items.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[var(--border)] p-8 text-center text-[var(--muted)]">
-          هنوز هدفی تعریف نشده است.
-        </div>
+        <EmptyState
+          icon={Target}
+          title="هنوز هدفی تعریف نشده"
+          description="برای سفر، خرید یا اضطراری یک هدف پس‌انداز بسازید."
+        />
       ) : null}
     </div>
   );

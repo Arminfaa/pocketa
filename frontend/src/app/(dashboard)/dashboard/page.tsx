@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { formatToman } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { QueryError } from "@/components/ui/query-error";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from "recharts";
 import { BarChart, Bar, Legend } from "recharts";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
@@ -62,9 +63,10 @@ export default function DashboardPage() {
 
   if (dashboardQ.error) {
     return (
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 text-[var(--muted)]">
-        خطا در دریافت اطلاعات داشبورد.
-      </div>
+      <QueryError
+        message="خطا در دریافت اطلاعات داشبورد."
+        onRetry={() => void dashboardQ.refetch()}
+      />
     );
   }
 

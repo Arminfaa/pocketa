@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AlertCircle, Check } from "lucide-react";
+import { AlertCircle, Check, ClipboardCheck } from "lucide-react";
 import {
   fetchCategories,
   fetchTransactions,
@@ -17,6 +17,7 @@ import {
   accountName,
 } from "@/lib/transaction-helpers";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
 
 export default function ReviewPage() {
@@ -100,9 +101,11 @@ export default function ReviewPage() {
       {listQ.isLoading ? <Skeleton className="h-48 w-full" /> : null}
 
       {!listQ.isLoading && items.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[var(--border)] p-10 text-center text-[var(--muted)]">
-          موردی برای بررسی نیست. از صفحه ایمپورت پیامک بانکی شروع کنید.
-        </div>
+        <EmptyState
+          icon={ClipboardCheck}
+          title="موردی برای بررسی نیست"
+          description="از صفحه ایمپورت پیامک بانکی شروع کنید تا تراکنش‌های جدید اینجا بیایند."
+        />
       ) : null}
 
       <div className="space-y-3">

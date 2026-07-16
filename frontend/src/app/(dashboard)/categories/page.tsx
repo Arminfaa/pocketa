@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2, Tags } from "lucide-react";
 import {
   createCategory,
   deleteCategory,
@@ -13,6 +13,8 @@ import {
 } from "@/services/categories";
 import { CATEGORY_COLORS, CATEGORY_ICONS } from "@/lib/finance-ui";
 import { Skeleton } from "@/components/ui/skeleton";
+import { QueryError } from "@/components/ui/query-error";
+import { EmptyState } from "@/components/ui/empty-state";
 
 type FormState = {
   name: string;
@@ -231,7 +233,15 @@ export default function CategoriesPage() {
 
       {q.isLoading ? <Skeleton className="h-40 w-full" /> : null}
       {q.error ? (
-        <div className="text-[var(--muted)]">خطا در دریافت دسته‌بندی‌ها.</div>
+        <QueryError message="خطا در دریافت دسته‌بندی‌ها." onRetry={() => void q.refetch()} />
+      ) : null}
+
+      {!q.isLoading && !q.error && items.length === 0 ? (
+        <EmptyState
+          icon={Tags}
+          title="دسته‌ای یافت نشد"
+          description="یک دسته‌بندی جدید بسازید یا فیلتر نوع را تغییر دهید."
+        />
       ) : null}
 
       <div className="grid md:grid-cols-2 gap-3">

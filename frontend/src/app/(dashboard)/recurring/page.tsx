@@ -15,6 +15,8 @@ import { fetchCategories } from "@/services/categories";
 import { formatJalaliDate, formatToman } from "@/lib/format";
 import { getTodayJalali } from "@/lib/transaction-helpers";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
+import { QueryError } from "@/components/ui/query-error";
 
 const FREQ_LABEL: Record<string, string> = {
   weekly: "هفتگی",
@@ -225,6 +227,12 @@ export default function RecurringPage() {
       </div>
 
       {listQ.isLoading ? <Skeleton className="h-40 w-full" /> : null}
+      {listQ.error ? (
+        <QueryError
+          message="خطا در دریافت پرداخت‌های تکرارشونده."
+          onRetry={() => void listQ.refetch()}
+        />
+      ) : null}
 
       <div className="space-y-3">
         {items.map((item) => {
@@ -284,9 +292,11 @@ export default function RecurringPage() {
       </div>
 
       {!listQ.isLoading && items.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[var(--border)] p-8 text-center text-[var(--muted)]">
-          هنوز پرداخت تکرارشونده‌ای ثبت نشده است.
-        </div>
+        <EmptyState
+          icon={CalendarClock}
+          title="هنوز پرداخت تکرارشونده‌ای ثبت نشده"
+          description="اجاره، اینترنت یا حقوق را اینجا تعریف کنید."
+        />
       ) : null}
     </div>
   );
