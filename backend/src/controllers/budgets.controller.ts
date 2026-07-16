@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import mongoose from "mongoose";
 import { asyncHandler } from "../middleware/asyncHandler";
 import { AppError } from "../utils/AppError";
 import { sendSuccess } from "../utils/apiResponse";
@@ -16,6 +17,12 @@ function getCurrentJalaliMonthYear(): { year: number; month: number } {
 
 function datePrefix(year: number, month: number) {
   return `${year}/${String(month).padStart(2, "0")}/`;
+}
+
+function budgetStatus(percent: number): "ok" | "warning" | "danger" {
+  if (percent >= 100) return "danger";
+  if (percent >= 80) return "warning";
+  return "ok";
 }
 
 export const list = asyncHandler(async (req: Request, res: Response) => {
@@ -41,7 +48,13 @@ export const list = asyncHandler(async (req: Request, res: Response) => {
 
   const prefix = datePrefix(y, m);
   const expenseSums = await TransactionModel.aggregate([
-    { $match: { userId, type: "expense", date: { $regex: `^${prefix}` } } },
+    {
+      $match: {
+        userId: new mongoose.Types.ObjectId(userId),
+        type: "expense",
+        date: { $regex: `^${prefix}` },
+      },
+    },
     { $group: { _id: "$categoryId", sum: { $sum: "$amount" } } },
   ]);
 
@@ -51,8 +64,17 @@ export const list = asyncHandler(async (req: Request, res: Response) => {
   }
 
   const items = budgets.map((b) => {
-    const consumed = sumByCategory.get(String(b.categoryId._id)) ?? 0;
-    const percent = b.amount > 0 ? Math.min(100, (consumed / b.amount) * 100) : 0;
+    const categoryDoc = b.categoryId as unknown as {
+      _id: mongoose.Types.ObjectId;
+      name?: string;
+      color?: string;
+      icon?: string;
+      type?: string;
+    };
+    const categoryId = categoryDoc?._id ? String(categoryDoc._id) : String(b.categoryId);
+    const consumed = sumByCategory.get(categoryId) ?? 0;
+    const rawPercent = b.amount > 0 ? (consumed / b.amount) * 100 : 0;
+    const percent = Math.min(100, rawPercent);
     return {
       id: b._id,
       amount: b.amount,
@@ -61,10 +83,26 @@ export const list = asyncHandler(async (req: Request, res: Response) => {
       category: b.categoryId,
       consumed,
       percent,
+      rawPercent,
+      status: budgetStatus(rawPercent),
+      remaining: Math.max(0, b.amount - consumed),
     };
   });
 
-  return sendSuccess(res, { items, pagination: { page, limit, total }, month: m, year: y });
+  const summary = {
+    totalBudget: items.reduce((s, i) => s + i.amount, 0),
+    totalConsumed: items.reduce((s, i) => s + i.consumed, 0),
+    warningCount: items.filter((i) => i.status === "warning").length,
+    dangerCount: items.filter((i) => i.status === "danger").length,
+  };
+
+  return sendSuccess(res, {
+    items,
+    pagination: { page, limit, total },
+    month: m,
+    year: y,
+    summary,
+  });
 });
 
 export const upsert = asyncHandler(async (req: Request, res: Response) => {
@@ -84,11 +122,11 @@ export const upsert = asyncHandler(async (req: Request, res: Response) => {
 
   const updated = await BudgetModel.findOneAndUpdate(
     { userId, categoryId, month, year },
-    { $set: { amount, categoryId, month, year } },
-    { new: true, upsert: true }
+    { $set: { amount, categoryId, month, year, userId } },
+    { returnDocument: "after", upsert: true }
   ).populate({ path: "categoryId", select: "name icon color type" });
 
-  return sendSuccess(res, { item: updated });
+  return sendSuccess(res, { item: updated }, "بودجه ذخیره شد");
 });
 
 export const update = asyncHandler(async (req: Request, res: Response) => {
@@ -102,12 +140,11 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
   const budget = await BudgetModel.findOne({ _id: id, userId });
   if (!budget) throw new AppError(404, "بودجه یافت نشد");
 
-  // Ensure category change is also validated.
   if (parsed.data.categoryId && parsed.data.categoryId !== String(budget.categoryId)) {
     const category = await CategoryModel.findOne({ _id: parsed.data.categoryId, userId });
     if (!category) throw new AppError(404, "دسته‌بندی یافت نشد");
     if (category.type !== "expense") throw new AppError(400, "بودجه فقط برای دسته‌های هزینه است");
-    budget.categoryId = parsed.data.categoryId as any;
+    budget.categoryId = new mongoose.Types.ObjectId(parsed.data.categoryId) as typeof budget.categoryId;
   }
 
   if (parsed.data.amount !== undefined) budget.amount = parsed.data.amount;
@@ -120,3 +157,13 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
   return sendSuccess(res, { item: updated });
 });
 
+export const remove = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) throw new AppError(401, "عدم دسترسی");
+
+  const { id } = req.params;
+  const deleted = await BudgetModel.findOneAndDelete({ _id: id, userId });
+  if (!deleted) throw new AppError(404, "بودجه یافت نشد");
+
+  return sendSuccess(res, { id }, "بودجه حذف شد");
+});
