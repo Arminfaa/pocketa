@@ -262,14 +262,16 @@ export default function BankSmsImportPage() {
                     />
                     <div className="flex-1 min-w-0">
                       <Flex justify="space-between" align="center" gap="small" wrap="wrap">
-                        <Text strong>
-                          {item.type === "income" ? "واریز" : "برداشت"}
-                          {item.bankName ? ` · ${item.bankName}` : ""}
-                        </Text>
+                        <Space size="small" wrap>
+                          <Tag color={item.type === "income" ? "green" : "red"}>
+                            {item.type === "income" ? "واریز" : "برداشت"}
+                          </Tag>
+                          {item.bankName ? <Text strong>{item.bankName}</Text> : null}
+                        </Space>
                         <Text
                           strong
                           className={cn(
-                            item.type === "income" ? "text-emerald-400" : "text-red-400"
+                            item.type === "income" ? "text-emerald-500" : "text-red-500"
                           )}
                         >
                           {item.type === "income" ? "+" : "-"}
@@ -325,7 +327,7 @@ export default function BankSmsImportPage() {
         <Alert
           type="error"
           showIcon
-          message={`${failedBlocks.length} بلوک قابل parse نبود`}
+          title={`${failedBlocks.length} بلوک قابل parse نبود`}
           description={
             <Space orientation="vertical" size="small" className="w-full">
               {failedBlocks.slice(0, 3).map((b, i) => (

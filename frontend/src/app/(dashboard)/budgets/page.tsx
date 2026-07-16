@@ -157,7 +157,7 @@ export default function BudgetsPage() {
           type="warning"
           showIcon
           icon={<WarningOutlined />}
-          message="بعضی بودجه‌ها به سقف نزدیک شده‌اند یا از آن رد شده‌اند. هزینه‌های این ماه را بررسی کنید."
+          title="بعضی بودجه‌ها به سقف نزدیک شده‌اند یا از آن رد شده‌اند. هزینه‌های این ماه را بررسی کنید."
         />
       ) : null}
 

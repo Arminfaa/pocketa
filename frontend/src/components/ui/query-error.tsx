@@ -15,7 +15,7 @@ export function QueryError({
     <Alert
       type="error"
       showIcon
-      message="خطا"
+      title="خطا"
       description={message}
       action={
         onRetry ? (

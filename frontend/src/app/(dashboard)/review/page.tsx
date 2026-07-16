@@ -163,7 +163,10 @@ export default function ReviewPage() {
                   </Text>
                   <Text
                     strong
-                    className={cn(tx.type === "income" ? "text-emerald-400" : "text-red-400")}
+                    className={cn(
+                      tx.type === "income" ? "text-emerald-500" : "text-red-500",
+                      "font-semibold"
+                    )}
                   >
                     {tx.type === "income" ? "+" : "-"}
                     {formatToman(tx.amount)}
