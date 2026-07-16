@@ -22,12 +22,21 @@ export default function DashboardPage() {
 
   const monthlyQ = useQuery({
     queryKey: ["reports-monthly", selectedAccountId],
-    queryFn: async () => (await api.get("/api/reports/monthly?months=6")).data.data,
+    queryFn: async () => {
+      const qs = new URLSearchParams({ months: "6" });
+      if (selectedAccountId) qs.set("accountId", selectedAccountId);
+      return (await api.get(`/api/reports/monthly?${qs.toString()}`)).data.data;
+    },
   });
 
   const categoriesQ = useQuery({
     queryKey: ["reports-categories", selectedAccountId],
-    queryFn: async () => (await api.get("/api/reports/categories")).data.data,
+    queryFn: async () => {
+      const qs = new URLSearchParams();
+      if (selectedAccountId) qs.set("accountId", selectedAccountId);
+      const suffix = qs.toString() ? `?${qs.toString()}` : "";
+      return (await api.get(`/api/reports/categories${suffix}`)).data.data;
+    },
   });
 
   const dashboard = dashboardQ.data;
