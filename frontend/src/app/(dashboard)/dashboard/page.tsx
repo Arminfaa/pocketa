@@ -3,7 +3,7 @@
 import api from "@/services/api";
 import { useQuery } from "@tanstack/react-query";
 import { formatToman } from "@/lib/format";
-import { Card, Col, Flex, Row, Statistic, Typography } from "antd";
+import { Card, Col, Flex, Grid, Row, Statistic, Typography } from "antd";
 import { Skeleton } from "@/components/ui/skeleton";
 import { QueryError } from "@/components/ui/query-error";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from "recharts";
@@ -13,6 +13,8 @@ import { useAccountFilterStore } from "@/stores/account-filter.store";
 const { Text } = Typography;
 
 export default function DashboardPage() {
+  const screens = Grid.useBreakpoint();
+  const isMobile = !screens.md;
   const selectedAccountId = useAccountFilterStore((s) => s.selectedAccountId);
 
   const dashboardQ = useQuery({
@@ -48,7 +50,7 @@ export default function DashboardPage() {
     return (
       <Row gutter={[16, 16]}>
         {Array.from({ length: 4 }).map((_, i) => (
-          <Col key={i} xs={24} md={12} xl={6}>
+          <Col key={i} xs={24} sm={12} lg={6}>
             <Card>
               <Skeleton className="h-16 w-full" rows={1} />
             </Card>
@@ -70,22 +72,22 @@ export default function DashboardPage() {
   return (
     <Flex vertical gap="large">
       <Row gutter={[16, 16]}>
-        <Col xs={24} md={12} xl={6}>
+        <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic title="موجودی فعلی" value={formatToman(dashboard.totals.balance)} />
           </Card>
         </Col>
-        <Col xs={24} md={12} xl={6}>
+        <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic title="درآمد این ماه" value={formatToman(dashboard.totals.incomeThisMonth)} />
           </Card>
         </Col>
-        <Col xs={24} md={12} xl={6}>
+        <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic title="هزینه این ماه" value={formatToman(dashboard.totals.expenseThisMonth)} />
           </Card>
         </Col>
-        <Col xs={24} md={12} xl={6}>
+        <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
               title="درصد پس‌انداز"
@@ -102,7 +104,7 @@ export default function DashboardPage() {
             {monthlyQ.isLoading ? (
               <Skeleton className="h-[260px] w-full" />
             ) : monthlyQ.data ? (
-              <ResponsiveContainer width="100%" height={260}>
+              <ResponsiveContainer width="100%" height={isMobile ? 300 : 260}>
                 <LineChart
                   data={monthlyQ.data.labels.map((label: string, i: number) => ({
                     label,
@@ -110,8 +112,14 @@ export default function DashboardPage() {
                     expense: monthlyQ.data.expense[i],
                   }))}
                 >
-                  <XAxis dataKey="label" />
-                  <YAxis />
+                  <XAxis
+                    dataKey="label"
+                    angle={isMobile ? -35 : 0}
+                    textAnchor={isMobile ? "end" : "middle"}
+                    height={isMobile ? 60 : 30}
+                    tick={{ fontSize: isMobile ? 10 : 12 }}
+                  />
+                  <YAxis tick={{ fontSize: isMobile ? 10 : 12 }} />
                   <Tooltip />
                   <Legend />
                   <Line type="monotone" dataKey="income" stroke="#06b6d4" name="درآمد" />
@@ -136,8 +144,14 @@ export default function DashboardPage() {
                     amount: c.amount,
                   }))}
                 >
-                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                  <YAxis />
+                  <XAxis
+                    dataKey="name"
+                    angle={isMobile ? -35 : 0}
+                    textAnchor={isMobile ? "end" : "middle"}
+                    height={isMobile ? 60 : 30}
+                    tick={{ fontSize: isMobile ? 10 : 12 }}
+                  />
+                  <YAxis tick={{ fontSize: isMobile ? 10 : 12 }} />
                   <Tooltip />
                   <Legend />
                   <Bar dataKey="amount" fill="#ef4444" name="مبلغ" />

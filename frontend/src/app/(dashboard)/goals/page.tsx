@@ -8,6 +8,7 @@ import {
   Card,
   Col,
   Flex,
+  Grid,
   Input,
   Popconfirm,
   Progress,
@@ -33,6 +34,8 @@ import { QueryError } from "@/components/ui/query-error";
 const { Title, Text } = Typography;
 
 export default function GoalsPage() {
+  const screens = Grid.useBreakpoint();
+  const isMobile = !screens.md;
   const { message } = App.useApp();
   const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
@@ -119,12 +122,12 @@ export default function GoalsPage() {
 
       {summary ? (
         <Row gutter={[12, 12]}>
-          <Col xs={24} sm={8}>
+          <Col xs={24} md={8}>
             <Card>
               <Statistic title="کل اهداف" value={formatToman(summary.totalTarget)} />
             </Card>
           </Col>
-          <Col xs={24} sm={8}>
+          <Col xs={24} md={8}>
             <Card>
               <Statistic
                 title="پس‌انداز شده"
@@ -133,7 +136,7 @@ export default function GoalsPage() {
               />
             </Card>
           </Col>
-          <Col xs={24} sm={8}>
+          <Col xs={24} md={8}>
             <Card>
               <Statistic title="تکمیل‌شده" value={summary.completedCount} />
             </Card>
@@ -227,7 +230,7 @@ export default function GoalsPage() {
               borderColor: goal.completed ? "rgba(52, 211, 153, 0.4)" : undefined,
             }}
           >
-            <Flex justify="space-between" align="flex-start" gap="middle">
+            <Flex justify="space-between" align="flex-start" gap="middle" wrap="wrap">
               <Flex align="center" gap="middle" style={{ minWidth: 0, flex: 1 }}>
                 <div
                   style={{
@@ -283,10 +286,11 @@ export default function GoalsPage() {
             </Text>
 
             {!goal.completed ? (
-              <Flex gap="small" style={{ marginTop: 12 }}>
+              <Flex gap="small" wrap="wrap" vertical={isMobile} style={{ marginTop: 12, width: "100%" }}>
                 <Input
                   dir="ltr"
                   placeholder="مبلغ افزودنی"
+                  style={{ flex: 1, minWidth: isMobile ? "100%" : 120 }}
                   value={contributeAmounts[goal.id] ?? ""}
                   onChange={(e) =>
                     setContributeAmounts((s) => ({ ...s, [goal.id]: e.target.value }))
@@ -294,6 +298,7 @@ export default function GoalsPage() {
                 />
                 <Button
                   type="primary"
+                  block={isMobile}
                   loading={contributeMutation.isPending}
                   onClick={() => {
                     const value = Number((contributeAmounts[goal.id] ?? "").replace(/,/g, ""));

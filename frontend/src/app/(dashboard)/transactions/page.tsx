@@ -337,7 +337,7 @@ export default function TransactionsPage() {
         <Space direction="vertical" size="middle" style={{ width: "100%" }}>
           <Flex gap="small" wrap="wrap">
             <Input.Search
-              style={{ flex: 1, minWidth: 200 }}
+              style={{ flex: 1, minWidth: isMobile ? "100%" : 200, width: isMobile ? "100%" : undefined }}
               placeholder="جستجو در عنوان یا توضیحات..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
@@ -348,7 +348,7 @@ export default function TransactionsPage() {
 
           <Flex gap="small" wrap="wrap">
             <Select
-              style={{ minWidth: 140, flex: 1 }}
+              style={{ minWidth: isMobile ? "100%" : 140, flex: 1, width: isMobile ? "100%" : undefined }}
               value={filters.type}
               onChange={(value) => {
                 setPage(1);
@@ -366,7 +366,7 @@ export default function TransactionsPage() {
             />
 
             <Select
-              style={{ minWidth: 140, flex: 1 }}
+              style={{ minWidth: isMobile ? "100%" : 140, flex: 1, width: isMobile ? "100%" : undefined }}
               value={filters.categoryId || undefined}
               placeholder="همه دسته‌ها"
               allowClear
@@ -381,7 +381,7 @@ export default function TransactionsPage() {
             />
 
             <Input
-              style={{ minWidth: 120, flex: 1 }}
+              style={{ minWidth: isMobile ? "100%" : 120, flex: 1, width: isMobile ? "100%" : undefined }}
               placeholder="فیلتر تگ"
               value={filters.tag}
               onChange={(e) => {

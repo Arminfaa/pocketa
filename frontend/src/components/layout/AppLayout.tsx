@@ -2,7 +2,7 @@
 
 import { PropsWithChildren, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Button, Drawer, Grid, Layout, Select, Space, theme } from "antd";
+import { Button, Drawer, Flex, Grid, Layout, Select, theme } from "antd";
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -40,7 +40,7 @@ export default function AppLayout({ children }: PropsWithChildren) {
   });
 
   return (
-    <Layout className="min-h-screen !bg-transparent">
+    <Layout className="min-h-screen !bg-transparent overflow-x-hidden">
       {!isMobile ? (
         <Sider
           collapsible
@@ -66,15 +66,16 @@ export default function AppLayout({ children }: PropsWithChildren) {
         <Sidebar onNavigate={() => setMobileOpen(false)} />
       </Drawer>
 
-      <Layout className="!bg-transparent min-w-0">
+      <Layout className="!bg-transparent min-w-0 max-w-full">
         <Header
-          className="!sticky !top-0 !z-10 !px-3 md:!px-4 flex items-center justify-between gap-3 !h-16 !leading-none border-b"
+          className="!sticky !top-0 !z-10 !px-2 sm:!px-4 !h-auto !min-h-16 !leading-none border-b !py-2"
           style={{
             background: token.colorBgContainer,
             borderColor: token.colorBorder,
+            lineHeight: "normal",
           }}
         >
-          <Space size="middle" wrap>
+          <Flex align="center" gap={8} wrap="wrap" className="w-full">
             {isMobile ? (
               <Button
                 type="default"
@@ -94,7 +95,8 @@ export default function AppLayout({ children }: PropsWithChildren) {
             <Select
               allowClear
               placeholder="همه حساب‌ها"
-              className="min-w-[160px] max-w-[240px]"
+              className="flex-1 min-w-0"
+              style={{ minWidth: isMobile ? 0 : 160, maxWidth: isMobile ? "100%" : 240 }}
               value={selectedAccountId ?? undefined}
               onChange={(v) => setSelectedAccountId(v ?? null)}
               options={(accountsQ.data ?? []).map((a) => ({
@@ -102,19 +104,21 @@ export default function AppLayout({ children }: PropsWithChildren) {
                 label: a.bankName ? `${a.name} · ${a.bankName}` : a.name,
               }))}
               loading={accountsQ.isLoading}
+              popupMatchSelectWidth={false}
             />
-          </Space>
 
-          <Button
-            type="default"
-            icon={<BulbOutlined />}
-            onClick={toggleTheme}
-            aria-label="تغییر تم"
-            title={mode === "dark" ? "حالت روشن" : "حالت تاریک"}
-          />
+            <Button
+              type="default"
+              icon={<BulbOutlined />}
+              onClick={toggleTheme}
+              aria-label="تغییر تم"
+              title={mode === "dark" ? "حالت روشن" : "حالت تاریک"}
+              className="!ms-auto"
+            />
+          </Flex>
         </Header>
 
-        <Content className="p-3 md:p-6">
+        <Content className="p-3 sm:p-4 md:p-6 min-w-0 overflow-x-hidden">
           <PageMotion key={pathname}>{children}</PageMotion>
         </Content>
       </Layout>

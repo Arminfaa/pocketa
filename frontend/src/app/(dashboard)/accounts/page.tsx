@@ -7,6 +7,7 @@ import {
   Button,
   Card,
   Flex,
+  Grid,
   Input,
   List,
   Popconfirm,
@@ -52,6 +53,8 @@ const emptyForm: FormState = {
 };
 
 export default function AccountsPage() {
+  const screens = Grid.useBreakpoint();
+  const isMobile = !screens.md;
   const { message } = App.useApp();
   const queryClient = useQueryClient();
   const [form, setForm] = useState<FormState>(emptyForm);
@@ -263,7 +266,13 @@ export default function AccountsPage() {
           renderItem={(account) => (
             <List.Item style={{ padding: 0, border: "none", marginBottom: 12 }}>
               <Card style={{ width: "100%" }} styles={{ body: { padding: 16 } }}>
-                <Flex justify="space-between" align="center" gap="middle" wrap="wrap">
+                <Flex
+                  justify="space-between"
+                  align={isMobile ? "stretch" : "center"}
+                  gap="middle"
+                  wrap="wrap"
+                  vertical={isMobile}
+                >
                   <Flex align="center" gap="middle" style={{ minWidth: 0, flex: 1 }}>
                     <div
                       style={{
@@ -293,8 +302,13 @@ export default function AccountsPage() {
                     </div>
                   </Flex>
 
-                  <Flex align="center" gap="small" style={{ flexShrink: 0 }}>
-                    <div style={{ textAlign: "left", marginInlineEnd: 8 }}>
+                  <Flex
+                    align="center"
+                    gap="small"
+                    wrap="wrap"
+                    style={{ flexShrink: 0, width: isMobile ? "100%" : undefined }}
+                  >
+                    <div style={{ textAlign: "left", marginInlineEnd: isMobile ? 0 : 8, flex: isMobile ? 1 : undefined }}>
                       <Text type="secondary" style={{ fontSize: 12 }}>
                         موجودی
                       </Text>

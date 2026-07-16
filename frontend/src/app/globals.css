@@ -29,11 +29,17 @@
 html,
 body {
   height: 100%;
+  overflow-x: hidden;
 }
 
 body {
   background: var(--bg);
   color: var(--text);
+}
+
+#__next,
+body > div {
+  max-width: 100%;
 }
 
 .bg-app {
@@ -45,4 +51,31 @@ body {
 
 .brand-border {
   border-image: linear-gradient(90deg, #06b6d4, #8b5cf6, #f59e0b) 1;
+}
+
+/* Ant Design helpers for narrow screens */
+.pocketa-page {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.pocketa-card-extra-stack .ant-card-head {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pocketa-card-extra-stack .ant-card-extra {
+  margin-inline-start: 0 !important;
+  width: 100%;
+}
+
+@media (max-width: 575px) {
+  .pocketa-card-extra-stack .ant-card-extra {
+    width: 100%;
+  }
+
+  .pocketa-card-extra-stack .ant-card-extra .ant-select {
+    width: 100% !important;
+  }
 }

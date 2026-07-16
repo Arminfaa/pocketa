@@ -9,9 +9,12 @@ import {
   Button,
   Card,
   Checkbox,
+  Col,
   Flex,
+  Grid,
   Input,
   List,
+  Row,
   Select,
   Space,
   Tag,
@@ -44,6 +47,8 @@ function currentJalaliYearGuess(): number {
 }
 
 export default function BankSmsImportPage() {
+  const screens = Grid.useBreakpoint();
+  const isMobile = !screens.md;
   const { message } = App.useApp();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -148,8 +153,8 @@ export default function BankSmsImportPage() {
 
       <Card>
         <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-          <Flex gap="middle" wrap="wrap">
-            <div style={{ flex: "1 1 200px" }}>
+          <Row gutter={[12, 12]}>
+            <Col xs={24} md={12}>
               <Text type="secondary">حساب مقصد</Text>
               {accountsQ.isLoading ? (
                 <Skeleton className="h-11 w-full mt-2" rows={1} />
@@ -164,9 +169,9 @@ export default function BankSmsImportPage() {
                   }))}
                 />
               )}
-            </div>
+            </Col>
 
-            <div style={{ flex: "1 1 200px" }}>
+            <Col xs={24} md={12}>
               <Text type="secondary">سال شمسی (برای تاریخ‌های بدون سال)</Text>
               <Input
                 style={{ marginTop: 8 }}
@@ -174,8 +179,8 @@ export default function BankSmsImportPage() {
                 value={jalaliYear}
                 onChange={(e) => setJalaliYear(e.target.value)}
               />
-            </div>
-          </Flex>
+            </Col>
+          </Row>
 
           <div>
             <Text type="secondary">متن پیامک‌ها</Text>
@@ -303,11 +308,14 @@ export default function BankSmsImportPage() {
 
           <Button
             type="primary"
+            block={isMobile}
             loading={confirmMutation.isPending}
             disabled={selectedCount === 0}
             onClick={() => confirmMutation.mutate()}
           >
-            {`تأیید و ورود ${selectedCount} تراکنش`}
+            {isMobile
+              ? `تأیید (${selectedCount})`
+              : `تأیید و ورود ${selectedCount} تراکنش`}
           </Button>
         </Space>
       ) : null}

@@ -6,6 +6,7 @@ import {
   Card,
   Col,
   Flex,
+  Grid,
   Input,
   List,
   Row,
@@ -40,6 +41,8 @@ const { Title, Text } = Typography;
 const PIE_FALLBACK = ["#06b6d4", "#8b5cf6", "#f59e0b", "#ef4444", "#22c55e", "#3b82f6", "#ec4899"];
 
 export default function ReportsPage() {
+  const screens = Grid.useBreakpoint();
+  const isMobile = !screens.md;
   const selectedAccountId = useAccountFilterStore((s) => s.selectedAccountId);
   const current = getJalaliMonthYear();
   const [months, setMonths] = useState(6);
@@ -90,7 +93,7 @@ export default function ReportsPage() {
       </div>
 
       <Row gutter={[12, 12]}>
-        <Col xs={24} sm={8}>
+        <Col xs={24} md={8}>
           <Card>
             <Statistic
               title="مجموع درآمد بازه"
@@ -104,7 +107,7 @@ export default function ReportsPage() {
             />
           </Card>
         </Col>
-        <Col xs={24} sm={8}>
+        <Col xs={24} md={8}>
           <Card>
             <Statistic
               title="مجموع هزینه بازه"
@@ -118,7 +121,7 @@ export default function ReportsPage() {
             />
           </Card>
         </Col>
-        <Col xs={24} sm={8}>
+        <Col xs={24} md={8}>
           <Card>
             <Statistic
               title="خالص"
@@ -134,19 +137,34 @@ export default function ReportsPage() {
 
       <Card
         title="روند ماهانه درآمد و هزینه"
+        className={isMobile ? "pocketa-card-extra-stack" : undefined}
         extra={
+          !isMobile ? (
+            <Select
+              value={months}
+              onChange={setMonths}
+              style={{ width: 120 }}
+              options={[
+                { value: 3, label: "۳ ماه" },
+                { value: 6, label: "۶ ماه" },
+                { value: 12, label: "۱۲ ماه" },
+              ]}
+            />
+          ) : undefined
+        }
+      >
+        {isMobile ? (
           <Select
             value={months}
             onChange={setMonths}
-            style={{ width: 120 }}
+            style={{ width: "100%", marginBottom: 12 }}
             options={[
               { value: 3, label: "۳ ماه" },
               { value: 6, label: "۶ ماه" },
               { value: 12, label: "۱۲ ماه" },
             ]}
           />
-        }
-      >
+        ) : null}
         {monthlyQ.isLoading ? <Skeleton className="h-[280px] w-full" /> : null}
         {monthlyQ.error ? (
           <QueryError
@@ -155,9 +173,15 @@ export default function ReportsPage() {
           />
         ) : null}
         {monthlyQ.data ? (
-          <ResponsiveContainer width="100%" height={280}>
+          <ResponsiveContainer width="100%" height={isMobile ? 300 : 280}>
             <LineChart data={monthlyChart}>
-              <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+              <XAxis
+                dataKey="label"
+                angle={isMobile ? -35 : 0}
+                textAnchor={isMobile ? "end" : "middle"}
+                height={isMobile ? 60 : 30}
+                tick={{ fontSize: isMobile ? 10 : 12 }}
+              />
               <YAxis tick={{ fontSize: 11 }} width={70} />
               <Tooltip
                 formatter={(value) => formatToman(Number(value ?? 0))}
@@ -235,7 +259,13 @@ export default function ReportsPage() {
                     amount: c.amount,
                   }))}
                 >
-                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                  <XAxis
+                    dataKey="name"
+                    angle={isMobile ? -35 : 0}
+                    textAnchor={isMobile ? "end" : "middle"}
+                    height={isMobile ? 60 : 30}
+                    tick={{ fontSize: isMobile ? 10 : 11 }}
+                  />
                   <YAxis tick={{ fontSize: 11 }} width={70} />
                   <Tooltip formatter={(value) => formatToman(Number(value ?? 0))} />
                   <Bar dataKey="amount" name="مبلغ" fill="#ef4444" radius={[8, 8, 0, 0]} />

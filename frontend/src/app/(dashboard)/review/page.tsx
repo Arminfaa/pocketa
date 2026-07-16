@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { App, Button, Card, Flex, Input, Select, Space, Typography } from "antd";
+import { App, Button, Card, Flex, Grid, Input, Select, Space, Typography } from "antd";
 import { CheckOutlined, WarningOutlined, ThunderboltOutlined } from "@ant-design/icons";
 import {
   fetchCategories,
@@ -25,6 +25,8 @@ import { useAccountFilterStore } from "@/stores/account-filter.store";
 const { Title, Text } = Typography;
 
 export default function ReviewPage() {
+  const screens = Grid.useBreakpoint();
+  const isMobile = !screens.md;
   const { message } = App.useApp();
   const queryClient = useQueryClient();
   const selectedAccountId = useAccountFilterStore((s) => s.selectedAccountId);
@@ -116,11 +118,11 @@ export default function ReviewPage() {
   return (
     <Space direction="vertical" size="middle" style={{ width: "100%", maxWidth: 768 }}>
       <div>
-        <Title level={4} style={{ margin: 0 }}>
-          <Space>
+        <Title level={4} style={{ margin: 0, whiteSpace: "normal" }}>
+          <Flex wrap="wrap" gap="small" align="center">
             <WarningOutlined style={{ color: "#fbbf24" }} />
             نام‌گذاری تراکنش‌های ایمپورت‌شده
-          </Space>
+          </Flex>
         </Title>
         <Text type="secondary">
           برای هر واریز/برداشت مشخص کنید برای چه بوده، سپس ذخیره کنید.
@@ -143,8 +145,17 @@ export default function ReviewPage() {
           return (
             <Card key={tx._id}>
               <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-                <Flex justify="space-between" align="flex-start" gap="middle" wrap="wrap">
-                  <Text type="secondary" style={{ fontSize: 13 }}>
+                <Flex
+                  justify="space-between"
+                  align="flex-start"
+                  gap="middle"
+                  wrap="wrap"
+                  vertical={isMobile}
+                >
+                  <Text
+                    type="secondary"
+                    style={{ fontSize: 13, minWidth: 0, wordBreak: "break-word", flex: 1 }}
+                  >
                     {formatJalaliDate(tx.date)}
                     {tx.bankMeta?.time ? ` · ${tx.bankMeta.time}` : ""}
                     {" · "}
@@ -177,9 +188,9 @@ export default function ReviewPage() {
                   }}
                 />
 
-                <Flex gap="small" align="center">
+                <Flex gap="small" align="center" wrap="wrap">
                   <Select
-                    style={{ flex: 1 }}
+                    style={{ flex: 1, minWidth: isMobile ? "100%" : 160 }}
                     value={draft.categoryId}
                     onChange={(categoryId) =>
                       setDrafts((d) => ({
