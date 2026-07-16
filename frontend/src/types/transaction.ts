@@ -25,6 +25,14 @@ export type Transaction = {
   date: string;
   source?: "manual" | "bank_sms";
   needsReview?: boolean;
+  importHash?: string;
+  bankMeta?: {
+    bankName?: string;
+    accountHint?: string;
+    balanceAfter?: number;
+    time?: string;
+    rawSnippet?: string;
+  };
   categoryId: TransactionCategoryRef | string;
   accountId: TransactionAccountRef | string;
   createdAt?: string;
