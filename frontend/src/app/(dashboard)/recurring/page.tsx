@@ -264,7 +264,7 @@ export default function RecurringPage() {
                 wrap="wrap"
                 vertical={isMobile}
               >
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 mb-3">
                   <Text strong>{item.title}</Text>
                   <div>
                     <Text type="secondary" className="break-words">
