@@ -13,12 +13,50 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return output;
 }
 
+async function getLocalPushEndpoint(): Promise<string | null> {
+  if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+    return null;
+  }
+  if (Notification.permission !== "granted") return null;
+
+  const registration = await navigator.serviceWorker.getRegistration();
+  const subscription = await registration?.pushManager.getSubscription();
+  return subscription?.endpoint ?? null;
+}
+
 export async function fetchPushStatus(): Promise<{
   configured: boolean;
+  /** True only if THIS browser/device is subscribed and registered on the server */
   subscribed: boolean;
+  thisDevice: boolean;
+  subscriptionCount: number;
+  supported: boolean;
 }> {
-  const res = await api.get("/api/push/status");
-  return res.data.data;
+  const supported =
+    typeof window !== "undefined" &&
+    "serviceWorker" in navigator &&
+    "PushManager" in window;
+
+  const endpoint = supported ? await getLocalPushEndpoint() : null;
+
+  const res = await api.get("/api/push/status", {
+    params: endpoint ? { endpoint } : undefined,
+  });
+  const data = res.data.data as {
+    configured: boolean;
+    subscribed: boolean;
+    thisDevice?: boolean;
+    subscriptionCount: number;
+  };
+
+  const thisDevice = Boolean(endpoint && data.subscribed);
+  return {
+    configured: Boolean(data.configured),
+    subscribed: thisDevice,
+    thisDevice,
+    subscriptionCount: Number(data.subscriptionCount ?? 0),
+    supported,
+  };
 }
 
 export async function enablePushNotifications(): Promise<void> {
