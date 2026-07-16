@@ -3,11 +3,11 @@
 import axios, { type AxiosError, type AxiosRequestConfig } from "axios";
 import { useAuthStore } from "@/stores/auth.store";
 
-const baseURL = process.env.NEXT_PUBLIC_API_URL;
+const baseURL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
-if (!baseURL) {
+if (!process.env.NEXT_PUBLIC_API_URL) {
   // eslint-disable-next-line no-console
-  console.warn("NEXT_PUBLIC_API_URL is not set");
+  console.warn("NEXT_PUBLIC_API_URL is not set; falling back to http://localhost:4000");
 }
 
 const api = axios.create({
