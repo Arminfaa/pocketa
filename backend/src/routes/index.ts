@@ -8,6 +8,8 @@ import reportsRoutes from "./reports.routes";
 import profileRoutes from "./profile.routes";
 import accountsRoutes from "./accounts.routes";
 import importsRoutes from "./imports.routes";
+import recurringRoutes from "./recurring.routes";
+import goalsRoutes from "./goals.routes";
 
 const router = Router();
 
@@ -20,6 +22,8 @@ router.use("/dashboard", dashboardRoutes);
 router.use("/reports", reportsRoutes);
 router.use("/profile", profileRoutes);
 router.use("/imports", importsRoutes);
+router.use("/recurring", recurringRoutes);
+router.use("/goals", goalsRoutes);
 
 export default router;
 
