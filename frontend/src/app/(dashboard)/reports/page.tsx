@@ -8,7 +8,6 @@ import {
   Flex,
   Grid,
   Input,
-  List,
   Row,
   Select,
   Space,
@@ -285,12 +284,20 @@ export default function ReportsPage() {
 
       <Card title={`بیشترین هزینه‌های ${MONTH_LABELS[month - 1]} ${year}`}>
         {categoriesQ.isLoading ? <Skeleton className="h-40 w-full" /> : null}
-        <List
-          dataSource={categoriesQ.data?.topExpenses ?? []}
-          locale={{ emptyText: "هزینه‌ای برای نمایش وجود ندارد." }}
-          renderItem={(tx) => (
-            <List.Item>
-              <Flex justify="space-between" align="center" gap="middle" className="w-full">
+        {!categoriesQ.isLoading && (categoriesQ.data?.topExpenses?.length ?? 0) === 0 ? (
+          <Flex align="center" justify="center" className="py-8">
+            <Text type="secondary">هزینه‌ای برای نمایش وجود ندارد.</Text>
+          </Flex>
+        ) : (
+          <Space orientation="vertical" size={0} className="w-full">
+            {(categoriesQ.data?.topExpenses ?? []).map((tx) => (
+              <Flex
+                key={tx.id}
+                justify="space-between"
+                align="center"
+                gap="middle"
+                className="w-full py-3 border-b border-app-border last:border-b-0"
+              >
                 <div className="min-w-0">
                   <Text strong ellipsis>
                     {tx.title}
@@ -305,9 +312,9 @@ export default function ReportsPage() {
                   {formatToman(tx.amount)}
                 </Text>
               </Flex>
-            </List.Item>
-          )}
-        />
+            ))}
+          </Space>
+        )}
       </Card>
     </Space>
   );

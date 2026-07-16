@@ -76,7 +76,7 @@ export default function AppLayout({ children }: PropsWithChildren) {
             <span className="font-semibold text-app-fg truncate">Pocketa</span>
           </div>
         }
-        destroyOnClose
+        destroyOnHidden
       >
         <Sidebar forceExpanded hideBrand onNavigate={() => setDrawerOpen(false)} />
       </Drawer>
