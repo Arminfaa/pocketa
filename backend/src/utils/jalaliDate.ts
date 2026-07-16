@@ -104,6 +104,17 @@ export function isSameJalaliMonth(a: string, b = todayJalali()): boolean {
   return jalaliYearMonth(a) === jalaliYearMonth(b);
 }
 
+/** Calendar-day difference: target − from (positive => target is in the future). */
+export function jalaliDaysUntil(target: string, from = todayJalali()): number {
+  const t = parseJalali(target);
+  const f = parseJalali(from);
+  const tg = jalaali.toGregorian(t.jy, t.jm, t.jd);
+  const fg = jalaali.toGregorian(f.jy, f.jm, f.jd);
+  const tMs = Date.UTC(tg.gy, tg.gm - 1, tg.gd);
+  const fMs = Date.UTC(fg.gy, fg.gm - 1, fg.gd);
+  return Math.round((tMs - fMs) / 86_400_000);
+}
+
 /** Compare YYYY/MM/DD lexicographically after normalize. */
 export function isDueOnOrBefore(nextPaymentDate: string, today = todayJalali()): boolean {
   return normalizeJalaliDate(nextPaymentDate) <= normalizeJalaliDate(today);

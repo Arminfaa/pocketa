@@ -2,17 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  App,
-  Button,
-  Card,
-  Flex,
-  Grid,
-  Input,
-  Popconfirm,
-  Space,
-  Typography,
-} from "antd";
+import { App, Button, Card, Flex, Grid, Input, Popconfirm, Space, Typography } from "antd";
 import {
   BankOutlined,
   DeleteOutlined,
@@ -233,9 +223,7 @@ export default function AccountsPage() {
             >
               {editingId ? "ذخیره تغییرات" : "افزودن حساب"}
             </Button>
-            {editingId ? (
-              <Button onClick={cancelEdit}>انصراف</Button>
-            ) : null}
+            {editingId ? <Button onClick={cancelEdit}>انصراف</Button> : null}
           </Space>
         </Space>
       </Card>
@@ -267,7 +255,7 @@ export default function AccountsPage() {
                 wrap="wrap"
                 vertical={isMobile}
               >
-                <Flex align="center" gap="middle" className="min-w-0 flex-1">
+                <Flex align="center" gap="middle" className="min-w-0 flex-1 mb-3">
                   <div
                     className="w-11 h-11 rounded-2xl flex items-center justify-center text-white shrink-0"
                     style={{ background: account.color }}
@@ -293,12 +281,7 @@ export default function AccountsPage() {
                   wrap="wrap"
                   className={cn("shrink-0", isMobile && "w-full")}
                 >
-                  <div
-                    className={cn(
-                      "text-left",
-                      isMobile ? "flex-1 me-0" : "me-2"
-                    )}
-                  >
+                  <div className={cn("text-left", isMobile ? "flex-1 me-0" : "me-2")}>
                     <Text type="secondary" className="text-xs">
                       موجودی
                     </Text>

@@ -12,6 +12,8 @@ const BaseFields = {
   categoryId: z.string().min(1),
   notes: z.string().max(500).optional().nullable(),
   active: z.boolean().optional().default(true),
+  /** ساعت یادآور پوش (۰–۲۳)، پیش‌فرض ۲۰ */
+  reminderHour: z.coerce.number().int().min(0).max(23).optional().default(20),
 };
 
 const RecurringKindSchema = z.object({
@@ -56,6 +58,7 @@ export const RecurringUpdateSchema = z
     categoryId: z.string().min(1).optional(),
     notes: z.string().max(500).optional().nullable(),
     active: z.boolean().optional(),
+    reminderHour: z.coerce.number().int().min(0).max(23).optional(),
   })
   .superRefine((data, ctx) => {
     if (data.kind === "recurring" && data.endMode === "months") {

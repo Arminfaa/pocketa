@@ -2,19 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  App,
-  Button,
-  Card,
-  Col,
-  Flex,
-  Input,
-  Popconfirm,
-  Row,
-  Space,
-  Tag,
-  Typography,
-} from "antd";
+import { App, Button, Card, Col, Flex, Input, Popconfirm, Row, Space, Tag, Typography } from "antd";
 import { DeleteOutlined, EditOutlined, PlusOutlined } from "@ant-design/icons";
 import {
   createCategory,
@@ -203,11 +191,7 @@ export default function CategoriesPage() {
         </Space>
       </Card>
 
-      <FinanceTypeToggle
-        withAll
-        value={filter}
-        onChange={(e) => setFilter(e.target.value)}
-      />
+      <FinanceTypeToggle withAll value={filter} onChange={(e) => setFilter(e.target.value)} />
 
       {q.isLoading ? <Skeleton className="h-40 w-full" /> : null}
       {q.error ? (
@@ -226,7 +210,7 @@ export default function CategoriesPage() {
           <Col key={c._id} xs={24} md={12}>
             <Card className="w-full" classNames={{ body: "p-4" }}>
               <Flex justify="space-between" align="center" gap="middle" wrap="wrap">
-                <Flex align="center" gap="middle" className="min-w-0 flex-1">
+                <Flex align="center" gap="middle" className="min-w-0 flex-1 mb-3">
                   <div
                     className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-[10px] font-semibold shrink-0"
                     style={{ background: c.color }}

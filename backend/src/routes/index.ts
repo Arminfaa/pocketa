@@ -10,6 +10,7 @@ import accountsRoutes from "./accounts.routes";
 import importsRoutes from "./imports.routes";
 import recurringRoutes from "./recurring.routes";
 import goalsRoutes from "./goals.routes";
+import pushRoutes from "./push.routes";
 
 const router = Router();
 
@@ -24,6 +25,7 @@ router.use("/profile", profileRoutes);
 router.use("/imports", importsRoutes);
 router.use("/recurring", recurringRoutes);
 router.use("/goals", goalsRoutes);
+router.use("/push", pushRoutes);
 
 export default router;
 

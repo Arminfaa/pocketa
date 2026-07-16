@@ -72,8 +72,8 @@ export default function BudgetsPage() {
       const msg =
         err instanceof Error
           ? err.message
-          : (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-            "خطا در ذخیره بودجه";
+          : ((err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+            "خطا در ذخیره بودجه");
       message.error(msg);
     },
   });
@@ -207,10 +207,7 @@ export default function BudgetsPage() {
 
       {budgetsQ.isLoading ? <Skeleton className="h-40 w-full" /> : null}
       {budgetsQ.error ? (
-        <QueryError
-          message="خطا در دریافت بودجه‌ها."
-          onRetry={() => void budgetsQ.refetch()}
-        />
+        <QueryError message="خطا در دریافت بودجه‌ها." onRetry={() => void budgetsQ.refetch()} />
       ) : null}
 
       <Row gutter={[12, 12]}>
@@ -235,7 +232,7 @@ export default function BudgetsPage() {
                 )}
               >
                 <Flex justify="space-between" align="center" gap="small">
-                  <Flex align="center" gap="small" className="min-w-0 flex-1">
+                  <Flex align="center" gap="small" className="min-w-0 flex-1 mb-3">
                     <div
                       className="w-7 h-7 rounded-xl shrink-0"
                       style={{ background: b.category?.color ?? "#06b6d4" }}
