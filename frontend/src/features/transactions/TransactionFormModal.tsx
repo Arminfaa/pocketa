@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Button, Flex, Form, Grid, Input, Radio, Select, Typography } from "antd";
+import { Button, Flex, Form, Grid, Input, Select, Typography } from "antd";
 import { BulbOutlined } from "@ant-design/icons";
 import type { Transaction } from "@/types/transaction";
 import type { BankAccount } from "@/types/account";
@@ -9,6 +9,11 @@ import { getTodayJalali, accountIdValue, categoryIdValue } from "@/lib/transacti
 import { suggestCategory } from "@/services/transactions";
 import { TagsInput } from "@/components/ui/tags-input";
 import { AppModal } from "@/components/ui/modal";
+import {
+  FinanceTypeToggle,
+  financeTypeTextClass,
+} from "@/components/ui/finance-type-toggle";
+import { cn } from "@/lib/cn";
 
 export type TransactionFormValues = {
   type: "income" | "expense";
@@ -165,14 +170,7 @@ export function TransactionFormModal({
     >
       <Form form={form} layout="vertical" onFinish={handleFinish} requiredMark={false}>
         <Form.Item name="type" rules={[{ required: true, message: "نوع را انتخاب کنید" }]}>
-          <Radio.Group optionType="button" buttonStyle="solid" className="flex w-full">
-            <Radio.Button value="expense" className="flex-1 text-center">
-              هزینه
-            </Radio.Button>
-            <Radio.Button value="income" className="flex-1 text-center">
-              درآمد
-            </Radio.Button>
-          </Radio.Group>
+          <FinanceTypeToggle />
         </Form.Item>
 
         <Form.Item
@@ -188,7 +186,11 @@ export function TransactionFormModal({
           label="مبلغ (تومان)"
           rules={[{ required: true, message: "مبلغ را وارد کنید" }]}
         >
-          <Input dir="ltr" placeholder="500000" />
+          <Input
+            dir="ltr"
+            placeholder="500000"
+            className={cn("font-semibold", financeTypeTextClass(type))}
+          />
         </Form.Item>
 
         <Form.Item

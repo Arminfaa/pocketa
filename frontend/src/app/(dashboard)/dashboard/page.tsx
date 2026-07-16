@@ -79,12 +79,20 @@ export default function DashboardPage() {
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card>
-            <Statistic title="درآمد این ماه" value={formatToman(dashboard.totals.incomeThisMonth)} />
+            <Statistic
+              title="درآمد این ماه"
+              value={formatToman(dashboard.totals.incomeThisMonth)}
+              className="[&_.ant-statistic-content-value]:text-emerald-500"
+            />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card>
-            <Statistic title="هزینه این ماه" value={formatToman(dashboard.totals.expenseThisMonth)} />
+            <Statistic
+              title="هزینه این ماه"
+              value={formatToman(dashboard.totals.expenseThisMonth)}
+              className="[&_.ant-statistic-content-value]:text-red-500"
+            />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
@@ -122,8 +130,8 @@ export default function DashboardPage() {
                   <YAxis tick={{ fontSize: isMobile ? 10 : 12 }} />
                   <Tooltip />
                   <Legend />
-                  <Line type="monotone" dataKey="income" stroke="#06b6d4" name="درآمد" />
-                  <Line type="monotone" dataKey="expense" stroke="#8b5cf6" name="هزینه" />
+                  <Line type="monotone" dataKey="income" stroke="#10b981" name="درآمد" />
+                  <Line type="monotone" dataKey="expense" stroke="#ef4444" name="هزینه" />
                 </LineChart>
               </ResponsiveContainer>
             ) : (

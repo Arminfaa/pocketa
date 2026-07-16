@@ -10,7 +10,6 @@ import {
   Input,
   List,
   Popconfirm,
-  Radio,
   Space,
   Tag,
   Typography,
@@ -27,6 +26,7 @@ import { CATEGORY_COLORS, CATEGORY_ICONS } from "@/lib/finance-ui";
 import { Skeleton } from "@/components/ui/skeleton";
 import { QueryError } from "@/components/ui/query-error";
 import { EmptyState } from "@/components/ui/empty-state";
+import { FinanceTypeToggle } from "@/components/ui/finance-type-toggle";
 import { cn } from "@/lib/cn";
 
 const { Title, Text } = Typography;
@@ -144,17 +144,11 @@ export default function CategoriesPage() {
 
           <div>
             <Text type="secondary">نوع</Text>
-            <Radio.Group
-              className="mt-2 w-full"
+            <FinanceTypeToggle
+              className="mt-2"
               value={form.type}
               onChange={(e) => setForm((s) => ({ ...s, type: e.target.value }))}
-              optionType="button"
-              buttonStyle="solid"
-              block
-            >
-              <Radio.Button value="expense">هزینه</Radio.Button>
-              <Radio.Button value="income">درآمد</Radio.Button>
-            </Radio.Group>
+            />
           </div>
 
           <div>
@@ -208,17 +202,11 @@ export default function CategoriesPage() {
         </Space>
       </Card>
 
-      <Radio.Group
+      <FinanceTypeToggle
+        withAll
         value={filter}
         onChange={(e) => setFilter(e.target.value)}
-        optionType="button"
-        buttonStyle="solid"
-        block
-      >
-        <Radio.Button value="all">همه</Radio.Button>
-        <Radio.Button value="expense">هزینه</Radio.Button>
-        <Radio.Button value="income">درآمد</Radio.Button>
-      </Radio.Group>
+      />
 
       {q.isLoading ? <Skeleton className="h-40 w-full" /> : null}
       {q.error ? (

@@ -105,7 +105,7 @@ export default function ReportsPage() {
                   ? "—"
                   : formatToman(monthlyQ.data?.summary.totalIncome ?? 0)
               }
-              className="[&_.ant-statistic-content-value]:text-emerald-400 [&_.ant-statistic-content-value]:text-xl"
+              className="[&_.ant-statistic-content-value]:text-emerald-500 [&_.ant-statistic-content-value]:text-xl"
               loading={monthlyQ.isLoading}
             />
           </Card>
@@ -119,7 +119,7 @@ export default function ReportsPage() {
                   ? "—"
                   : formatToman(monthlyQ.data?.summary.totalExpense ?? 0)
               }
-              className="[&_.ant-statistic-content-value]:text-red-400 [&_.ant-statistic-content-value]:text-xl"
+              className="[&_.ant-statistic-content-value]:text-red-500 [&_.ant-statistic-content-value]:text-xl"
               loading={monthlyQ.isLoading}
             />
           </Card>
@@ -195,8 +195,8 @@ export default function ReportsPage() {
                 }}
               />
               <Legend />
-              <Line type="monotone" dataKey="income" name="درآمد" stroke="#06b6d4" strokeWidth={2} />
-              <Line type="monotone" dataKey="expense" name="هزینه" stroke="#8b5cf6" strokeWidth={2} />
+              <Line type="monotone" dataKey="income" name="درآمد" stroke="#10b981" strokeWidth={2} />
+              <Line type="monotone" dataKey="expense" name="هزینه" stroke="#ef4444" strokeWidth={2} />
               <Line type="monotone" dataKey="net" name="خالص" stroke="#22c55e" strokeWidth={2} />
             </LineChart>
           </ResponsiveContainer>
@@ -301,7 +301,7 @@ export default function ReportsPage() {
                     </Text>
                   </div>
                 </div>
-                <Text strong className="text-red-400 whitespace-nowrap">
+                <Text strong className="text-red-500 whitespace-nowrap">
                   {formatToman(tx.amount)}
                 </Text>
               </Flex>

@@ -12,7 +12,6 @@ import {
   Grid,
   Input,
   Popconfirm,
-  Radio,
   Row,
   Select,
   Space,
@@ -33,6 +32,10 @@ import { getTodayJalali } from "@/lib/transaction-helpers";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { QueryError } from "@/components/ui/query-error";
+import {
+  FinanceTypeToggle,
+  financeTypeTextClass,
+} from "@/components/ui/finance-type-toggle";
 import { cn } from "@/lib/cn";
 
 const { Title, Text } = Typography;
@@ -145,7 +148,7 @@ export default function RecurringPage() {
         <Alert
           type="warning"
           showIcon
-          message={`${listQ.data?.dueCount} مورد به موعد رسیده یا گذشته است.`}
+          title={`${listQ.data?.dueCount} مورد به موعد رسیده یا گذشته است.`}
         />
       ) : null}
 
@@ -158,19 +161,13 @@ export default function RecurringPage() {
         }
       >
         <Space orientation="vertical" size="middle" className="w-full">
-          <Radio.Group
+          <FinanceTypeToggle
             value={type}
             onChange={(e) => {
               setType(e.target.value);
               setCategoryId("");
             }}
-            optionType="button"
-            buttonStyle="solid"
-            block
-          >
-            <Radio.Button value="expense">هزینه</Radio.Button>
-            <Radio.Button value="income">درآمد</Radio.Button>
-          </Radio.Group>
+          />
 
           <Input
             placeholder="عنوان (مثلاً اینترنت)"
@@ -182,6 +179,7 @@ export default function RecurringPage() {
             placeholder="مبلغ تومان"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
+            className={cn("font-semibold", financeTypeTextClass(type))}
           />
 
           <Row gutter={[12, 12]}>
@@ -282,7 +280,7 @@ export default function RecurringPage() {
                 </div>
                 <Text
                   strong
-                  className={cn(item.type === "income" ? "text-emerald-400" : "text-red-400")}
+                  className={cn(financeTypeTextClass(item.type), "font-semibold")}
                 >
                   {formatToman(item.amount)}
                 </Text>

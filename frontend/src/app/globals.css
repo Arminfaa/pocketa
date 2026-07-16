@@ -81,4 +81,41 @@
       max-height: calc(100dvh - 24px);
     }
   }
+
+  /* Income / expense type toggle */
+  .finance-type-toggle.ant-radio-group {
+    @apply w-full;
+  }
+
+  .finance-type-toggle .ant-radio-button-wrapper {
+    @apply flex-1 text-center;
+  }
+
+  .finance-type-toggle .finance-type-expense.ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled) {
+    @apply !bg-red-500 !border-red-500 !text-white;
+    box-shadow: none !important;
+  }
+
+  .finance-type-toggle
+    .finance-type-expense.ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled)::before {
+    @apply !bg-red-500;
+  }
+
+  .finance-type-toggle .finance-type-income.ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled) {
+    @apply !bg-emerald-500 !border-emerald-500 !text-white;
+    box-shadow: none !important;
+  }
+
+  .finance-type-toggle
+    .finance-type-income.ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled)::before {
+    @apply !bg-emerald-500;
+  }
+
+  .finance-type-toggle .finance-type-expense:hover {
+    @apply !text-red-500;
+  }
+
+  .finance-type-toggle .finance-type-income:hover {
+    @apply !text-emerald-500;
+  }
 }
