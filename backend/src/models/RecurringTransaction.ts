@@ -3,18 +3,37 @@ import mongoose, { Schema, type InferSchemaType } from "mongoose";
 const RecurringTransactionSchema = new Schema(
   {
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
-    accountId: { type: Schema.Types.ObjectId, ref: "BankAccount", required: true, index: true },
+    /** حساب فقط موقع ثبت تراکنش لازم است؛ روی خود بدهی/قسط اختیاری است */
+    accountId: { type: Schema.Types.ObjectId, ref: "BankAccount", required: false, index: true },
     categoryId: { type: Schema.Types.ObjectId, ref: "Category", required: true },
     title: { type: String, required: true, trim: true },
     amount: { type: Number, required: true, min: 0 },
     type: { type: String, required: true, enum: ["income", "expense"] },
-    frequency: {
+    /** recurring = اقساط ماهانه؛ one_time = بدهی یک‌باره */
+    kind: {
       type: String,
       required: true,
-      enum: ["weekly", "monthly", "yearly"],
-      default: "monthly",
+      enum: ["recurring", "one_time"],
+      default: "recurring",
+      index: true,
     },
-    nextPaymentDate: { type: String, required: true }, // Jalali YYYY/MM/DD
+    /** روز موعد در هر ماه (۱–۳۱) — فقط برای kind=recurring */
+    dayOfMonth: { type: Number, min: 1, max: 31, required: false },
+    /** forever = همیشگی؛ months = تا N ماه */
+    endMode: {
+      type: String,
+      required: false,
+      enum: ["forever", "months"],
+      default: "forever",
+    },
+    /** تعداد کل ماه‌های تکرار وقتی endMode=months */
+    endMonths: { type: Number, required: false, min: 1 },
+    /** تعداد پرداخت‌های ثبت‌شده از این مورد */
+    paymentsMade: { type: Number, required: true, default: 0, min: 0 },
+    /** آخرین تاریخ پرداخت ثبت‌شده (جلالی) — برای چک‌لیست ماه */
+    lastPaymentDate: { type: String, required: false },
+    /** موعد بعدی / سررسید (جلالی YYYY/MM/DD) */
+    nextPaymentDate: { type: String, required: true },
     active: { type: Boolean, required: true, default: true, index: true },
     notes: { type: String, required: false, default: "" },
   },

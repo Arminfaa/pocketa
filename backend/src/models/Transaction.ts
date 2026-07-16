@@ -24,7 +24,7 @@ const TransactionSchema = new Schema(
 
     tags: { type: [String], default: [] },
 
-    importHash: { type: String, required: false, index: true },
+    importHash: { type: String, required: false },
     bankMeta: {
       bankName: { type: String },
       accountHint: { type: String },
@@ -39,7 +39,15 @@ const TransactionSchema = new Schema(
 TransactionSchema.index({ userId: 1, accountId: 1, date: -1 });
 TransactionSchema.index({ userId: 1, type: 1, date: -1 });
 TransactionSchema.index({ userId: 1, tags: 1 });
-TransactionSchema.index({ userId: 1, importHash: 1 }, { unique: true, sparse: true });
+// Compound sparse unique indexes still include docs when userId exists,
+// so null importHash values collide. Partial filter indexes only real hashes.
+TransactionSchema.index(
+  { userId: 1, importHash: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { importHash: { $type: "string" } },
+  }
+);
 
 export type Transaction = InferSchemaType<typeof TransactionSchema>;
 export type TransactionDocument = Transaction & { _id: mongoose.Types.ObjectId };

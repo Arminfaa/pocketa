@@ -6,46 +6,178 @@ import { RecurringTransactionModel } from "../models/RecurringTransaction";
 import { BankAccountModel } from "../models/BankAccount";
 import { CategoryModel } from "../models/Category";
 import { TransactionModel } from "../models/Transaction";
-import { RecurringCreateSchema, RecurringUpdateSchema } from "../validations/recurring";
-import { normalizeJalaliDate } from "../utils/normalizeDigits";
 import {
-  advanceJalaliDate,
+  RecurringCreateSchema,
+  RecurringGenerateSchema,
+  RecurringUpdateSchema,
+} from "../validations/recurring";
+import { normalizeJalaliDate, toEnglishDigits } from "../utils/normalizeDigits";
+import {
+  advanceMonthlyByDay,
   isDueOnOrBefore,
+  isSameJalaliMonth,
+  jalaliDateFromDay,
+  jalaliYearMonth,
+  nextOccurrenceFromDayOfMonth,
   todayJalali,
-  type Frequency,
 } from "../utils/jalaliDate";
+
+function parseYm(today: string): { jy: number; jm: number } {
+  const [y, m] = normalizeJalaliDate(toEnglishDigits(today)).split("/").map(Number);
+  return { jy: y!, jm: m! };
+}
+
+/** True if this month's installment/debt has already been paid. */
+function computePaidThisMonth(item: {
+  kind?: string;
+  active: boolean;
+  dayOfMonth?: number | null;
+  lastPaymentDate?: string | null;
+  nextPaymentDate: string;
+  paymentsMade?: number | null;
+}, today: string): boolean {
+  const kind = (item.kind as "recurring" | "one_time" | undefined) ?? "recurring";
+  const lastPaymentDate = item.lastPaymentDate
+    ? normalizeJalaliDate(item.lastPaymentDate)
+    : null;
+
+  if (lastPaymentDate && isSameJalaliMonth(lastPaymentDate, today)) {
+    return true;
+  }
+
+  if (kind === "one_time") {
+    return (
+      !item.active &&
+      (item.paymentsMade ?? 0) > 0 &&
+      isSameJalaliMonth(item.nextPaymentDate, today)
+    );
+  }
+
+  // قسط: موعد بعدی از موعد همین ماه جلوتر + حداقل یک پرداخت
+  const { jy, jm } = parseYm(today);
+  const dayOfMonth =
+    item.dayOfMonth ??
+    Number(normalizeJalaliDate(toEnglishDigits(item.nextPaymentDate)).split("/")[2]);
+  if (!Number.isFinite(dayOfMonth) || dayOfMonth < 1) return false;
+  if ((item.paymentsMade ?? 0) < 1) return false;
+
+  const thisMonthDue = jalaliDateFromDay(jy, jm, dayOfMonth);
+  return normalizeJalaliDate(item.nextPaymentDate) > normalizeJalaliDate(thisMonthDue);
+}
+
+function mapItem(item: {
+  _id: unknown;
+  title: string;
+  amount: number;
+  type: string;
+  kind?: string;
+  dayOfMonth?: number | null;
+  endMode?: string | null;
+  endMonths?: number | null;
+  paymentsMade?: number | null;
+  lastPaymentDate?: string | null;
+  nextPaymentDate: string;
+  active: boolean;
+  notes?: string | null;
+  categoryId: unknown;
+  createdAt?: Date;
+}, today: string) {
+  const kind = (item.kind as "recurring" | "one_time" | undefined) ?? "recurring";
+  const lastPaymentDate = item.lastPaymentDate
+    ? normalizeJalaliDate(item.lastPaymentDate)
+    : null;
+  const paidThisMonth = computePaidThisMonth(item, today);
+  return {
+    id: item._id,
+    title: item.title,
+    amount: item.amount,
+    type: item.type,
+    kind,
+    dayOfMonth: item.dayOfMonth ?? null,
+    endMode: item.endMode ?? (kind === "recurring" ? "forever" : null),
+    endMonths: item.endMonths ?? null,
+    paymentsMade: item.paymentsMade ?? 0,
+    lastPaymentDate,
+    nextPaymentDate: item.nextPaymentDate,
+    active: item.active,
+    notes: item.notes ?? "",
+    category: item.categoryId,
+    isDue: item.active && isDueOnOrBefore(item.nextPaymentDate, today),
+    paidThisMonth,
+    createdAt: item.createdAt,
+  };
+}
+
+function belongsToMonthChecklist(
+  item: {
+    kind?: string;
+    active: boolean;
+    nextPaymentDate: string;
+    paidThisMonth: boolean;
+  },
+  today: string
+): boolean {
+  const kind = (item.kind as "recurring" | "one_time" | undefined) ?? "recurring";
+  const currentYm = jalaliYearMonth(today);
+
+  if (kind === "one_time") {
+    return jalaliYearMonth(item.nextPaymentDate) === currentYm;
+  }
+
+  if (item.paidThisMonth) return true;
+  if (!item.active) return false;
+  // هنوز موعد همین ماه یا عقب‌افتاده دارد
+  return jalaliYearMonth(item.nextPaymentDate) <= currentYm;
+}
 
 export const list = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user?.userId;
   if (!userId) throw new AppError(401, "عدم دسترسی");
 
   const activeOnly = String(req.query.activeOnly ?? "true") !== "false";
-  const filter: Record<string, unknown> = { userId };
-  if (activeOnly) filter.active = true;
 
-  const items = await RecurringTransactionModel.find(filter)
+  const allItems = await RecurringTransactionModel.find({ userId })
     .sort({ nextPaymentDate: 1 })
-    .populate({ path: "accountId", select: "name bankName color" })
     .populate({ path: "categoryId", select: "name color type icon" });
 
   const today = todayJalali();
-  const mapped = items.map((item) => ({
-    id: item._id,
-    title: item.title,
-    amount: item.amount,
-    type: item.type,
-    frequency: item.frequency,
-    nextPaymentDate: item.nextPaymentDate,
-    active: item.active,
-    notes: item.notes ?? "",
-    account: item.accountId,
-    category: item.categoryId,
-    isDue: item.active && isDueOnOrBefore(item.nextPaymentDate, today),
-    createdAt: (item as { createdAt?: Date }).createdAt,
-  }));
+  const toMapped = (item: (typeof allItems)[number]) =>
+    mapItem(
+      {
+        _id: item._id,
+        title: item.title,
+        amount: item.amount,
+        type: item.type,
+        kind: item.kind,
+        dayOfMonth: item.dayOfMonth,
+        endMode: item.endMode,
+        endMonths: item.endMonths,
+        paymentsMade: item.paymentsMade,
+        lastPaymentDate: item.lastPaymentDate,
+        nextPaymentDate: item.nextPaymentDate,
+        active: item.active,
+        notes: item.notes,
+        categoryId: item.categoryId,
+        createdAt: (item as { createdAt?: Date }).createdAt,
+      },
+      today
+    );
+
+  const mappedAll = allItems.map(toMapped);
+  const mapped = activeOnly ? mappedAll.filter((i) => i.active) : mappedAll;
+  const monthChecklist = mappedAll
+    .filter((item) => belongsToMonthChecklist(item, today))
+    .sort((a, b) => {
+      if (a.paidThisMonth !== b.paidThisMonth) return a.paidThisMonth ? 1 : -1;
+      return a.nextPaymentDate.localeCompare(b.nextPaymentDate);
+    });
+
+  const [y, m] = today.split("/").map(Number);
 
   return sendSuccess(res, {
     items: mapped,
+    monthChecklist,
+    monthLabel: jalaliDateFromDay(y!, m!, 1).slice(0, 7),
     dueCount: mapped.filter((i) => i.isDue).length,
     today,
   });
@@ -58,30 +190,48 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
   const parsed = RecurringCreateSchema.safeParse(req.body);
   if (!parsed.success) throw new AppError(400, "خطا در اعتبارسنجی داده‌ها", parsed.error.flatten());
 
-  const [account, category] = await Promise.all([
-    BankAccountModel.findOne({ _id: parsed.data.accountId, userId, isActive: true }),
-    CategoryModel.findOne({ _id: parsed.data.categoryId, userId }),
-  ]);
-  if (!account) throw new AppError(404, "حساب بانکی یافت نشد");
+  const category = await CategoryModel.findOne({ _id: parsed.data.categoryId, userId });
   if (!category) throw new AppError(404, "دسته‌بندی یافت نشد");
   if (category.type !== parsed.data.type) {
     throw new AppError(400, "نوع دسته با نوع تراکنش همخوانی ندارد");
   }
 
-  const item = await RecurringTransactionModel.create({
+  const base = {
     userId,
     title: parsed.data.title,
     amount: parsed.data.amount,
     type: parsed.data.type,
-    frequency: parsed.data.frequency,
-    nextPaymentDate: normalizeJalaliDate(parsed.data.nextPaymentDate),
-    accountId: parsed.data.accountId,
     categoryId: parsed.data.categoryId,
     notes: parsed.data.notes ?? "",
     active: parsed.data.active ?? true,
-  });
+    paymentsMade: 0,
+  };
 
-  return sendSuccess(res, { item }, "پرداخت تکرارشونده ایجاد شد", 201);
+  let item;
+  if (parsed.data.kind === "recurring") {
+    const dayOfMonth = parsed.data.dayOfMonth;
+    const endMode = parsed.data.endMode;
+    item = await RecurringTransactionModel.create({
+      ...base,
+      kind: "recurring",
+      dayOfMonth,
+      endMode,
+      endMonths: endMode === "months" ? parsed.data.endMonths : undefined,
+      nextPaymentDate: nextOccurrenceFromDayOfMonth(dayOfMonth),
+    });
+  } else {
+    const dueDate = normalizeJalaliDate(parsed.data.dueDate);
+    item = await RecurringTransactionModel.create({
+      ...base,
+      kind: "one_time",
+      nextPaymentDate: dueDate,
+      endMode: undefined,
+      dayOfMonth: undefined,
+      endMonths: undefined,
+    });
+  }
+
+  return sendSuccess(res, { item }, "بدهی/قسط ثبت شد", 201);
 });
 
 export const update = asyncHandler(async (req: Request, res: Response) => {
@@ -95,22 +245,36 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
   const existing = await RecurringTransactionModel.findOne({ _id: id, userId });
   if (!existing) throw new AppError(404, "مورد یافت نشد");
 
-  if (parsed.data.accountId) {
-    const account = await BankAccountModel.findOne({
-      _id: parsed.data.accountId,
-      userId,
-      isActive: true,
-    });
-    if (!account) throw new AppError(404, "حساب بانکی یافت نشد");
-  }
   if (parsed.data.categoryId) {
     const category = await CategoryModel.findOne({ _id: parsed.data.categoryId, userId });
     if (!category) throw new AppError(404, "دسته‌بندی یافت نشد");
   }
 
   const next: Record<string, unknown> = { ...parsed.data };
-  if (parsed.data.nextPaymentDate) {
-    next.nextPaymentDate = normalizeJalaliDate(parsed.data.nextPaymentDate);
+  delete next.dueDate;
+
+  const kind = parsed.data.kind ?? existing.kind ?? "recurring";
+
+  if (kind === "one_time") {
+    const due = parsed.data.dueDate ?? parsed.data.nextPaymentDate;
+    if (due) next.nextPaymentDate = normalizeJalaliDate(due);
+    next.dayOfMonth = undefined;
+    next.endMode = undefined;
+    next.endMonths = undefined;
+  } else {
+    const dayOfMonth = parsed.data.dayOfMonth ?? existing.dayOfMonth;
+    if (dayOfMonth != null) {
+      next.dayOfMonth = dayOfMonth;
+      if (parsed.data.dayOfMonth != null || parsed.data.kind === "recurring") {
+        next.nextPaymentDate = nextOccurrenceFromDayOfMonth(dayOfMonth);
+      }
+    }
+    if (parsed.data.endMode === "forever") {
+      next.endMonths = undefined;
+    }
+    if (parsed.data.nextPaymentDate) {
+      next.nextPaymentDate = normalizeJalaliDate(parsed.data.nextPaymentDate);
+    }
   }
   if (parsed.data.notes !== undefined) next.notes = parsed.data.notes ?? "";
 
@@ -134,32 +298,61 @@ export const remove = asyncHandler(async (req: Request, res: Response) => {
   return sendSuccess(res, { id }, "حذف شد");
 });
 
-/** Create a real transaction from a due recurring item and advance next date. */
+/** Create a real transaction from a due item; advance or close afterward. */
 export const generate = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user?.userId;
   if (!userId) throw new AppError(401, "عدم دسترسی");
 
+  const parsed = RecurringGenerateSchema.safeParse(req.body ?? {});
+  if (!parsed.success) throw new AppError(400, "حساب بانکی را انتخاب کنید", parsed.error.flatten());
+
   const { id } = req.params;
   const recurring = await RecurringTransactionModel.findOne({ _id: id, userId, active: true });
-  if (!recurring) throw new AppError(404, "پرداخت تکرارشونده فعال یافت نشد");
+  if (!recurring) throw new AppError(404, "بدهی/قسط فعال یافت نشد");
+
+  const account = await BankAccountModel.findOne({
+    _id: parsed.data.accountId,
+    userId,
+    isActive: true,
+  });
+  if (!account) throw new AppError(404, "حساب بانکی یافت نشد");
+
+  const kind = recurring.kind ?? "recurring";
+  const kindLabel = kind === "one_time" ? "بدهی یک‌باره" : "قسط ماهانه";
 
   const tx = await TransactionModel.create({
     userId,
-    accountId: recurring.accountId,
+    accountId: parsed.data.accountId,
     categoryId: recurring.categoryId,
     type: recurring.type,
     amount: recurring.amount,
     title: recurring.title,
-    description: recurring.notes || `تولید خودکار از تکرارشونده (${recurring.frequency})`,
+    description: recurring.notes || `ثبت از بدهی/اقساط (${kindLabel})`,
     date: normalizeJalaliDate(recurring.nextPaymentDate),
     source: "manual",
     needsReview: false,
   });
 
-  recurring.nextPaymentDate = advanceJalaliDate(
-    recurring.nextPaymentDate,
-    recurring.frequency as Frequency
-  );
+  const paymentsMade = (recurring.paymentsMade ?? 0) + 1;
+  recurring.paymentsMade = paymentsMade;
+  recurring.lastPaymentDate = todayJalali();
+
+  if (kind === "one_time") {
+    recurring.active = false;
+  } else {
+    const dayOfMonth = recurring.dayOfMonth ?? Number(recurring.nextPaymentDate.split("/")[2]);
+    const endMode = recurring.endMode ?? "forever";
+    const reachedEnd =
+      endMode === "months" &&
+      recurring.endMonths != null &&
+      paymentsMade >= recurring.endMonths;
+
+    recurring.nextPaymentDate = advanceMonthlyByDay(recurring.nextPaymentDate, dayOfMonth);
+    if (reachedEnd) {
+      recurring.active = false;
+    }
+  }
+
   await recurring.save();
 
   return sendSuccess(
@@ -167,7 +360,11 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
     {
       transaction: tx,
       nextPaymentDate: recurring.nextPaymentDate,
+      active: recurring.active,
+      paymentsMade: recurring.paymentsMade,
     },
-    "تراکنش ایجاد شد و موعد بعدی به‌روز شد"
+    kind === "one_time" || !recurring.active
+      ? "تراکنش ثبت شد و مورد بسته شد"
+      : "تراکنش ثبت شد و موعد بعدی به‌روز شد"
   );
 });
