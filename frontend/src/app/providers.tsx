@@ -2,8 +2,8 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
-import { Toaster } from "sonner";
 import { ThemeInitializer } from "@/components/theme/ThemeInitializer";
+import { AntdProvider } from "@/components/providers/AntdProvider";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -21,9 +21,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeInitializer />
-      <Toaster dir="rtl" richColors position="top-left" />
-      {children}
+      <AntdProvider>{children}</AntdProvider>
     </QueryClientProvider>
   );
 }
-

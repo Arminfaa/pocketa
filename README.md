@@ -4,7 +4,7 @@ Persian RTL personal finance SaaS — track income & expenses, budgets, bank SMS
 
 | Layer | Stack |
 |-------|--------|
-| **Frontend** | Next.js 16, React 19, TypeScript, Tailwind, TanStack Query, Zustand, Axios, RHF + Zod, Recharts, Framer Motion |
+| **Frontend** | Next.js 16, React 19, TypeScript, Ant Design (RTL), TanStack Query, Zustand, Axios, Recharts, Framer Motion |
 | **Backend** | Express, TypeScript, MongoDB / Mongoose, JWT + refresh cookies, bcrypt |
 
 ## Features

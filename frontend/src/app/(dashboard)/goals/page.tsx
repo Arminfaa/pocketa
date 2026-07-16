@@ -2,8 +2,22 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import { Plus, Target, Trash2 } from "lucide-react";
+import {
+  App,
+  Button,
+  Card,
+  Col,
+  Flex,
+  Input,
+  Popconfirm,
+  Progress,
+  Row,
+  Space,
+  Statistic,
+  Tag,
+  Typography,
+} from "antd";
+import { AimOutlined, DeleteOutlined, PlusOutlined } from "@ant-design/icons";
 import {
   contributeGoal,
   createGoal,
@@ -16,7 +30,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { QueryError } from "@/components/ui/query-error";
 
+const { Title, Text } = Typography;
+
 export default function GoalsPage() {
+  const { message } = App.useApp();
   const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
   const [targetAmount, setTargetAmount] = useState("");
@@ -42,7 +59,7 @@ export default function GoalsPage() {
       });
     },
     onSuccess: () => {
-      toast.success("هدف پس‌انداز ساخته شد");
+      message.success("هدف پس‌انداز ساخته شد");
       setTitle("");
       setTargetAmount("");
       setCurrentAmount("0");
@@ -50,12 +67,12 @@ export default function GoalsPage() {
       void queryClient.invalidateQueries({ queryKey: ["goals"] });
     },
     onError: (err: unknown) => {
-      const message =
+      const msg =
         err instanceof Error
           ? err.message
           : (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
             "خطا در ذخیره هدف";
-      toast.error(message);
+      message.error(msg);
     },
   });
 
@@ -63,22 +80,22 @@ export default function GoalsPage() {
     mutationFn: async ({ id, amount }: { id: string; amount: number }) =>
       contributeGoal(id, amount),
     onSuccess: (_data, vars) => {
-      toast.success("به هدف اضافه شد");
+      message.success("به هدف اضافه شد");
       setContributeAmounts((s) => ({ ...s, [vars.id]: "" }));
       void queryClient.invalidateQueries({ queryKey: ["goals"] });
     },
     onError: (err: unknown) => {
-      const message =
+      const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         "خطا در افزودن مبلغ";
-      toast.error(message);
+      message.error(msg);
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteGoal(id),
     onSuccess: () => {
-      toast.success("هدف حذف شد");
+      message.success("هدف حذف شد");
       void queryClient.invalidateQueries({ queryKey: ["goals"] });
     },
   });
@@ -87,184 +104,220 @@ export default function GoalsPage() {
   const summary = q.data?.summary;
 
   return (
-    <div className="space-y-5 max-w-3xl">
+    <Space direction="vertical" size="large" style={{ width: "100%", maxWidth: 768 }}>
       <div>
-        <h1 className="text-xl font-semibold flex items-center gap-2">
-          <Target size={22} />
-          اهداف پس‌انداز
-        </h1>
-        <p className="text-sm text-[var(--muted)] mt-1">
+        <Title level={4} style={{ margin: 0 }}>
+          <Space>
+            <AimOutlined />
+            اهداف پس‌انداز
+          </Space>
+        </Title>
+        <Text type="secondary">
           برای سفر، خرید یا اضطراری هدف بگذارید و پیشرفت را دنبال کنید.
-        </p>
+        </Text>
       </div>
 
       {summary ? (
-        <div className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4">
-            <div className="text-xs text-[var(--muted)]">کل اهداف</div>
-            <div className="font-semibold mt-1">{formatToman(summary.totalTarget)}</div>
-          </div>
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4">
-            <div className="text-xs text-[var(--muted)]">پس‌انداز شده</div>
-            <div className="font-semibold mt-1 text-brand-400">
-              {formatToman(summary.totalSaved)}
-            </div>
-          </div>
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4">
-            <div className="text-xs text-[var(--muted)]">تکمیل‌شده</div>
-            <div className="font-semibold mt-1">{summary.completedCount}</div>
-          </div>
-        </div>
+        <Row gutter={[12, 12]}>
+          <Col xs={24} sm={8}>
+            <Card>
+              <Statistic title="کل اهداف" value={formatToman(summary.totalTarget)} />
+            </Card>
+          </Col>
+          <Col xs={24} sm={8}>
+            <Card>
+              <Statistic
+                title="پس‌انداز شده"
+                value={formatToman(summary.totalSaved)}
+                valueStyle={{ color: "#06b6d4" }}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={8}>
+            <Card>
+              <Statistic title="تکمیل‌شده" value={summary.completedCount} />
+            </Card>
+          </Col>
+        </Row>
       ) : null}
 
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4 space-y-3">
-        <div className="font-medium flex items-center gap-2">
-          <Plus size={18} />
-          هدف جدید
-        </div>
-        <input
-          className="w-full rounded-xl border border-[var(--border)] bg-transparent px-3 py-3"
-          placeholder="مثلاً سفر شمال"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-        <div className="grid gap-3 md:grid-cols-2">
-          <input
-            dir="ltr"
-            className="rounded-xl border border-[var(--border)] bg-transparent px-3 py-3"
-            placeholder="مبلغ هدف (تومان)"
-            value={targetAmount}
-            onChange={(e) => setTargetAmount(e.target.value)}
+      <Card
+        title={
+          <Space>
+            <PlusOutlined />
+            هدف جدید
+          </Space>
+        }
+      >
+        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+          <Input
+            placeholder="مثلاً سفر شمال"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
           />
-          <input
-            dir="ltr"
-            className="rounded-xl border border-[var(--border)] bg-transparent px-3 py-3"
-            placeholder="پس‌انداز فعلی"
-            value={currentAmount}
-            onChange={(e) => setCurrentAmount(e.target.value)}
-          />
-          <input
-            dir="ltr"
-            className="rounded-xl border border-[var(--border)] bg-transparent px-3 py-3"
-            placeholder="مهلت اختیاری YYYY/MM/DD"
-            value={deadline}
-            onChange={(e) => setDeadline(e.target.value)}
-          />
-          <div className="flex flex-wrap gap-2 items-center">
-            {CATEGORY_COLORS.slice(0, 6).map((c) => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => setColor(c)}
-                className="h-8 w-8 rounded-xl border border-[var(--border)]"
-                style={{
-                  background: c,
-                  outline: color === c ? "2px solid white" : undefined,
-                  outlineOffset: 2,
-                }}
+          <Row gutter={[12, 12]}>
+            <Col xs={24} md={12}>
+              <Input
+                dir="ltr"
+                placeholder="مبلغ هدف (تومان)"
+                value={targetAmount}
+                onChange={(e) => setTargetAmount(e.target.value)}
               />
-            ))}
-          </div>
-        </div>
-        <button
-          type="button"
-          disabled={createMutation.isPending}
-          onClick={() => createMutation.mutate()}
-          className="rounded-xl bg-brand-500 text-white px-4 py-3 font-medium hover:opacity-95 disabled:opacity-60"
-        >
-          {createMutation.isPending ? "در حال ذخیره..." : "ایجاد هدف"}
-        </button>
-      </div>
+            </Col>
+            <Col xs={24} md={12}>
+              <Input
+                dir="ltr"
+                placeholder="پس‌انداز فعلی"
+                value={currentAmount}
+                onChange={(e) => setCurrentAmount(e.target.value)}
+              />
+            </Col>
+            <Col xs={24} md={12}>
+              <Input
+                dir="ltr"
+                placeholder="مهلت اختیاری YYYY/MM/DD"
+                value={deadline}
+                onChange={(e) => setDeadline(e.target.value)}
+              />
+            </Col>
+            <Col xs={24} md={12}>
+              <Flex gap={8} wrap="wrap" align="center">
+                {CATEGORY_COLORS.slice(0, 6).map((c) => (
+                  <Button
+                    key={c}
+                    type="text"
+                    aria-label={c}
+                    onClick={() => setColor(c)}
+                    style={{
+                      width: 32,
+                      height: 32,
+                      minWidth: 32,
+                      padding: 0,
+                      borderRadius: 12,
+                      background: c,
+                      border:
+                        color === c ? "2px solid #fff" : "1px solid rgba(148, 163, 184, 0.22)",
+                      boxShadow: color === c ? "0 0 0 2px #06b6d4" : undefined,
+                    }}
+                  />
+                ))}
+              </Flex>
+            </Col>
+          </Row>
+          <Button
+            type="primary"
+            loading={createMutation.isPending}
+            onClick={() => createMutation.mutate()}
+          >
+            {createMutation.isPending ? "در حال ذخیره..." : "ایجاد هدف"}
+          </Button>
+        </Space>
+      </Card>
 
       {q.isLoading ? <Skeleton className="h-40 w-full" /> : null}
       {q.error ? (
         <QueryError message="خطا در دریافت اهداف." onRetry={() => void q.refetch()} />
       ) : null}
 
-      <div className="space-y-3">
+      <Space direction="vertical" size="middle" style={{ width: "100%" }}>
         {items.map((goal) => (
-          <div
+          <Card
             key={goal.id}
-            className={`rounded-2xl border bg-[var(--card)] p-4 space-y-3 ${
-              goal.completed ? "border-emerald-400/40" : "border-[var(--border)]"
-            }`}
+            style={{
+              borderColor: goal.completed ? "rgba(52, 211, 153, 0.4)" : undefined,
+            }}
           >
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
+            <Flex justify="space-between" align="flex-start" gap="middle">
+              <Flex align="center" gap="middle" style={{ minWidth: 0, flex: 1 }}>
                 <div
-                  className="h-10 w-10 rounded-xl shrink-0"
-                  style={{ background: goal.color }}
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 12,
+                    background: goal.color,
+                    flexShrink: 0,
+                  }}
                 />
-                <div className="min-w-0">
-                  <div className="font-medium truncate">
+                <div style={{ minWidth: 0 }}>
+                  <Text strong ellipsis>
                     {goal.title}
-                    {goal.completed ? " ✓" : ""}
-                  </div>
-                  <div className="text-sm text-[var(--muted)]">
-                    {formatToman(goal.currentAmount)} از {formatToman(goal.targetAmount)}
-                    {goal.deadline ? ` · مهلت ${formatJalaliDate(goal.deadline)}` : ""}
+                    {goal.completed ? (
+                      <Tag color="green" style={{ marginInlineStart: 8 }}>
+                        تکمیل
+                      </Tag>
+                    ) : null}
+                  </Text>
+                  <div>
+                    <Text type="secondary">
+                      {formatToman(goal.currentAmount)} از {formatToman(goal.targetAmount)}
+                      {goal.deadline ? ` · مهلت ${formatJalaliDate(goal.deadline)}` : ""}
+                    </Text>
                   </div>
                 </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  if (confirm("این هدف حذف شود؟")) deleteMutation.mutate(goal.id);
-                }}
-                className="h-9 w-9 rounded-xl border border-[var(--border)] text-red-300 flex items-center justify-center"
+              </Flex>
+              <Popconfirm
+                title="حذف هدف"
+                description="این هدف حذف شود؟"
+                okText="حذف"
+                cancelText="انصراف"
+                okButtonProps={{ danger: true }}
+                onConfirm={() => deleteMutation.mutate(goal.id)}
               >
-                <Trash2 size={14} />
-              </button>
-            </div>
+                <Button
+                  type="default"
+                  danger
+                  icon={<DeleteOutlined />}
+                  aria-label="حذف"
+                />
+              </Popconfirm>
+            </Flex>
 
-            <div className="h-3 rounded-full bg-white/10 overflow-hidden">
-              <div
-                className="h-full rounded-full"
-                style={{ width: `${goal.percent}%`, background: goal.color }}
-              />
-            </div>
-            <div className="text-xs text-[var(--muted)]">
+            <Progress
+              percent={goal.percent}
+              showInfo={false}
+              strokeColor={goal.color}
+              style={{ marginTop: 12 }}
+            />
+            <Text type="secondary" style={{ fontSize: 12 }}>
               {goal.percent.toFixed(0)}% · باقیمانده {formatToman(goal.remaining)}
-            </div>
+            </Text>
 
             {!goal.completed ? (
-              <div className="flex gap-2">
-                <input
+              <Flex gap="small" style={{ marginTop: 12 }}>
+                <Input
                   dir="ltr"
-                  className="flex-1 rounded-xl border border-[var(--border)] bg-transparent px-3 py-2.5"
                   placeholder="مبلغ افزودنی"
                   value={contributeAmounts[goal.id] ?? ""}
                   onChange={(e) =>
                     setContributeAmounts((s) => ({ ...s, [goal.id]: e.target.value }))
                   }
                 />
-                <button
-                  type="button"
+                <Button
+                  type="primary"
+                  loading={contributeMutation.isPending}
                   onClick={() => {
                     const value = Number((contributeAmounts[goal.id] ?? "").replace(/,/g, ""));
                     if (!Number.isFinite(value) || value <= 0) {
-                      toast.error("مبلغ معتبر نیست");
+                      message.error("مبلغ معتبر نیست");
                       return;
                     }
                     contributeMutation.mutate({ id: goal.id, amount: value });
                   }}
-                  className="rounded-xl bg-brand-500 text-white px-4 py-2.5 text-sm"
                 >
                   افزودن
-                </button>
-              </div>
+                </Button>
+              </Flex>
             ) : null}
-          </div>
+          </Card>
         ))}
-      </div>
+      </Space>
 
       {!q.isLoading && items.length === 0 ? (
         <EmptyState
-          icon={Target}
           title="هنوز هدفی تعریف نشده"
           description="برای سفر، خرید یا اضطراری یک هدف پس‌انداز بسازید."
         />
       ) : null}
-    </div>
+    </Space>
   );
 }

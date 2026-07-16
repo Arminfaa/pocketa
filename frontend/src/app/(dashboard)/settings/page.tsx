@@ -4,10 +4,13 @@ import { useRef, useState } from "react";
 import { useAuthStore } from "@/stores/auth.store";
 import api from "@/services/api";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
-import { Camera, Loader2 } from "lucide-react";
+import { App, Button, Card, Flex, Input, Space, Spin, Typography } from "antd";
+import { CameraOutlined, LoadingOutlined, LogoutOutlined } from "@ant-design/icons";
+
+const { Title, Text } = Typography;
 
 export default function SettingsPage() {
+  const { message } = App.useApp();
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
   const logout = useAuthStore((s) => s.logout);
@@ -24,7 +27,7 @@ export default function SettingsPage() {
       // ignore
     } finally {
       logout();
-      toast.success("خارج شدید");
+      message.success("خارج شدید");
       router.replace("/login");
     }
   }
@@ -34,11 +37,11 @@ export default function SettingsPage() {
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      toast.error("فقط فایل تصویری مجاز است");
+      message.error("فقط فایل تصویری مجاز است");
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      toast.error("حجم فایل بیشتر از ۵ مگابایت است");
+      message.error("حجم فایل بیشتر از ۵ مگابایت است");
       return;
     }
 
@@ -52,12 +55,12 @@ export default function SettingsPage() {
       });
       const nextUser = res.data?.data?.user;
       if (nextUser) setUser(nextUser);
-      toast.success("آواتار به‌روزرسانی شد");
+      message.success("آواتار به‌روزرسانی شد");
     } catch (err: unknown) {
-      const message =
+      const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         "خطا در آپلود تصویر";
-      toast.error(message);
+      message.error(msg);
     } finally {
       setUploading(false);
       if (inputRef.current) inputRef.current.value = "";
@@ -66,7 +69,7 @@ export default function SettingsPage() {
 
   async function onSaveProfile() {
     if (!name.trim() || name.trim().length < 2) {
-      toast.error("نام باید حداقل ۲ کاراکتر باشد");
+      message.error("نام باید حداقل ۲ کاراکتر باشد");
       return;
     }
     setSaving(true);
@@ -74,89 +77,118 @@ export default function SettingsPage() {
       const res = await api.put("/api/profile", { name: name.trim() });
       const nextUser = res.data?.data?.user;
       if (nextUser) setUser(nextUser);
-      toast.success("پروفایل ذخیره شد");
+      message.success("پروفایل ذخیره شد");
     } catch (err: unknown) {
-      const message =
+      const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         "خطا در ذخیره پروفایل";
-      toast.error(message);
+      message.error(msg);
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <div className="space-y-4 max-w-xl">
-      <h1 className="text-xl font-semibold text-[var(--text)]">تنظیمات پروفایل</h1>
+    <Space direction="vertical" size="large" style={{ width: "100%", maxWidth: 576 }}>
+      <Title level={4} style={{ margin: 0 }}>
+        تنظیمات پروفایل
+      </Title>
 
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 space-y-5">
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            disabled={uploading}
-            className="relative h-20 w-20 rounded-2xl overflow-hidden border border-[var(--border)] bg-brand-gradient flex items-center justify-center group"
-            aria-label="آپلود آواتار"
-          >
-            {user?.avatar ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" />
-            ) : (
-              <span className="text-2xl font-bold text-white">
-                {(user?.name ?? "پ").charAt(0)}
-              </span>
-            )}
-            <div className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-              {uploading ? (
-                <Loader2 className="animate-spin text-white" size={22} />
+      <Card>
+        <Space direction="vertical" size="large" style={{ width: "100%" }}>
+          <Flex align="center" gap="large">
+            <Button
+              type="text"
+              onClick={() => inputRef.current?.click()}
+              disabled={uploading}
+              aria-label="آپلود آواتار"
+              style={{
+                position: "relative",
+                width: 80,
+                height: 80,
+                padding: 0,
+                borderRadius: 16,
+                overflow: "hidden",
+                border: "1px solid rgba(148, 163, 184, 0.22)",
+                background: "linear-gradient(135deg, #06b6d4, #8b5cf6)",
+              }}
+            >
+              {user?.avatar ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={user.avatar}
+                  alt={user.name}
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                />
               ) : (
-                <Camera className="text-white" size={22} />
+                <span style={{ fontSize: 24, fontWeight: 700, color: "#fff" }}>
+                  {(user?.name ?? "پ").charAt(0)}
+                </span>
               )}
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  background: "rgba(0,0,0,0.45)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  opacity: uploading ? 1 : 0,
+                  transition: "opacity 0.2s",
+                }}
+                className="avatar-overlay"
+              >
+                {uploading ? (
+                  <Spin indicator={<LoadingOutlined style={{ fontSize: 22, color: "#fff" }} />} />
+                ) : (
+                  <CameraOutlined style={{ fontSize: 22, color: "#fff" }} />
+                )}
+              </div>
+            </Button>
+
+            <div>
+              <Text strong>{user?.name ?? "—"}</Text>
+              <div>
+                <Text type="secondary">{user?.email ?? ""}</Text>
+              </div>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                JPEG / PNG / WebP — حداکثر ۵ مگابایت
+              </Text>
             </div>
-          </button>
+
+            <input
+              ref={inputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              style={{ display: "none" }}
+              onChange={onAvatarChange}
+            />
+          </Flex>
 
           <div>
-            <div className="font-medium">{user?.name ?? "—"}</div>
-            <div className="text-sm text-[var(--muted)]">{user?.email ?? ""}</div>
-            <p className="text-xs text-[var(--muted)] mt-2">
-              JPEG / PNG / WebP — حداکثر ۵ مگابایت
-            </p>
+            <Text type="secondary">نام نمایشی</Text>
+            <Input
+              style={{ marginTop: 8 }}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
           </div>
 
-          <input
-            ref={inputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
-            className="hidden"
-            onChange={onAvatarChange}
-          />
-        </div>
+          <Button type="primary" loading={saving} onClick={onSaveProfile}>
+            {saving ? "در حال ذخیره..." : "ذخیره تغییرات"}
+          </Button>
+        </Space>
+      </Card>
 
-        <label className="block text-sm text-[var(--muted)]">
-          نام نمایشی
-          <input
-            className="mt-2 w-full rounded-xl border border-[var(--border)] bg-transparent px-3 py-3 outline-none focus:ring-2 focus:ring-[var(--ring)]"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </label>
-
-        <button
-          type="button"
-          onClick={onSaveProfile}
-          disabled={saving}
-          className="rounded-xl bg-brand-500 text-white px-4 py-3 font-medium hover:opacity-95 disabled:opacity-60"
-        >
-          {saving ? "در حال ذخیره..." : "ذخیره تغییرات"}
-        </button>
-      </div>
-
-      <button
-        onClick={onLogout}
-        className="rounded-xl border border-[var(--border)] bg-transparent px-4 py-3 font-medium hover:bg-white/5"
-      >
+      <Button icon={<LogoutOutlined />} onClick={onLogout}>
         خروج از حساب
-      </button>
-    </div>
+      </Button>
+
+      <style jsx global>{`
+        button[aria-label="آپلود آواتار"]:hover .avatar-overlay {
+          opacity: 1 !important;
+        }
+      `}</style>
+    </Space>
   );
 }

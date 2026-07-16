@@ -3,6 +3,18 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
+  Card,
+  Col,
+  Flex,
+  Input,
+  List,
+  Row,
+  Select,
+  Space,
+  Statistic,
+  Typography,
+} from "antd";
+import {
   ResponsiveContainer,
   LineChart,
   Line,
@@ -20,9 +32,10 @@ import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { fetchCategoryReport, fetchMonthlyReport } from "@/services/reports";
 import { formatJalaliDate, formatToman } from "@/lib/format";
 import { getJalaliMonthYear, MONTH_LABELS } from "@/lib/finance-ui";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { QueryError } from "@/components/ui/query-error";
+
+const { Title, Text } = Typography;
 
 const PIE_FALLBACK = ["#06b6d4", "#8b5cf6", "#f59e0b", "#ef4444", "#22c55e", "#3b82f6", "#ec4899"];
 
@@ -64,137 +77,132 @@ export default function ReportsPage() {
   }, [categoriesQ.data]);
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold">گزارش‌ها</h1>
-          <p className="text-sm text-[var(--muted)] mt-1">
-            {selectedAccountId
-              ? "گزارش‌ها بر اساس حساب انتخاب‌شده در هدر فیلتر شده‌اند."
-              : "نمایش گزارش همه حساب‌ها. از هدر می‌توانید یک حساب را انتخاب کنید."}
-          </p>
-        </div>
+    <Space direction="vertical" size="large" style={{ width: "100%" }}>
+      <div>
+        <Title level={4} style={{ margin: 0 }}>
+          گزارش‌ها
+        </Title>
+        <Text type="secondary">
+          {selectedAccountId
+            ? "گزارش‌ها بر اساس حساب انتخاب‌شده در هدر فیلتر شده‌اند."
+            : "نمایش گزارش همه حساب‌ها. از هدر می‌توانید یک حساب را انتخاب کنید."}
+        </Text>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm text-[var(--muted)] font-medium">
-              مجموع درآمد بازه
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-xl font-semibold text-emerald-400">
-            {monthlyQ.isLoading ? (
-              <Skeleton className="h-7 w-28" />
-            ) : (
-              formatToman(monthlyQ.data?.summary.totalIncome ?? 0)
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm text-[var(--muted)] font-medium">
-              مجموع هزینه بازه
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-xl font-semibold text-red-400">
-            {monthlyQ.isLoading ? (
-              <Skeleton className="h-7 w-28" />
-            ) : (
-              formatToman(monthlyQ.data?.summary.totalExpense ?? 0)
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm text-[var(--muted)] font-medium">خالص</CardTitle>
-          </CardHeader>
-          <CardContent className="text-xl font-semibold text-brand-400">
-            {monthlyQ.isLoading ? (
-              <Skeleton className="h-7 w-28" />
-            ) : (
-              formatToman(monthlyQ.data?.summary.totalNet ?? 0)
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <CardTitle>روند ماهانه درآمد و هزینه</CardTitle>
-          <select
-            className="rounded-xl border border-[var(--border)] bg-transparent px-3 py-2 text-sm"
-            value={months}
-            onChange={(e) => setMonths(Number(e.target.value))}
-          >
-            <option value={3}>۳ ماه</option>
-            <option value={6}>۶ ماه</option>
-            <option value={12}>۱۲ ماه</option>
-          </select>
-        </CardHeader>
-        <CardContent>
-          {monthlyQ.isLoading ? <Skeleton className="h-[280px] w-full" /> : null}
-          {monthlyQ.error ? (
-            <QueryError
-              message="خطا در دریافت گزارش ماهانه."
-              onRetry={() => void monthlyQ.refetch()}
+      <Row gutter={[12, 12]}>
+        <Col xs={24} sm={8}>
+          <Card>
+            <Statistic
+              title="مجموع درآمد بازه"
+              value={
+                monthlyQ.isLoading
+                  ? "—"
+                  : formatToman(monthlyQ.data?.summary.totalIncome ?? 0)
+              }
+              valueStyle={{ color: "#34d399", fontSize: 20 }}
+              loading={monthlyQ.isLoading}
             />
-          ) : null}
-          {monthlyQ.data ? (
-            <ResponsiveContainer width="100%" height={280}>
-              <LineChart data={monthlyChart}>
-                <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 11 }} width={70} />
-                <Tooltip
-                  formatter={(value) => formatToman(Number(value ?? 0))}
-                  contentStyle={{
-                    background: "var(--card)",
-                    border: "1px solid var(--border)",
-                    borderRadius: 12,
-                  }}
-                />
-                <Legend />
-                <Line type="monotone" dataKey="income" name="درآمد" stroke="#06b6d4" strokeWidth={2} />
-                <Line type="monotone" dataKey="expense" name="هزینه" stroke="#8b5cf6" strokeWidth={2} />
-                <Line type="monotone" dataKey="net" name="خالص" stroke="#22c55e" strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
-          ) : null}
-        </CardContent>
+          </Card>
+        </Col>
+        <Col xs={24} sm={8}>
+          <Card>
+            <Statistic
+              title="مجموع هزینه بازه"
+              value={
+                monthlyQ.isLoading
+                  ? "—"
+                  : formatToman(monthlyQ.data?.summary.totalExpense ?? 0)
+              }
+              valueStyle={{ color: "#f87171", fontSize: 20 }}
+              loading={monthlyQ.isLoading}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={8}>
+          <Card>
+            <Statistic
+              title="خالص"
+              value={
+                monthlyQ.isLoading ? "—" : formatToman(monthlyQ.data?.summary.totalNet ?? 0)
+              }
+              valueStyle={{ color: "#06b6d4", fontSize: 20 }}
+              loading={monthlyQ.isLoading}
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      <Card
+        title="روند ماهانه درآمد و هزینه"
+        extra={
+          <Select
+            value={months}
+            onChange={setMonths}
+            style={{ width: 120 }}
+            options={[
+              { value: 3, label: "۳ ماه" },
+              { value: 6, label: "۶ ماه" },
+              { value: 12, label: "۱۲ ماه" },
+            ]}
+          />
+        }
+      >
+        {monthlyQ.isLoading ? <Skeleton className="h-[280px] w-full" /> : null}
+        {monthlyQ.error ? (
+          <QueryError
+            message="خطا در دریافت گزارش ماهانه."
+            onRetry={() => void monthlyQ.refetch()}
+          />
+        ) : null}
+        {monthlyQ.data ? (
+          <ResponsiveContainer width="100%" height={280}>
+            <LineChart data={monthlyChart}>
+              <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+              <YAxis tick={{ fontSize: 11 }} width={70} />
+              <Tooltip
+                formatter={(value) => formatToman(Number(value ?? 0))}
+                contentStyle={{
+                  background: "var(--card)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 12,
+                }}
+              />
+              <Legend />
+              <Line type="monotone" dataKey="income" name="درآمد" stroke="#06b6d4" strokeWidth={2} />
+              <Line type="monotone" dataKey="expense" name="هزینه" stroke="#8b5cf6" strokeWidth={2} />
+              <Line type="monotone" dataKey="net" name="خالص" stroke="#22c55e" strokeWidth={2} />
+            </LineChart>
+          </ResponsiveContainer>
+        ) : null}
       </Card>
 
-      <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
-        <label className="text-sm text-[var(--muted)] flex-1">
-          ماه تحلیل دسته‌ها
-          <select
-            className="mt-2 w-full rounded-xl border border-[var(--border)] bg-transparent px-3 py-2.5"
+      <Row gutter={[12, 12]}>
+        <Col xs={24} sm={12}>
+          <Text type="secondary">ماه تحلیل دسته‌ها</Text>
+          <Select
+            style={{ width: "100%", marginTop: 8 }}
             value={month}
-            onChange={(e) => setMonth(Number(e.target.value))}
-          >
-            {MONTH_LABELS.map((label, idx) => (
-              <option key={label} value={idx + 1}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="text-sm text-[var(--muted)] flex-1">
-          سال
-          <input
+            onChange={setMonth}
+            options={MONTH_LABELS.map((label, idx) => ({
+              value: idx + 1,
+              label,
+            }))}
+          />
+        </Col>
+        <Col xs={24} sm={12}>
+          <Text type="secondary">سال</Text>
+          <Input
+            style={{ marginTop: 8 }}
             dir="ltr"
-            className="mt-2 w-full rounded-xl border border-[var(--border)] bg-transparent px-3 py-2.5"
             value={year}
             onChange={(e) => setYear(Number(e.target.value) || current.year)}
           />
-        </label>
-      </div>
+        </Col>
+      </Row>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>هزینه به تفکیک دسته</CardTitle>
-          </CardHeader>
-          <CardContent>
+      <Row gutter={[16, 16]}>
+        <Col xs={24} lg={12}>
+          <Card title="هزینه به تفکیک دسته">
             {categoriesQ.isLoading ? <Skeleton className="h-[260px] w-full" /> : null}
             {categoriesQ.data && expensePie.length > 0 ? (
               <ResponsiveContainer width="100%" height={260}>
@@ -209,18 +217,15 @@ export default function ReportsPage() {
                 </PieChart>
               </ResponsiveContainer>
             ) : !categoriesQ.isLoading ? (
-              <div className="h-[260px] flex items-center justify-center text-[var(--muted)] text-sm">
-                هزینه‌ای در این ماه ثبت نشده است.
-              </div>
+              <Flex align="center" justify="center" style={{ height: 260 }}>
+                <Text type="secondary">هزینه‌ای در این ماه ثبت نشده است.</Text>
+              </Flex>
             ) : null}
-          </CardContent>
-        </Card>
+          </Card>
+        </Col>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>مقایسه دسته‌های هزینه</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <Col xs={24} lg={12}>
+          <Card title="مقایسه دسته‌های هزینه">
             {categoriesQ.isLoading ? <Skeleton className="h-[260px] w-full" /> : null}
             {categoriesQ.data && (categoriesQ.data.expense?.length ?? 0) > 0 ? (
               <ResponsiveContainer width="100%" height={260}>
@@ -237,45 +242,40 @@ export default function ReportsPage() {
                 </BarChart>
               </ResponsiveContainer>
             ) : !categoriesQ.isLoading ? (
-              <div className="h-[260px] flex items-center justify-center text-[var(--muted)] text-sm">
-                داده‌ای برای نمودار نیست.
-              </div>
+              <Flex align="center" justify="center" style={{ height: 260 }}>
+                <Text type="secondary">داده‌ای برای نمودار نیست.</Text>
+              </Flex>
             ) : null}
-          </CardContent>
-        </Card>
-      </div>
+          </Card>
+        </Col>
+      </Row>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            بیشترین هزینه‌های {MONTH_LABELS[month - 1]} {year}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {categoriesQ.isLoading ? <Skeleton className="h-40 w-full" /> : null}
-          {(categoriesQ.data?.topExpenses ?? []).map((tx) => (
-            <div
-              key={tx.id}
-              className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] px-3 py-3"
-            >
-              <div className="min-w-0">
-                <div className="font-medium truncate">{tx.title}</div>
-                <div className="text-xs text-[var(--muted)]">
-                  {formatJalaliDate(tx.date)} · {tx.category} · {tx.account}
+      <Card title={`بیشترین هزینه‌های ${MONTH_LABELS[month - 1]} ${year}`}>
+        {categoriesQ.isLoading ? <Skeleton className="h-40 w-full" /> : null}
+        <List
+          dataSource={categoriesQ.data?.topExpenses ?? []}
+          locale={{ emptyText: "هزینه‌ای برای نمایش وجود ندارد." }}
+          renderItem={(tx) => (
+            <List.Item>
+              <Flex justify="space-between" align="center" gap="middle" style={{ width: "100%" }}>
+                <div style={{ minWidth: 0 }}>
+                  <Text strong ellipsis>
+                    {tx.title}
+                  </Text>
+                  <div>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      {formatJalaliDate(tx.date)} · {tx.category} · {tx.account}
+                    </Text>
+                  </div>
                 </div>
-              </div>
-              <div className="text-red-400 font-semibold whitespace-nowrap">
-                {formatToman(tx.amount)}
-              </div>
-            </div>
-          ))}
-          {!categoriesQ.isLoading && (categoriesQ.data?.topExpenses?.length ?? 0) === 0 ? (
-            <div className="text-[var(--muted)] text-sm text-center py-6">
-              هزینه‌ای برای نمایش وجود ندارد.
-            </div>
-          ) : null}
-        </CardContent>
+                <Text strong style={{ color: "#f87171", whiteSpace: "nowrap" }}>
+                  {formatToman(tx.amount)}
+                </Text>
+              </Flex>
+            </List.Item>
+          )}
+        />
       </Card>
-    </div>
+    </Space>
   );
 }

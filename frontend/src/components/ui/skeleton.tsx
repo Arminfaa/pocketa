@@ -1,8 +1,12 @@
 "use client";
 
-import { cn } from "@/lib/cn";
+import { Skeleton as AntSkeleton } from "antd";
 
-export function Skeleton({ className }: { className?: string }) {
-  return <div className={cn("animate-pulse rounded-xl bg-white/10", className)} />;
+/** Drop-in loading placeholder used across pages. */
+export function Skeleton({ className, rows = 4 }: { className?: string; rows?: number }) {
+  return (
+    <div className={className}>
+      <AntSkeleton active paragraph={{ rows }} title={{ width: "40%" }} />
+    </div>
+  );
 }
-

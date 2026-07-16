@@ -2,8 +2,24 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import { Landmark, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
+import {
+  App,
+  Button,
+  Card,
+  Flex,
+  Input,
+  List,
+  Popconfirm,
+  Space,
+  Typography,
+} from "antd";
+import {
+  BankOutlined,
+  DeleteOutlined,
+  EditOutlined,
+  PlusOutlined,
+  SyncOutlined,
+} from "@ant-design/icons";
 import {
   createAccount,
   deleteAccount,
@@ -16,6 +32,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { QueryError } from "@/components/ui/query-error";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { BankAccount } from "@/types/account";
+
+const { Title, Text } = Typography;
 
 const COLORS = ["#06b6d4", "#8b5cf6", "#f59e0b", "#ef4444", "#22c55e", "#3b82f6", "#ec4899"];
 
@@ -34,6 +52,7 @@ const emptyForm: FormState = {
 };
 
 export default function AccountsPage() {
+  const { message } = App.useApp();
   const queryClient = useQueryClient();
   const [form, setForm] = useState<FormState>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -55,48 +74,48 @@ export default function AccountsPage() {
       return createAccount(payload);
     },
     onSuccess: () => {
-      toast.success(editingId ? "حساب به‌روزرسانی شد" : "حساب جدید ساخته شد");
+      message.success(editingId ? "حساب به‌روزرسانی شد" : "حساب جدید ساخته شد");
       setForm(emptyForm);
       setEditingId(null);
       void queryClient.invalidateQueries({ queryKey: ["accounts"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
     onError: (err: unknown) => {
-      const message =
+      const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         "خطا در ذخیره حساب";
-      toast.error(message);
+      message.error(msg);
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteAccount(id),
     onSuccess: () => {
-      toast.success("حساب غیرفعال شد");
+      message.success("حساب غیرفعال شد");
       void queryClient.invalidateQueries({ queryKey: ["accounts"] });
     },
     onError: (err: unknown) => {
-      const message =
+      const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         "خطا در حذف حساب";
-      toast.error(message);
+      message.error(msg);
     },
   });
 
   const syncMutation = useMutation({
     mutationFn: (id: string) => syncAccountBalance(id),
     onSuccess: (item) => {
-      toast.success(
+      message.success(
         `موجودی از ${formatToman(item.previousBalance ?? 0)} به ${formatToman(item.balance)} همگام شد`
       );
       void queryClient.invalidateQueries({ queryKey: ["accounts"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
     onError: (err: unknown) => {
-      const message =
+      const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         "همگام‌سازی ناموفق بود";
-      toast.error(message);
+      message.error(msg);
     },
   });
 
@@ -121,183 +140,212 @@ export default function AccountsPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-3xl">
-      <div className="flex items-end justify-between gap-4">
+    <Space direction="vertical" size="large" style={{ width: "100%", maxWidth: 768 }}>
+      <Flex justify="space-between" align="flex-end" gap="middle" wrap="wrap">
         <div>
-          <h1 className="text-xl font-semibold text-[var(--text)]">حساب‌های بانکی</h1>
-          <p className="text-sm text-[var(--muted)] mt-1">
+          <Title level={4} style={{ margin: 0 }}>
+            حساب‌های بانکی
+          </Title>
+          <Text type="secondary">
             هر بانک یا کارت را جدا اضافه کنید؛ بعد می‌توانید تراکنش‌ها را جدا یا یکجا ببینید.
-          </p>
+          </Text>
         </div>
-        <div className="text-left">
-          <div className="text-xs text-[var(--muted)]">مجموع موجودی</div>
-          <div className="font-semibold text-brand-500">{formatToman(totalBalance)}</div>
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4 space-y-4">
-        <div className="flex items-center gap-2 font-medium">
-          <Plus size={18} />
-          {editingId ? "ویرایش حساب" : "افزودن حساب جدید"}
-        </div>
-
-        <div className="grid gap-3 md:grid-cols-2">
-          <label className="text-sm text-[var(--muted)]">
-            نام حساب
-            <input
-              className="mt-2 w-full rounded-xl border border-[var(--border)] bg-transparent px-3 py-3 outline-none focus:ring-2 focus:ring-[var(--ring)]"
-              value={form.name}
-              onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
-              placeholder="مثلاً کارت پاسارگاد"
-            />
-          </label>
-          <label className="text-sm text-[var(--muted)]">
-            نام بانک (اختیاری)
-            <input
-              className="mt-2 w-full rounded-xl border border-[var(--border)] bg-transparent px-3 py-3 outline-none focus:ring-2 focus:ring-[var(--ring)]"
-              value={form.bankName}
-              onChange={(e) => setForm((s) => ({ ...s, bankName: e.target.value }))}
-              placeholder="پاسارگاد / ملی / ..."
-            />
-          </label>
-          <label className="text-sm text-[var(--muted)]">
-            موجودی اولیه (تومان)
-            <input
-              className="mt-2 w-full rounded-xl border border-[var(--border)] bg-transparent px-3 py-3 outline-none focus:ring-2 focus:ring-[var(--ring)]"
-              dir="ltr"
-              value={form.initialBalance}
-              onChange={(e) => setForm((s) => ({ ...s, initialBalance: e.target.value }))}
-            />
-          </label>
-          <div className="text-sm text-[var(--muted)]">
-            رنگ
-            <div className="mt-2 flex flex-wrap gap-2">
-              {COLORS.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setForm((s) => ({ ...s, color: c }))}
-                  className="h-8 w-8 rounded-xl border border-[var(--border)]"
-                  style={{
-                    background: c,
-                    outline: form.color === c ? "2px solid white" : undefined,
-                    outlineOffset: 2,
-                  }}
-                  aria-label={c}
-                />
-              ))}
-            </div>
+        <div style={{ textAlign: "left" }}>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            مجموع موجودی
+          </Text>
+          <div>
+            <Text strong style={{ color: "#06b6d4", fontSize: 16 }}>
+              {formatToman(totalBalance)}
+            </Text>
           </div>
         </div>
+      </Flex>
 
-        <div className="flex gap-2">
-          <button
-            type="button"
-            disabled={saveMutation.isPending || form.name.trim().length < 2}
-            onClick={() => saveMutation.mutate()}
-            className="rounded-xl bg-brand-500 text-white px-4 py-3 font-medium hover:opacity-95 disabled:opacity-60"
-          >
-            {saveMutation.isPending ? "در حال ذخیره..." : editingId ? "ذخیره تغییرات" : "افزودن حساب"}
-          </button>
-          {editingId ? (
-            <button
-              type="button"
-              onClick={cancelEdit}
-              className="rounded-xl border border-[var(--border)] px-4 py-3 hover:bg-white/5"
+      <Card
+        title={
+          <Space>
+            <PlusOutlined />
+            {editingId ? "ویرایش حساب" : "افزودن حساب جدید"}
+          </Space>
+        }
+      >
+        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+          <Flex gap="middle" wrap="wrap">
+            <div style={{ flex: "1 1 200px" }}>
+              <Text type="secondary">نام حساب</Text>
+              <Input
+                style={{ marginTop: 8 }}
+                value={form.name}
+                onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
+                placeholder="مثلاً کارت پاسارگاد"
+              />
+            </div>
+            <div style={{ flex: "1 1 200px" }}>
+              <Text type="secondary">نام بانک (اختیاری)</Text>
+              <Input
+                style={{ marginTop: 8 }}
+                value={form.bankName}
+                onChange={(e) => setForm((s) => ({ ...s, bankName: e.target.value }))}
+                placeholder="پاسارگاد / ملی / ..."
+              />
+            </div>
+            <div style={{ flex: "1 1 200px" }}>
+              <Text type="secondary">موجودی اولیه (تومان)</Text>
+              <Input
+                style={{ marginTop: 8 }}
+                dir="ltr"
+                value={form.initialBalance}
+                onChange={(e) => setForm((s) => ({ ...s, initialBalance: e.target.value }))}
+              />
+            </div>
+            <div style={{ flex: "1 1 200px" }}>
+              <Text type="secondary">رنگ</Text>
+              <Flex gap={8} wrap="wrap" style={{ marginTop: 8 }}>
+                {COLORS.map((c) => (
+                  <Button
+                    key={c}
+                    type="text"
+                    aria-label={c}
+                    onClick={() => setForm((s) => ({ ...s, color: c }))}
+                    style={{
+                      width: 32,
+                      height: 32,
+                      minWidth: 32,
+                      padding: 0,
+                      borderRadius: 12,
+                      background: c,
+                      border:
+                        form.color === c ? "2px solid #fff" : "1px solid rgba(148, 163, 184, 0.22)",
+                      boxShadow: form.color === c ? "0 0 0 2px #06b6d4" : undefined,
+                    }}
+                  />
+                ))}
+              </Flex>
+            </div>
+          </Flex>
+
+          <Space>
+            <Button
+              type="primary"
+              loading={saveMutation.isPending}
+              disabled={form.name.trim().length < 2}
+              onClick={() => saveMutation.mutate()}
             >
-              انصراف
-            </button>
-          ) : null}
-        </div>
-      </div>
+              {editingId ? "ذخیره تغییرات" : "افزودن حساب"}
+            </Button>
+            {editingId ? (
+              <Button onClick={cancelEdit}>انصراف</Button>
+            ) : null}
+          </Space>
+        </Space>
+      </Card>
 
       {q.isLoading ? (
-        <div className="space-y-3">
-          <Skeleton className="h-24 w-full" />
-          <Skeleton className="h-24 w-full" />
-        </div>
+        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+          <Skeleton className="h-24 w-full" rows={2} />
+          <Skeleton className="h-24 w-full" rows={2} />
+        </Space>
       ) : null}
 
       {q.error ? (
         <QueryError message="خطا در دریافت حساب‌ها." onRetry={() => void q.refetch()} />
       ) : null}
 
-      <div className="space-y-3">
-        {(q.data ?? []).map((account) => (
-          <div
-            key={account.id}
-            className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4 flex items-center justify-between gap-3"
-          >
-            <div className="flex items-center gap-3 min-w-0">
-              <div
-                className="h-11 w-11 rounded-2xl flex items-center justify-center text-white shrink-0"
-                style={{ background: account.color }}
-              >
-                <Landmark size={20} />
-              </div>
-              <div className="min-w-0">
-                <div className="font-medium truncate">{account.name}</div>
-                <div className="text-sm text-[var(--muted)] truncate">
-                  {account.bankName || "بدون نام بانک"} · موجودی اولیه{" "}
-                  {formatToman(account.initialBalance)}
-                </div>
-              </div>
-            </div>
+      {!q.isLoading && (q.data?.length ?? 0) === 0 ? (
+        <EmptyState
+          title="هنوز حسابی ثبت نشده است"
+          description="اولین حساب بانکی خود را بسازید تا تراکنش‌ها و ایمپورت به آن وصل شوند."
+        />
+      ) : (
+        <List
+          dataSource={q.data ?? []}
+          renderItem={(account) => (
+            <List.Item style={{ padding: 0, border: "none", marginBottom: 12 }}>
+              <Card style={{ width: "100%" }} styles={{ body: { padding: 16 } }}>
+                <Flex justify="space-between" align="center" gap="middle" wrap="wrap">
+                  <Flex align="center" gap="middle" style={{ minWidth: 0, flex: 1 }}>
+                    <div
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 16,
+                        background: account.color,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#fff",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <BankOutlined style={{ fontSize: 20 }} />
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <Text strong ellipsis>
+                        {account.name}
+                      </Text>
+                      <div>
+                        <Text type="secondary" ellipsis style={{ fontSize: 13 }}>
+                          {account.bankName || "بدون نام بانک"} · موجودی اولیه{" "}
+                          {formatToman(account.initialBalance)}
+                        </Text>
+                      </div>
+                    </div>
+                  </Flex>
 
-            <div className="flex items-center gap-2 shrink-0">
-              <div className="text-left me-2">
-                <div className="text-xs text-[var(--muted)]">موجودی</div>
-                <div className="font-semibold">{formatToman(account.balance)}</div>
-              </div>
-              <button
-                type="button"
-                title="همگام‌سازی با آخرین مانده پیامک"
-                onClick={() => {
-                  if (
-                    confirm(
-                      `موجودی «${account.name}» با آخرین مانده پیامک بانکی همگام شود؟\n(موجودی اولیه طوری تنظیم می‌شود که مانده حساب با SMS یکی شود)`
-                    )
-                  ) {
-                    syncMutation.mutate(account.id);
-                  }
-                }}
-                className="h-10 w-10 rounded-xl border border-[var(--border)] hover:bg-white/5 flex items-center justify-center text-brand-400"
-                aria-label="همگام‌سازی مانده"
-              >
-                <RefreshCw size={16} />
-              </button>
-              <button
-                type="button"
-                onClick={() => startEdit(account)}
-                className="h-10 w-10 rounded-xl border border-[var(--border)] hover:bg-white/5 flex items-center justify-center"
-                aria-label="ویرایش"
-              >
-                <Pencil size={16} />
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (confirm(`حساب «${account.name}» غیرفعال شود؟`)) {
-                    deleteMutation.mutate(account.id);
-                  }
-                }}
-                className="h-10 w-10 rounded-xl border border-[var(--border)] hover:bg-white/5 flex items-center justify-center text-red-400"
-                aria-label="حذف"
-              >
-                <Trash2 size={16} />
-              </button>
-            </div>
-          </div>
-        ))}
-
-        {!q.isLoading && (q.data?.length ?? 0) === 0 ? (
-          <EmptyState
-            icon={Landmark}
-            title="هنوز حسابی ثبت نشده است"
-            description="اولین حساب بانکی خود را بسازید تا تراکنش‌ها و ایمپورت به آن وصل شوند."
-          />
-        ) : null}
-      </div>
-    </div>
+                  <Flex align="center" gap="small" style={{ flexShrink: 0 }}>
+                    <div style={{ textAlign: "left", marginInlineEnd: 8 }}>
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        موجودی
+                      </Text>
+                      <div>
+                        <Text strong>{formatToman(account.balance)}</Text>
+                      </div>
+                    </div>
+                    <Popconfirm
+                      title="همگام‌سازی موجودی"
+                      description={`موجودی «${account.name}» با آخرین مانده پیامک بانکی همگام شود؟ (موجودی اولیه طوری تنظیم می‌شود که مانده حساب با SMS یکی شود)`}
+                      okText="همگام‌سازی"
+                      cancelText="انصراف"
+                      onConfirm={() => syncMutation.mutate(account.id)}
+                    >
+                      <Button
+                        type="default"
+                        icon={<SyncOutlined />}
+                        loading={syncMutation.isPending}
+                        aria-label="همگام‌سازی مانده"
+                        title="همگام‌سازی با آخرین مانده پیامک"
+                      />
+                    </Popconfirm>
+                    <Button
+                      type="default"
+                      icon={<EditOutlined />}
+                      onClick={() => startEdit(account)}
+                      aria-label="ویرایش"
+                    />
+                    <Popconfirm
+                      title="غیرفعال کردن حساب"
+                      description={`حساب «${account.name}» غیرفعال شود؟`}
+                      okText="غیرفعال"
+                      cancelText="انصراف"
+                      okButtonProps={{ danger: true }}
+                      onConfirm={() => deleteMutation.mutate(account.id)}
+                    >
+                      <Button
+                        type="default"
+                        danger
+                        icon={<DeleteOutlined />}
+                        loading={deleteMutation.isPending}
+                        aria-label="حذف"
+                      />
+                    </Popconfirm>
+                  </Flex>
+                </Flex>
+              </Card>
+            </List.Item>
+          )}
+        />
+      )}
+    </Space>
   );
 }

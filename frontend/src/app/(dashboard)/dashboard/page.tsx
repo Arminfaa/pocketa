@@ -3,12 +3,14 @@
 import api from "@/services/api";
 import { useQuery } from "@tanstack/react-query";
 import { formatToman } from "@/lib/format";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, Col, Flex, Row, Statistic, Typography } from "antd";
 import { Skeleton } from "@/components/ui/skeleton";
 import { QueryError } from "@/components/ui/query-error";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from "recharts";
 import { BarChart, Bar, Legend } from "recharts";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
+
+const { Text } = Typography;
 
 export default function DashboardPage() {
   const selectedAccountId = useAccountFilterStore((s) => s.selectedAccountId);
@@ -44,20 +46,15 @@ export default function DashboardPage() {
 
   if (dashboardQ.isLoading) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <Row gutter={[16, 16]}>
         {Array.from({ length: 4 }).map((_, i) => (
-          <Card key={i} className="bg-[var(--card)]">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <Skeleton className="h-5 w-20" />
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Skeleton className="h-7 w-28" />
-            </CardContent>
-          </Card>
+          <Col key={i} xs={24} md={12} xl={6}>
+            <Card>
+              <Skeleton className="h-16 w-full" rows={1} />
+            </Card>
+          </Col>
         ))}
-      </div>
+      </Row>
     );
   }
 
@@ -71,60 +68,48 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>موجودی فعلی</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold">{formatToman(dashboard.totals.balance)}</div>
-          </CardContent>
-        </Card>
+    <Flex vertical gap="large">
+      <Row gutter={[16, 16]}>
+        <Col xs={24} md={12} xl={6}>
+          <Card>
+            <Statistic title="موجودی فعلی" value={formatToman(dashboard.totals.balance)} />
+          </Card>
+        </Col>
+        <Col xs={24} md={12} xl={6}>
+          <Card>
+            <Statistic title="درآمد این ماه" value={formatToman(dashboard.totals.incomeThisMonth)} />
+          </Card>
+        </Col>
+        <Col xs={24} md={12} xl={6}>
+          <Card>
+            <Statistic title="هزینه این ماه" value={formatToman(dashboard.totals.expenseThisMonth)} />
+          </Card>
+        </Col>
+        <Col xs={24} md={12} xl={6}>
+          <Card>
+            <Statistic
+              title="درصد پس‌انداز"
+              value={dashboard.totals.savingsPercent.toFixed(1)}
+              suffix="%"
+            />
+          </Card>
+        </Col>
+      </Row>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>درآمد این ماه</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold">{formatToman(dashboard.totals.incomeThisMonth)}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>هزینه این ماه</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold">{formatToman(dashboard.totals.expenseThisMonth)}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>درصد پس‌انداز</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold">{dashboard.totals.savingsPercent.toFixed(1)}%</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>نمودار درآمد و هزینه (۶ ماه اخیر)</CardTitle>
-          </CardHeader>
-          <CardContent>
+      <Row gutter={[16, 16]}>
+        <Col xs={24} lg={12}>
+          <Card title="نمودار درآمد و هزینه (۶ ماه اخیر)">
             {monthlyQ.isLoading ? (
               <Skeleton className="h-[260px] w-full" />
             ) : monthlyQ.data ? (
               <ResponsiveContainer width="100%" height={260}>
-                <LineChart data={monthlyQ.data.labels.map((label: string, i: number) => ({
-                  label,
-                  income: monthlyQ.data.income[i],
-                  expense: monthlyQ.data.expense[i],
-                }))}>
+                <LineChart
+                  data={monthlyQ.data.labels.map((label: string, i: number) => ({
+                    label,
+                    income: monthlyQ.data.income[i],
+                    expense: monthlyQ.data.expense[i],
+                  }))}
+                >
                   <XAxis dataKey="label" />
                   <YAxis />
                   <Tooltip />
@@ -134,22 +119,19 @@ export default function DashboardPage() {
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <div className="text-[var(--muted)]">اطلاعات کافی نیست.</div>
+              <Text type="secondary">اطلاعات کافی نیست.</Text>
             )}
-          </CardContent>
-        </Card>
+          </Card>
+        </Col>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>بیشترین دسته‌های هزینه</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <Col xs={24} lg={12}>
+          <Card title="بیشترین دسته‌های هزینه">
             {categoriesQ.isLoading ? (
               <Skeleton className="h-[260px] w-full" />
             ) : categoriesQ.data ? (
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart
-                  data={categoriesQ.data.expense.map((c: any) => ({
+                  data={categoriesQ.data.expense.map((c: { name: string; amount: number }) => ({
                     name: c.name,
                     amount: c.amount,
                   }))}
@@ -162,12 +144,11 @@ export default function DashboardPage() {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="text-[var(--muted)]">اطلاعات کافی نیست.</div>
+              <Text type="secondary">اطلاعات کافی نیست.</Text>
             )}
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+          </Card>
+        </Col>
+      </Row>
+    </Flex>
   );
 }
-

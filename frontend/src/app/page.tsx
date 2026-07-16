@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { Button, Flex, Space, Typography } from "antd";
 
 const FEATURES = [
   "ایمپورت پیامک بانکی",
@@ -36,64 +37,67 @@ export default function HomePage() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45, ease: "easeOut" }}
-          className="flex flex-col items-start gap-6 md:max-w-xl"
         >
-          <div className="flex items-center gap-4">
-            <Image
-              src="/logo.png"
-              alt="Pocketa"
-              width={72}
-              height={72}
-              priority
-              className="h-[72px] w-[72px] object-contain"
-            />
-            <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-[var(--text)]">
-              Pocketa
-            </h1>
-          </div>
+          <Flex vertical align="start" gap={24} className="md:max-w-xl">
+            <Flex align="center" gap={16}>
+              <Image
+                src="/logo.png"
+                alt="Pocketa"
+                width={72}
+                height={72}
+                priority
+                className="h-[72px] w-[72px] object-contain"
+              />
+              <Typography.Title level={1} className="!mb-0 !text-4xl md:!text-5xl">
+                Pocketa
+              </Typography.Title>
+            </Flex>
 
-          <motion.p
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.12, duration: 0.4 }}
-            className="text-lg md:text-xl text-[var(--muted)] leading-relaxed"
-          >
-            مدیریت مالی شخصی به فارسی — تراکنش، بودجه، و گزارش با تاریخ شمسی و تومان.
-          </motion.p>
-
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.22, duration: 0.4 }}
-            className="flex flex-wrap gap-3"
-          >
-            <Link
-              href="/register"
-              className="inline-flex items-center justify-center rounded-xl bg-brand-500 text-white py-3 px-6 font-medium hover:opacity-95"
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.12, duration: 0.4 }}
             >
-              شروع رایگان
-            </Link>
-            <Link
-              href="/login"
-              className="inline-flex items-center justify-center rounded-xl border border-[var(--border)] bg-transparent py-3 px-6 hover:bg-white/5"
-            >
-              ورود
-            </Link>
-          </motion.div>
+              <Typography.Paragraph
+                type="secondary"
+                className="!mb-0 !text-lg md:!text-xl !leading-relaxed"
+              >
+                مدیریت مالی شخصی به فارسی — تراکنش، بودجه، و گزارش با تاریخ شمسی و تومان.
+              </Typography.Paragraph>
+            </motion.div>
 
-          <motion.ul
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.35, duration: 0.45 }}
-            className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-[var(--muted)] pt-2"
-          >
-            {FEATURES.map((f) => (
-              <li key={f} className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-brand-500" />
-                {f}
-              </li>
-            ))}
-          </motion.ul>
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.22, duration: 0.4 }}
+            >
+              <Space wrap size="middle">
+                <Link href="/register">
+                  <Button type="primary" size="large">
+                    شروع رایگان
+                  </Button>
+                </Link>
+                <Link href="/login">
+                  <Button size="large">ورود</Button>
+                </Link>
+              </Space>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.35, duration: 0.45 }}
+            >
+              <Space wrap size={[20, 8]} className="pt-2">
+                {FEATURES.map((f) => (
+                  <Flex key={f} align="center" gap={8}>
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#06b6d4]" />
+                    <Typography.Text type="secondary">{f}</Typography.Text>
+                  </Flex>
+                ))}
+              </Space>
+            </motion.div>
+          </Flex>
         </motion.div>
       </div>
     </main>
