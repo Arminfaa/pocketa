@@ -41,11 +41,13 @@ import { fetchCategories } from "@/services/categories";
 import type { Category } from "@/services/categories";
 import type { BankAccount } from "@/types/account";
 import { formatJalaliDate, formatToman, toPersianDigits } from "@/lib/format";
+import { parseAmountInput } from "@/lib/amount";
 import { getTodayJalali } from "@/lib/transaction-helpers";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { QueryError } from "@/components/ui/query-error";
 import { AppModal } from "@/components/ui/modal";
+import { AmountInput } from "@/components/ui/amount-input";
 import {
   FinanceTypeToggle,
   financeTypeTextClass,
@@ -110,7 +112,7 @@ export default function RecurringPage() {
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      const value = Number(amount.replace(/,/g, ""));
+      const value = parseAmountInput(amount);
       if (title.trim().length < 2) throw new Error("عنوان را وارد کنید");
       if (!Number.isFinite(value) || value <= 0) throw new Error("مبلغ معتبر نیست");
       if (!categoryId) throw new Error("دسته را انتخاب کنید");
@@ -321,12 +323,11 @@ export default function RecurringPage() {
               <Text type="secondary" className="mb-1 block text-xs">
                 مبلغ (تومان)
               </Text>
-              <Input
-                dir="ltr"
+              <AmountInput
                 placeholder="مبلغ تومان"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className={cn("font-semibold", financeTypeTextClass(type))}
+                onChange={setAmount}
+                className={cn(financeTypeTextClass(type))}
               />
             </Col>
             <Col xs={24} md={12}>

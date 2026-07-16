@@ -8,11 +8,13 @@ import type { BankAccount } from "@/types/account";
 import { getTodayJalali, accountIdValue, categoryIdValue } from "@/lib/transaction-helpers";
 import { suggestCategory } from "@/services/transactions";
 import { TagsInput } from "@/components/ui/tags-input";
+import { AmountInput } from "@/components/ui/amount-input";
 import { AppModal } from "@/components/ui/modal";
 import {
   FinanceTypeToggle,
   financeTypeTextClass,
 } from "@/components/ui/finance-type-toggle";
+import { formatAmountInputValue, parseAmountInput } from "@/lib/amount";
 import { cn } from "@/lib/cn";
 
 export type TransactionFormValues = {
@@ -79,7 +81,7 @@ export function TransactionFormModal({
     if (initial) {
       form.setFieldsValue({
         type: initial.type,
-        amount: String(initial.amount),
+        amount: formatAmountInputValue(initial.amount),
         categoryId: categoryIdValue(initial.categoryId),
         accountId: accountIdValue(initial.accountId) || defaultAccountId || "",
         title: initial.title,
@@ -127,7 +129,7 @@ export function TransactionFormModal({
   }
 
   async function handleFinish(values: TransactionFormValues) {
-    const amount = Number(values.amount.replace(/,/g, ""));
+    const amount = parseAmountInput(values.amount);
     if (!Number.isFinite(amount) || amount <= 0) {
       form.setFields([{ name: "amount", errors: ["مبلغ معتبر نیست"] }]);
       return;
@@ -188,10 +190,9 @@ export function TransactionFormModal({
               label="مبلغ (تومان)"
               rules={[{ required: true, message: "مبلغ را وارد کنید" }]}
             >
-              <Input
-                dir="ltr"
-                placeholder="500000"
-                className={cn("font-semibold", financeTypeTextClass(type))}
+              <AmountInput
+                placeholder="۵۰۰٬۰۰۰"
+                className={cn(financeTypeTextClass(type))}
               />
             </Form.Item>
           </Col>

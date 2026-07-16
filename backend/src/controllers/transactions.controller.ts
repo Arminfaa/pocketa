@@ -9,9 +9,11 @@ import {
   TransactionCreateSchema,
   TransactionUpdateSchema,
   TransactionQuerySchema,
+  TransactionBulkDeleteSchema,
 } from "../validations/transactions";
 import { normalizeJalaliDate, toEnglishDigits } from "../utils/normalizeDigits";
 import { ensureDefaultAccount } from "../services/account.service";
+import mongoose from "mongoose";
 
 function safeSort(sortBy: string | null | undefined) {
   const allowed: Record<string, string> = {
@@ -180,6 +182,33 @@ export const remove = asyncHandler(async (req: Request, res: Response) => {
   if (!deleted) throw new AppError(404, "تراکنش یافت نشد");
 
   return sendSuccess(res, { id }, "تراکنش حذف شد");
+});
+
+export const bulkRemove = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) throw new AppError(401, "عدم دسترسی");
+
+  const parsed = TransactionBulkDeleteSchema.safeParse(req.body);
+  if (!parsed.success) throw new AppError(400, "خطا در اعتبارسنجی داده‌ها", parsed.error.flatten());
+
+  const objectIds = parsed.data.ids
+    .filter((id) => mongoose.Types.ObjectId.isValid(id))
+    .map((id) => new mongoose.Types.ObjectId(id));
+
+  if (objectIds.length === 0) {
+    throw new AppError(400, "شناسه تراکنش معتبر نیست");
+  }
+
+  const result = await TransactionModel.deleteMany({
+    _id: { $in: objectIds },
+    userId,
+  });
+
+  return sendSuccess(
+    res,
+    { deletedCount: result.deletedCount ?? 0, ids: parsed.data.ids },
+    `${result.deletedCount ?? 0} تراکنش حذف شد`
+  );
 });
 
 /** Backfill helper for legacy docs without accountId — used internally if needed */

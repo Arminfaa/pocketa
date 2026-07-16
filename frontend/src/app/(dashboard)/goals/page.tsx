@@ -21,7 +21,9 @@ import {
 import { AimOutlined, DeleteOutlined, PlusOutlined } from "@ant-design/icons";
 import { contributeGoal, createGoal, deleteGoal, fetchGoals } from "@/services/goals";
 import { formatJalaliDate, formatToman } from "@/lib/format";
+import { parseAmountInput } from "@/lib/amount";
 import { CATEGORY_COLORS } from "@/lib/finance-ui";
+import { AmountInput } from "@/components/ui/amount-input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { QueryError } from "@/components/ui/query-error";
@@ -45,14 +47,15 @@ export default function GoalsPage() {
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      const target = Number(targetAmount.replace(/,/g, ""));
-      const current = Number(currentAmount.replace(/,/g, "")) || 0;
+      const target = parseAmountInput(targetAmount);
+      const current = parseAmountInput(currentAmount);
+      const currentSafe = Number.isFinite(current) && current > 0 ? current : 0;
       if (title.trim().length < 2) throw new Error("عنوان را وارد کنید");
       if (!Number.isFinite(target) || target <= 0) throw new Error("مبلغ هدف معتبر نیست");
       return createGoal({
         title: title.trim(),
         targetAmount: target,
-        currentAmount: current,
+        currentAmount: currentSafe,
         deadline: deadline || undefined,
         color,
       });
@@ -154,19 +157,17 @@ export default function GoalsPage() {
           />
           <Row gutter={[12, 12]}>
             <Col xs={24} sm={12} md={8}>
-              <Input
-                dir="ltr"
+              <AmountInput
                 placeholder="مبلغ هدف (تومان)"
                 value={targetAmount}
-                onChange={(e) => setTargetAmount(e.target.value)}
+                onChange={setTargetAmount}
               />
             </Col>
             <Col xs={24} sm={12} md={8}>
-              <Input
-                dir="ltr"
+              <AmountInput
                 placeholder="پس‌انداز فعلی"
                 value={currentAmount}
-                onChange={(e) => setCurrentAmount(e.target.value)}
+                onChange={setCurrentAmount}
               />
             </Col>
             <Col xs={24} sm={12} md={8}>
@@ -264,21 +265,21 @@ export default function GoalsPage() {
                 vertical={isMobile}
                 className={cn("mt-3", isMobile && "w-full")}
               >
-                <Input
-                  dir="ltr"
-                  placeholder="مبلغ افزودنی"
-                  className={cn("flex-1", isMobile ? "min-w-full" : "min-w-[120px]")}
-                  value={contributeAmounts[goal.id] ?? ""}
-                  onChange={(e) =>
-                    setContributeAmounts((s) => ({ ...s, [goal.id]: e.target.value }))
-                  }
-                />
+                <div className={cn("flex-1", isMobile ? "min-w-full" : "min-w-[120px]")}>
+                  <AmountInput
+                    placeholder="مبلغ افزودنی"
+                    value={contributeAmounts[goal.id] ?? ""}
+                    onChange={(v) =>
+                      setContributeAmounts((s) => ({ ...s, [goal.id]: v }))
+                    }
+                  />
+                </div>
                 <Button
                   type="primary"
                   block={isMobile}
                   loading={contributeMutation.isPending}
                   onClick={() => {
-                    const value = Number((contributeAmounts[goal.id] ?? "").replace(/,/g, ""));
+                    const value = parseAmountInput(contributeAmounts[goal.id] ?? "");
                     if (!Number.isFinite(value) || value <= 0) {
                       message.error("مبلغ معتبر نیست");
                       return;

@@ -72,3 +72,10 @@ export const CategorySuggestSchema = z.object({
 export const SyncBalanceSchema = z.object({
   balanceAfter: z.coerce.number().optional(),
 });
+
+export const TransactionBulkDeleteSchema = z.object({
+  ids: z
+    .array(z.string().min(1))
+    .min(1, "حداقل یک تراکنش انتخاب کنید")
+    .max(200, "حداکثر ۲۰۰ تراکنش در هر درخواست"),
+});
