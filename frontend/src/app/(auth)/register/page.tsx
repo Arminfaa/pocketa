@@ -50,7 +50,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <Flex align="center" justify="center" className="min-h-screen p-6">
+    <Flex align="center" justify="center" className="min-h-dvh p-6">
       <Card className="w-full max-w-md shadow-soft">
         <Space orientation="vertical" size="middle" className="w-full">
           <div className="text-center">

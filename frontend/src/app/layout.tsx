@@ -76,7 +76,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${vazir.variable} ${vazir.className}`}
       suppressHydrationWarning
     >
-      <body className="bg-app-surface min-h-screen font-sans antialiased">
+      <body className="bg-app-surface min-h-dvh font-sans antialiased">
         <Providers>{children}</Providers>
       </body>
     </html>
