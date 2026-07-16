@@ -79,6 +79,7 @@ function mapItem(item: {
   nextPaymentDate: string;
   active: boolean;
   notes?: string | null;
+  reminderHour?: number | null;
   categoryId: unknown;
   createdAt?: Date;
 }, today: string) {
@@ -98,6 +99,7 @@ function mapItem(item: {
     endMonths: item.endMonths ?? null,
     paymentsMade: item.paymentsMade ?? 0,
     lastPaymentDate,
+    reminderHour: item.reminderHour ?? 20,
     nextPaymentDate: item.nextPaymentDate,
     active: item.active,
     notes: item.notes ?? "",
@@ -154,6 +156,7 @@ export const list = asyncHandler(async (req: Request, res: Response) => {
         endMonths: item.endMonths,
         paymentsMade: item.paymentsMade,
         lastPaymentDate: item.lastPaymentDate,
+        reminderHour: item.reminderHour,
         nextPaymentDate: item.nextPaymentDate,
         active: item.active,
         notes: item.notes,
@@ -205,6 +208,8 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
     notes: parsed.data.notes ?? "",
     active: parsed.data.active ?? true,
     paymentsMade: 0,
+    reminderHour: parsed.data.reminderHour ?? 20,
+    reminderSentKeys: [],
   };
 
   let item;

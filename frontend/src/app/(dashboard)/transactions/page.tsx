@@ -1,11 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Button,
   Card,
@@ -215,9 +211,7 @@ export default function TransactionsPage() {
       key: "rowNumber",
       width: 64,
       align: "center",
-      render: (_value, _record, index) => (
-        <Text type="secondary">{rowOffset + index + 1}</Text>
-      ),
+      render: (_value, _record, index) => <Text type="secondary">{rowOffset + index + 1}</Text>,
     },
     {
       title: "تاریخ",
@@ -302,13 +296,7 @@ export default function TransactionsPage() {
             okButtonProps={{ danger: true }}
             onConfirm={() => deleteMutation.mutate(tx._id)}
           >
-            <Button
-              type="text"
-              size="small"
-              danger
-              icon={<DeleteOutlined />}
-              aria-label="حذف"
-            />
+            <Button type="text" size="small" danger icon={<DeleteOutlined />} aria-label="حذف" />
           </Popconfirm>
         </Space>
       ),
@@ -419,10 +407,7 @@ export default function TransactionsPage() {
 
       {listQ.isLoading ? <Skeleton className="h-64 w-full" /> : null}
       {listQ.error ? (
-        <QueryError
-          message="خطا در دریافت تراکنش‌ها."
-          onRetry={() => void listQ.refetch()}
-        />
+        <QueryError message="خطا در دریافت تراکنش‌ها." onRetry={() => void listQ.refetch()} />
       ) : null}
 
       {!listQ.isLoading && items.length === 0 ? (
@@ -437,7 +422,7 @@ export default function TransactionsPage() {
           {items.map((tx, index) => (
             <Card key={tx._id} size="small">
               <Flex justify="space-between" align="flex-start" gap="middle">
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 mb-3">
                   <Space size={4} wrap>
                     <Text type="secondary" className="tabular-nums">
                       #{rowOffset + index + 1}

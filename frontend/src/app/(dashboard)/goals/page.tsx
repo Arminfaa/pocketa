@@ -19,12 +19,7 @@ import {
   Typography,
 } from "antd";
 import { AimOutlined, DeleteOutlined, PlusOutlined } from "@ant-design/icons";
-import {
-  contributeGoal,
-  createGoal,
-  deleteGoal,
-  fetchGoals,
-} from "@/services/goals";
+import { contributeGoal, createGoal, deleteGoal, fetchGoals } from "@/services/goals";
 import { formatJalaliDate, formatToman } from "@/lib/format";
 import { CATEGORY_COLORS } from "@/lib/finance-ui";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -74,8 +69,8 @@ export default function GoalsPage() {
       const msg =
         err instanceof Error
           ? err.message
-          : (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-            "خطا در ذخیره هدف";
+          : ((err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+            "خطا در ذخیره هدف");
       message.error(msg);
     },
   });
@@ -116,9 +111,7 @@ export default function GoalsPage() {
             اهداف پس‌انداز
           </Space>
         </Title>
-        <Text type="secondary">
-          برای سفر، خرید یا اضطراری هدف بگذارید و پیشرفت را دنبال کنید.
-        </Text>
+        <Text type="secondary">برای سفر، خرید یا اضطراری هدف بگذارید و پیشرفت را دنبال کنید.</Text>
       </div>
 
       {summary ? (
@@ -221,16 +214,10 @@ export default function GoalsPage() {
 
       <Space orientation="vertical" size="middle" className="w-full">
         {items.map((goal) => (
-          <Card
-            key={goal.id}
-            className={cn(goal.completed && "border-emerald-400/40")}
-          >
+          <Card key={goal.id} className={cn(goal.completed && "border-emerald-400/40")}>
             <Flex justify="space-between" align="flex-start" gap="middle" wrap="wrap">
-              <Flex align="center" gap="middle" className="min-w-0 flex-1">
-                <div
-                  className="w-10 h-10 rounded-xl shrink-0"
-                  style={{ background: goal.color }}
-                />
+              <Flex align="center" gap="middle" className="min-w-0 flex-1 mb-3">
+                <div className="w-10 h-10 rounded-xl shrink-0" style={{ background: goal.color }} />
                 <div className="min-w-0">
                   <Text strong ellipsis>
                     {goal.title}
@@ -256,12 +243,7 @@ export default function GoalsPage() {
                 okButtonProps={{ danger: true }}
                 onConfirm={() => deleteMutation.mutate(goal.id)}
               >
-                <Button
-                  type="default"
-                  danger
-                  icon={<DeleteOutlined />}
-                  aria-label="حذف"
-                />
+                <Button type="default" danger icon={<DeleteOutlined />} aria-label="حذف" />
               </Popconfirm>
             </Flex>
 

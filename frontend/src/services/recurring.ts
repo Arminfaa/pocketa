@@ -16,6 +16,7 @@ export type RecurringItem = {
   endMonths: number | null;
   paymentsMade: number;
   lastPaymentDate: string | null;
+  reminderHour: number;
   nextPaymentDate: string;
   active: boolean;
   notes?: string;
@@ -34,6 +35,7 @@ export type CreateDebtPayload =
       endMode: DebtEndMode;
       endMonths?: number | null;
       categoryId: string;
+      reminderHour: number;
       notes?: string;
     }
   | {
@@ -43,6 +45,7 @@ export type CreateDebtPayload =
       kind: "one_time";
       dueDate: string;
       categoryId: string;
+      reminderHour: number;
       notes?: string;
     };
 
@@ -73,6 +76,7 @@ export async function updateRecurring(
     dueDate: string;
     nextPaymentDate: string;
     categoryId: string;
+    reminderHour: number;
     notes: string;
     active: boolean;
   }>

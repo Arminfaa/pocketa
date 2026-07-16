@@ -82,7 +82,7 @@ export default function AppLayout({ children }: PropsWithChildren) {
       </Drawer>
 
       <Layout className="!bg-transparent min-w-0 max-w-full flex-1 h-dvh max-h-dvh overflow-hidden flex flex-col">
-        <Header className="shrink-0 !px-2 sm:!px-4 !h-auto !min-h-16 !leading-normal border-b border-app-border bg-app-card !py-2 z-20">
+        <Header className="shrink-0 !px-2 sm:!px-4 !h-auto !leading-normal border-b border-app-border bg-app-card !py-2 z-20">
           <Flex align="center" gap={8} wrap="wrap" className="w-full">
             {isDrawerNav ? (
               <Button

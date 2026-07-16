@@ -30,6 +30,13 @@ const RecurringTransactionSchema = new Schema(
     endMonths: { type: Number, required: false, min: 1 },
     /** تعداد پرداخت‌های ثبت‌شده از این مورد */
     paymentsMade: { type: Number, required: true, default: 0, min: 0 },
+    /** ساعت ارسال یادآور پوش (۰–۲۳، به وقت تهران) */
+    reminderHour: { type: Number, required: true, min: 0, max: 23, default: 20 },
+    /**
+     * کلیدهای یادآور ارسال‌شده برای جلوگیری از تکرار
+     * فرمت: `${nextPaymentDate}:${daysBefore}` مثلاً 1405/04/15:3
+     */
+    reminderSentKeys: { type: [String], required: true, default: [] },
     /** آخرین تاریخ پرداخت ثبت‌شده (جلالی) — برای چک‌لیست ماه */
     lastPaymentDate: { type: String, required: false },
     /** موعد بعدی / سررسید (جلالی YYYY/MM/DD) */

@@ -24,6 +24,7 @@ import {
   CaretRightOutlined,
   CheckSquareOutlined,
   DeleteOutlined,
+  BellOutlined,
   PlusOutlined,
   AccountBookOutlined,
 } from "@ant-design/icons";
@@ -42,6 +43,7 @@ import type { Category } from "@/services/categories";
 import type { BankAccount } from "@/types/account";
 import { formatJalaliDate, formatToman, toPersianDigits } from "@/lib/format";
 import { getTodayJalali } from "@/lib/transaction-helpers";
+import { enablePushNotifications, fetchPushStatus } from "@/lib/push";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { QueryError } from "@/components/ui/query-error";
@@ -59,6 +61,11 @@ const KIND_LABEL: Record<DebtKind, string> = {
   one_time: "بدهی یک‌باره",
 };
 
+const HOUR_OPTIONS = Array.from({ length: 24 }, (_, h) => ({
+  value: h,
+  label: `${toPersianDigits(String(h).padStart(2, "0"))}:۰۰`,
+}));
+
 function endLabel(item: {
   kind: DebtKind;
   endMode: DebtEndMode | null;
@@ -70,6 +77,10 @@ function endLabel(item: {
     return `${toPersianDigits(String(item.paymentsMade))}/${toPersianDigits(String(item.endMonths))} قسط`;
   }
   return "همیشگی";
+}
+
+function formatReminderHour(hour: number): string {
+  return `${toPersianDigits(String(hour).padStart(2, "0"))}:۰۰`;
 }
 
 export default function RecurringPage() {
@@ -85,6 +96,7 @@ export default function RecurringPage() {
   const [endMode, setEndMode] = useState<DebtEndMode>("forever");
   const [endMonths, setEndMonths] = useState<number | null>(12);
   const [dueDate, setDueDate] = useState(getTodayJalali());
+  const [reminderHour, setReminderHour] = useState(20);
   const [categoryId, setCategoryId] = useState("");
   const [payItem, setPayItem] = useState<RecurringItem | null>(null);
   const [payAccountId, setPayAccountId] = useState("");
@@ -92,6 +104,7 @@ export default function RecurringPage() {
   const listQ = useQuery({ queryKey: ["recurring"], queryFn: fetchRecurring });
   const accountsQ = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const categoriesQ = useQuery({ queryKey: ["categories"], queryFn: fetchCategories });
+  const pushStatusQ = useQuery({ queryKey: ["push-status"], queryFn: fetchPushStatus });
 
   const categories = useMemo(
     () => (categoriesQ.data ?? []).filter((c: Category) => c.type === type),
@@ -121,6 +134,7 @@ export default function RecurringPage() {
           endMode,
           endMonths: endMode === "months" ? endMonths : null,
           categoryId,
+          reminderHour,
         });
       }
 
@@ -132,6 +146,7 @@ export default function RecurringPage() {
         kind: "one_time",
         dueDate,
         categoryId,
+        reminderHour,
       });
     },
     onSuccess: () => {
@@ -148,6 +163,17 @@ export default function RecurringPage() {
           : (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
             "خطا در ذخیره";
       message.error(msg);
+    },
+  });
+
+  const pushMutation = useMutation({
+    mutationFn: enablePushNotifications,
+    onSuccess: () => {
+      message.success("یادآوری پوش فعال شد");
+      void queryClient.invalidateQueries({ queryKey: ["push-status"] });
+    },
+    onError: (err: unknown) => {
+      message.error(err instanceof Error ? err.message : "فعال‌سازی پوش ناموفق بود");
     },
   });
 
@@ -197,6 +223,34 @@ export default function RecurringPage() {
           اقساط ماهانه یا بدهی یک‌باره را ثبت کنید؛ حساب بانکی را موقع ثبت تراکنش انتخاب کنید.
         </Text>
       </div>
+
+      <Card size="small">
+        <Flex justify="space-between" align="center" gap="middle" wrap="wrap">
+          <div className="min-w-0">
+            <Text strong>
+              <BellOutlined className="me-1" />
+              یادآوری پوش
+            </Text>
+            <div>
+              <Text type="secondary" className="text-xs">
+                از ۳ روز قبل موعد، هر روز در ساعت مشخص‌شده نوتیف می‌آید.
+              </Text>
+            </div>
+          </div>
+          {pushStatusQ.data?.subscribed ? (
+            <Tag color="success">فعال است</Tag>
+          ) : (
+            <Button
+              icon={<BellOutlined />}
+              loading={pushMutation.isPending}
+              onClick={() => pushMutation.mutate()}
+              disabled={pushStatusQ.data?.configured === false}
+            >
+              فعال‌سازی پوش
+            </Button>
+          )}
+        </Flex>
+      </Card>
 
       {(listQ.data?.dueCount ?? 0) > 0 ? (
         <Alert
@@ -370,6 +424,18 @@ export default function RecurringPage() {
             </div>
           )}
 
+          <div>
+            <Text type="secondary" className="mb-1 block text-xs">
+              ساعت یادآوری پوش (۳ روز قبل از موعد)
+            </Text>
+            <Select
+              className="w-full"
+              value={reminderHour}
+              onChange={setReminderHour}
+              options={HOUR_OPTIONS}
+            />
+          </div>
+
           <Select
             className="w-full"
             placeholder="انتخاب دسته"
@@ -429,7 +495,8 @@ export default function RecurringPage() {
                   <div>
                     <Text type="secondary" className="break-words">
                       {scheduleText} · {endLabel(item)} · موعد بعدی{" "}
-                      {formatJalaliDate(item.nextPaymentDate)} · {categoryName}
+                      {formatJalaliDate(item.nextPaymentDate)} · یادآور{" "}
+                      {formatReminderHour(item.reminderHour ?? 20)} · {categoryName}
                     </Text>
                   </div>
                 </div>
