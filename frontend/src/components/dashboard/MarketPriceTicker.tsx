@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/cn";
 
@@ -105,17 +105,6 @@ function TickerChip({ item }: { item: TickerItem }) {
   );
 }
 
-function readTranslateX(el: HTMLElement): number {
-  const t = getComputedStyle(el).transform;
-  if (!t || t === "none") return 0;
-  try {
-    const matrix = new DOMMatrixReadOnly(t);
-    return matrix.m41;
-  } catch {
-    return 0;
-  }
-}
-
 type Props = {
   market?: MarketTickerData;
   loading?: boolean;
@@ -125,63 +114,7 @@ type Props = {
 
 export function MarketPriceTicker({ market, loading, errorMessage, className }: Props) {
   const items = buildItems(market);
-  const trackRef = useRef<HTMLDivElement>(null);
-  const draggingRef = useRef(false);
-  const dragStartXRef = useRef(0);
-  const dragStartOffsetRef = useRef(0);
-  const [dragging, setDragging] = useState(false);
-
-  function clearManualTransform() {
-    const track = trackRef.current;
-    if (!track) return;
-    track.style.animation = "";
-    track.style.transform = "";
-  }
-
-  function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
-    const track = trackRef.current;
-    if (!track) return;
-
-    draggingRef.current = true;
-    setDragging(true);
-
-    // Freeze current animated position, then take over with manual transform
-    const currentX = readTranslateX(track);
-    track.style.animation = "none";
-    track.style.transform = `translate3d(${currentX}px, 0, 0)`;
-
-    dragStartXRef.current = e.clientX;
-    dragStartOffsetRef.current = currentX;
-    e.currentTarget.setPointerCapture(e.pointerId);
-  }
-
-  function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
-    if (!draggingRef.current) return;
-    const track = trackRef.current;
-    if (!track) return;
-
-    const half = track.scrollWidth / 2 || 1;
-    let next = dragStartOffsetRef.current + (e.clientX - dragStartXRef.current);
-    next = ((next % half) + half) % half;
-    track.style.transform = `translate3d(${next}px, 0, 0)`;
-  }
-
-  function endDrag(e: React.PointerEvent<HTMLDivElement>) {
-    if (!draggingRef.current) return;
-    draggingRef.current = false;
-    setDragging(false);
-    try {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    } catch {
-      // ignore
-    }
-    // If pointer left the ticker, CSS :hover is gone → resume animation from start of loop
-    // If still hovering, keep frozen (animation stays none until mouseleave)
-    const root = e.currentTarget.closest(".market-ticker");
-    if (!root?.matches(":hover")) {
-      clearManualTransform();
-    }
-  }
+  const [menuOpen, setMenuOpen] = useState(false);
 
   if (loading) {
     return (
@@ -205,31 +138,37 @@ export function MarketPriceTicker({ market, loading, errorMessage, className }: 
 
   return (
     <div
-      className={cn("market-ticker", dragging && "market-ticker--dragging", className)}
+      className={cn("market-ticker", menuOpen && "market-ticker--menu-open", className)}
       aria-label="قیمت طلا و ارز"
-      onMouseLeave={() => {
-        draggingRef.current = false;
-        setDragging(false);
-        // Leaving hover must always restart CSS infinite animation
-        clearManualTransform();
-      }}
+      onMouseEnter={() => setMenuOpen(true)}
+      onMouseLeave={() => setMenuOpen(false)}
     >
-      <div className="market-ticker-fade market-ticker-fade--start" aria-hidden />
-      <div className="market-ticker-fade market-ticker-fade--end" aria-hidden />
+      <div className="market-ticker-strip">
+        <div className="market-ticker-fade market-ticker-fade--start" aria-hidden />
+        <div className="market-ticker-fade market-ticker-fade--end" aria-hidden />
 
-      <div
-        className="market-ticker-viewport"
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
-      >
-        <div ref={trackRef} className="market-ticker-track" dir="ltr">
-          {loop.map((item, i) => (
-            <TickerChip key={`${item.id}-${i}`} item={item} />
-          ))}
+        <div className="market-ticker-viewport">
+          <div className="market-ticker-track" dir="ltr">
+            {loop.map((item, i) => (
+              <TickerChip key={`${item.id}-${i}`} item={item} />
+            ))}
+          </div>
         </div>
       </div>
+
+      {menuOpen ? (
+        <div className="market-ticker-dropdown" role="list" dir="rtl">
+          {items.map((item) => (
+            <div key={item.id} className="market-ticker-dropdown-row" role="listitem">
+              <span className="market-ticker-label">{item.label}</span>
+              <span className="market-ticker-dropdown-price">
+                <span className="market-ticker-value">{item.amount}</span>
+                <span className="market-ticker-unit">{item.unit}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

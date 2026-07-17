@@ -121,23 +121,25 @@
 
   /* Dashboard market price ticker */
   .market-ticker {
-    @apply relative overflow-hidden rounded-2xl border border-app-border bg-app-card;
-    padding-block: 0.65rem;
+    @apply relative overflow-visible rounded-2xl border border-app-border bg-app-card;
+    z-index: 1;
+  }
+
+  .market-ticker--menu-open {
+    z-index: 40;
   }
 
   .market-ticker--empty {
     @apply flex items-center justify-center px-4 py-3;
   }
 
-  .market-ticker-viewport {
-    @apply overflow-hidden px-2;
-    cursor: grab;
-    touch-action: pan-y;
-    user-select: none;
+  .market-ticker-strip {
+    @apply relative overflow-hidden rounded-2xl;
+    padding-block: 0.65rem;
   }
 
-  .market-ticker--dragging .market-ticker-viewport {
-    cursor: grabbing;
+  .market-ticker-viewport {
+    @apply overflow-hidden px-2;
   }
 
   .market-ticker-track {
@@ -145,9 +147,8 @@
     animation: market-ticker-marquee 45s linear infinite;
   }
 
-  /* Pause auto-scroll while hovering or dragging — resumes automatically on mouse leave via CSS */
-  .market-ticker:hover .market-ticker-track,
-  .market-ticker--dragging .market-ticker-track {
+  /* Pause auto-scroll while dropdown is open (hover) */
+  .market-ticker--menu-open .market-ticker-track {
     animation-play-state: paused;
   }
 
@@ -188,6 +189,22 @@
 
   :dir(rtl) .market-ticker-fade--end {
     background: linear-gradient(to right, var(--card), transparent);
+  }
+
+  .market-ticker-dropdown {
+    @apply absolute inset-x-0 top-full z-50 mt-1.5 max-h-[min(70vh,22rem)] overflow-y-auto rounded-2xl border border-app-border bg-app-card p-2 shadow-lg;
+  }
+
+  .market-ticker-dropdown-row {
+    @apply flex items-baseline justify-between gap-3 rounded-xl px-3 py-2;
+  }
+
+  .market-ticker-dropdown-row:hover {
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+  }
+
+  .market-ticker-dropdown-price {
+    @apply flex shrink-0 items-baseline gap-1.5;
   }
 
   /* 50% = one copy of the duplicated track → seamless loop */
