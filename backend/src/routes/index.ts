@@ -13,6 +13,7 @@ import goalsRoutes from "./goals.routes";
 import pushRoutes from "./push.routes";
 import goldPricesRoutes from "./gold-prices.routes";
 import marketPricesRoutes from "./market-prices.routes";
+import investmentsRoutes from "./investments.routes";
 
 const router = Router();
 
@@ -30,6 +31,7 @@ router.use("/goals", goalsRoutes);
 router.use("/push", pushRoutes);
 router.use("/gold-prices", goldPricesRoutes);
 router.use("/market-prices", marketPricesRoutes);
+router.use("/investments", investmentsRoutes);
 
 export default router;
 

@@ -45,6 +45,25 @@ const RecurringTransactionSchema = new Schema(
     nextPaymentDate: { type: String, required: true },
     active: { type: Boolean, required: true, default: true, index: true },
     notes: { type: String, required: false, default: "" },
+    /** لینک به سرمایه‌گذاری (سود دوره‌ای طلا/دلار) */
+    investmentId: {
+      type: Schema.Types.ObjectId,
+      ref: "Investment",
+      required: false,
+      index: true,
+    },
+    /** مقدار سود به واحد دارایی (گرم طلا / دلار) — مبلغ تومان از قیمت روز گرفته می‌شود */
+    assetQuantity: { type: Number, required: false, min: 0 },
+    assetType: { type: String, required: false, enum: ["gold", "usd"] },
+    /** دوره تکرار سود — پیش‌فرض ماهانه */
+    scheduleFrequency: {
+      type: String,
+      required: false,
+      enum: ["daily", "monthly", "yearly"],
+      default: "monthly",
+    },
+    /** پایان سود (جلالی) — بعد از این تاریخ غیرفعال می‌شود */
+    endDate: { type: String, required: false, default: "" },
   },
   { timestamps: true }
 );
