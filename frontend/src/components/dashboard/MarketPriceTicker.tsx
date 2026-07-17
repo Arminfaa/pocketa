@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { LeftOutlined, RightOutlined } from "@ant-design/icons";
-import { formatToman, formatUsd } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/cn";
 
@@ -28,9 +26,37 @@ export type MarketTickerData = {
 type TickerItem = {
   id: string;
   label: string;
-  value: string;
-  sub?: string;
+  /** Amount number for display (bold) */
+  amount: string;
+  /** Unit suffix in small font — e.g. تومان */
+  unit: string;
 };
+
+function formatAmountFa(amount: number): string {
+  return new Intl.NumberFormat("fa-IR").format(Math.round(amount));
+}
+
+function formatAmountUsd(amount: number): string {
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
+
+function tomanItem(
+  id: string,
+  label: string,
+  toman: number | null | undefined,
+  usdFallback?: number
+): TickerItem | null {
+  if (toman != null) {
+    return { id, label, amount: formatAmountFa(toman), unit: "تومان" };
+  }
+  if (usdFallback != null) {
+    return { id, label, amount: formatAmountUsd(usdFallback), unit: "$" };
+  }
+  return null;
+}
 
 function buildItems(market: MarketTickerData | undefined): TickerItem[] {
   if (!market) return [];
@@ -38,55 +64,16 @@ function buildItems(market: MarketTickerData | undefined): TickerItem[] {
   const { gold, currency } = market;
 
   if (gold) {
-    items.push(
-      {
-        id: "g18",
-        label: "گرم ۱۸ عیار",
-        value:
-          gold.gram18kToman != null
-            ? formatToman(gold.gram18kToman)
-            : formatUsd(gold.gram18kUsd),
-        sub: formatUsd(gold.gram18kUsd),
-      },
-      {
-        id: "g24",
-        label: "گرم ۲۴ عیار",
-        value:
-          gold.gram24kToman != null
-            ? formatToman(gold.gram24kToman)
-            : formatUsd(gold.gram24kUsd),
-        sub: formatUsd(gold.gram24kUsd),
-      },
-      {
-        id: "m18",
-        label: "مثقال ۱۸ عیار",
-        value:
-          gold.mesghal18kToman != null
-            ? formatToman(gold.mesghal18kToman)
-            : formatUsd(gold.mesghal18kUsd),
-        sub: formatUsd(gold.mesghal18kUsd),
-      },
-      {
-        id: "m24",
-        label: "مثقال ۲۴ عیار",
-        value:
-          gold.mesghal24kToman != null
-            ? formatToman(gold.mesghal24kToman)
-            : formatUsd(gold.mesghal24kUsd),
-        sub: formatUsd(gold.mesghal24kUsd),
-      },
-      {
-        id: "qcoin",
-        label: "ربع سکه",
-        value:
-          gold.quarterCoinToman != null
-            ? formatToman(gold.quarterCoinToman)
-            : gold.quarterCoinUsd != null
-              ? formatUsd(gold.quarterCoinUsd)
-              : "—",
-        sub: gold.quarterCoinUsd != null ? formatUsd(gold.quarterCoinUsd) : undefined,
-      }
-    );
+    const goldItems = [
+      tomanItem("g18", "گرم ۱۸ عیار", gold.gram18kToman, gold.gram18kUsd),
+      tomanItem("g24", "گرم ۲۴ عیار", gold.gram24kToman, gold.gram24kUsd),
+      tomanItem("m18", "مثقال ۱۸ عیار", gold.mesghal18kToman, gold.mesghal18kUsd),
+      tomanItem("m24", "مثقال ۲۴ عیار", gold.mesghal24kToman, gold.mesghal24kUsd),
+      tomanItem("qcoin", "ربع سکه", gold.quarterCoinToman, gold.quarterCoinUsd),
+    ];
+    for (const item of goldItems) {
+      if (item) items.push(item);
+    }
   }
 
   if (currency) {
@@ -94,12 +81,14 @@ function buildItems(market: MarketTickerData | undefined): TickerItem[] {
       {
         id: "usd",
         label: "دلار آزاد",
-        value: formatToman(currency.usdFreeToman),
+        amount: formatAmountFa(currency.usdFreeToman),
+        unit: "تومان",
       },
       {
         id: "usdt",
         label: "تتر",
-        value: formatToman(currency.usdtToman),
+        amount: formatAmountFa(currency.usdtToman),
+        unit: "تومان",
       }
     );
   }
@@ -111,8 +100,8 @@ function TickerChip({ item }: { item: TickerItem }) {
   return (
     <div className="market-ticker-chip">
       <span className="market-ticker-label">{item.label}</span>
-      <span className="market-ticker-value">{item.value}</span>
-      {item.sub ? <span className="market-ticker-sub">{item.sub}</span> : null}
+      <span className="market-ticker-value">{item.amount}</span>
+      <span className="market-ticker-unit">{item.unit}</span>
     </div>
   );
 }
@@ -137,7 +126,7 @@ export function MarketPriceTicker({ market, loading, errorMessage, className }: 
 
     let frame = 0;
     let last = performance.now();
-    const speed = 32; // px per second
+    const speed = 32;
 
     const step = (now: number) => {
       const dt = Math.min(0.05, (now - last) / 1000);
@@ -166,14 +155,6 @@ export function MarketPriceTicker({ market, loading, errorMessage, className }: 
     setPaused(next);
   }
 
-  function scrollManual(direction: 1 | -1) {
-    const el = viewportRef.current;
-    if (!el) return;
-    setPausedState(true);
-    const amount = Math.max(160, Math.round(el.clientWidth * 0.5));
-    el.scrollBy({ left: direction * amount, behavior: "smooth" });
-  }
-
   if (loading) {
     return (
       <div className={cn("market-ticker", className)} aria-busy="true">
@@ -192,7 +173,6 @@ export function MarketPriceTicker({ market, loading, errorMessage, className }: 
     );
   }
 
-  // Duplicate for smoother looping when auto-scroll wraps
   const loop = [...items, ...items];
 
   return (
@@ -209,15 +189,6 @@ export function MarketPriceTicker({ market, loading, errorMessage, className }: 
         }
       }}
     >
-      <button
-        type="button"
-        className="market-ticker-nav market-ticker-nav--prev"
-        aria-label="اسکرول به چپ"
-        onClick={() => scrollManual(-1)}
-      >
-        <LeftOutlined />
-      </button>
-
       <div className="market-ticker-fade market-ticker-fade--start" aria-hidden />
       <div className="market-ticker-fade market-ticker-fade--end" aria-hidden />
 
@@ -238,15 +209,6 @@ export function MarketPriceTicker({ market, loading, errorMessage, className }: 
           ))}
         </div>
       </div>
-
-      <button
-        type="button"
-        className="market-ticker-nav market-ticker-nav--next"
-        aria-label="اسکرول به راست"
-        onClick={() => scrollManual(1)}
-      >
-        <RightOutlined />
-      </button>
     </div>
   );
 }

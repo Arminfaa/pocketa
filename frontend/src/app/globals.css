@@ -123,7 +123,6 @@
   .market-ticker {
     @apply relative overflow-hidden rounded-2xl border border-app-border bg-app-card;
     padding-block: 0.65rem;
-    padding-inline: 2.25rem;
   }
 
   .market-ticker--empty {
@@ -131,7 +130,7 @@
   }
 
   .market-ticker-viewport {
-    @apply overflow-x-auto overflow-y-hidden;
+    @apply overflow-x-auto overflow-y-hidden px-2;
     scrollbar-width: none;
     -ms-overflow-style: none;
     cursor: grab;
@@ -145,26 +144,8 @@
     @apply flex w-max items-center gap-3 px-1;
   }
 
-  .market-ticker-nav {
-    @apply absolute top-1/2 z-20 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-app-border bg-app-card text-app-fg shadow-sm transition;
-    opacity: 0.85;
-  }
-
-  .market-ticker-nav:hover {
-    opacity: 1;
-    background: color-mix(in srgb, var(--accent) 12%, var(--card));
-  }
-
-  .market-ticker-nav--prev {
-    inset-inline-start: 0.35rem;
-  }
-
-  .market-ticker-nav--next {
-    inset-inline-end: 0.35rem;
-  }
-
   .market-ticker-chip {
-    @apply flex shrink-0 items-baseline gap-2 whitespace-nowrap rounded-xl px-3 py-1;
+    @apply flex shrink-0 items-baseline gap-1.5 whitespace-nowrap rounded-xl px-3 py-1;
     background: color-mix(in srgb, var(--accent) 8%, transparent);
   }
 
@@ -173,24 +154,24 @@
   }
 
   .market-ticker-value {
-    @apply text-sm font-semibold text-app-fg;
+    @apply text-sm font-bold text-app-fg tabular-nums;
   }
 
-  .market-ticker-sub {
-    @apply text-[11px] text-app-muted;
+  .market-ticker-unit {
+    @apply text-[10px] text-app-muted;
   }
 
   .market-ticker-fade {
-    @apply pointer-events-none absolute inset-y-0 z-10 w-10;
+    @apply pointer-events-none absolute inset-y-0 z-10 w-8;
   }
 
   .market-ticker-fade--start {
-    inset-inline-start: 2rem;
+    inset-inline-start: 0;
     background: linear-gradient(to right, var(--card), transparent);
   }
 
   .market-ticker-fade--end {
-    inset-inline-end: 2rem;
+    inset-inline-end: 0;
     background: linear-gradient(to left, var(--card), transparent);
   }
 
