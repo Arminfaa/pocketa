@@ -261,8 +261,8 @@ async function saveSnapshot(kind: "gold" | "currency", payload: GoldPayload | Cu
 
 /**
  * Gold: at most once per Tehran calendar day.
- * Currency: at most once per day; preferred at/after 14:00 Tehran.
- * If never stored, fetch immediately (bootstrap).
+ * Currency: at most once per Tehran calendar day (same as gold for now).
+ * Hour gate (14:00) temporarily disabled so first load can bootstrap immediately.
  */
 export async function refreshGoldIfNeeded(): Promise<void> {
   const { date } = tehranNow();
@@ -288,19 +288,21 @@ export async function refreshGoldIfNeeded(): Promise<void> {
 }
 
 export async function refreshCurrencyIfNeeded(
-  opts: { ignoreHourGate?: boolean } = {}
+  _opts: { ignoreHourGate?: boolean } = {}
 ): Promise<void> {
-  const { date, hour } = tehranNow();
+  const { date } = tehranNow();
   const existing = await MarketPriceModel.findOne({ kind: "currency" }).lean();
 
   if (existing && existing.fetchDate === date) {
     return;
   }
 
-  // Keep yesterday's rate until the scheduled 14:00 window (unless cron)
-  if (!opts.ignoreHourGate && existing && hour < CURRENCY_REFRESH_HOUR_TEHRAN) {
-    return;
-  }
+  // TEMP: hour gate disabled — fetch on first need of the day so dashboard shows USD/USDT.
+  // Re-enable later for quota control:
+  // const { hour } = tehranNow();
+  // if (!opts.ignoreHourGate && existing && hour < CURRENCY_REFRESH_HOUR_TEHRAN) {
+  //   return;
+  // }
 
   try {
     const payload = await fetchCurrencyFromApi();
