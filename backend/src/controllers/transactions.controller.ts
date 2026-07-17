@@ -213,8 +213,36 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
     { $set: next },
     { new: true }
   );
+  if (!updated) throw new AppError(404, "تراکنش یافت نشد");
 
-  return sendSuccess(res, { item: updated });
+  let debt = null;
+  if (parsed.data.registerAsDebt && parsed.data.debtDueDate) {
+    const debtCategory = await ensureDebtExpenseCategory(userId);
+    const dueDate = normalizeJalaliDate(parsed.data.debtDueDate);
+    const debtTitle = String(updated.title);
+    const debtAmount = Number(updated.amount);
+    debt = await RecurringTransactionModel.create({
+      userId,
+      title: debtTitle,
+      amount: debtAmount,
+      baseAmount: debtAmount,
+      type: "expense",
+      kind: "one_time",
+      categoryId: debtCategory._id,
+      notes: `ثبت از تراکنش (${normalizeJalaliDate(updated.date)})`,
+      active: true,
+      paymentsMade: 0,
+      reminderHour: 20,
+      reminderSentKeys: [],
+      nextPaymentDate: dueDate,
+    });
+  }
+
+  return sendSuccess(
+    res,
+    { item: updated, debt },
+    debt ? "تراکنش ذخیره و بدهی یک‌باره ثبت شد" : undefined
+  );
 });
 
 export const remove = asyncHandler(async (req: Request, res: Response) => {
