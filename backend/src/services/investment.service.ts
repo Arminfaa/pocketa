@@ -52,7 +52,7 @@ export function formatAssetQuantity(
   if (assetType === "usd") return `${rounded} دلار`;
   if (assetType === "rial") return `${Math.round(qty).toLocaleString("en-US")} تومان`;
   if (resolveGoldKind(assetType, goldKind) === "quarter_coin") {
-    return `${rounded} ربع سکه`;
+    return `${Math.round(qty).toLocaleString("en-US")} عدد ربع سکه`;
   }
   return `${rounded} گرم طلا`;
 }

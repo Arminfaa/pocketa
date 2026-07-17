@@ -30,6 +30,17 @@ export const InvestmentCreateSchema = z
         path: ["goldKind"],
       });
     }
+    if (
+      data.assetType === "gold" &&
+      data.goldKind === "quarter_coin" &&
+      (!Number.isInteger(data.quantity) || data.quantity < 1)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "تعداد ربع سکه باید عدد صحیح باشد",
+        path: ["quantity"],
+      });
+    }
     if (!data.hasProfit) return;
 
     if (!data.profitMode) {
