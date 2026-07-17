@@ -1,9 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { App, Button, Card, Col, Flex, Grid, Input, Row, Select, Space, Typography } from "antd";
-import { CheckOutlined, WarningOutlined, ThunderboltOutlined } from "@ant-design/icons";
+import {
+  App,
+  Button,
+  Card,
+  Checkbox,
+  Col,
+  Flex,
+  Grid,
+  Input,
+  Row,
+  Select,
+  Space,
+  Typography,
+} from "antd";
+import {
+  CheckOutlined,
+  WarningOutlined,
+  ThunderboltOutlined,
+} from "@ant-design/icons";
 import {
   fetchCategories,
   fetchTransactions,
@@ -11,7 +28,7 @@ import {
   updateTransaction,
 } from "@/services/transactions";
 import type { Transaction } from "@/types/transaction";
-import { formatJalaliDate, formatToman } from "@/lib/format";
+import { formatJalaliDate, formatToman, toPersianDigits } from "@/lib/format";
 import {
   categoryIdValue,
   categoryName,
@@ -24,6 +41,8 @@ import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { cn } from "@/lib/cn";
 
 const { Title, Text } = Typography;
+
+type Draft = { title: string; categoryId: string; tags: string[] };
 
 export default function ReviewPage() {
   const screens = Grid.useBreakpoint();
@@ -47,11 +66,15 @@ export default function ReviewPage() {
 
   const categoriesQ = useQuery({ queryKey: ["categories"], queryFn: fetchCategories });
 
-  const [drafts, setDrafts] = useState<
-    Record<string, { title: string; categoryId: string; tags: string[] }>
-  >({});
+  const [drafts, setDrafts] = useState<Record<string, Draft>>({});
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-  function getDraft(tx: Transaction) {
+  const items = listQ.data?.items ?? [];
+  const pageIds = useMemo(() => items.map((tx) => tx._id), [items]);
+  const allSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
+  const someSelected = selectedIds.some((id) => pageIds.includes(id));
+
+  function getDraft(tx: Transaction): Draft {
     return (
       drafts[tx._id] ?? {
         title: tx.title.includes("بدون عنوان") ? "" : tx.title,
@@ -61,26 +84,46 @@ export default function ReviewPage() {
     );
   }
 
+  function setDraft(txId: string, draft: Draft) {
+    setDrafts((d) => ({ ...d, [txId]: draft }));
+  }
+
+  function toggleSelect(id: string, checked: boolean) {
+    setSelectedIds((prev) =>
+      checked ? (prev.includes(id) ? prev : [...prev, id]) : prev.filter((x) => x !== id)
+    );
+  }
+
+  function toggleSelectAll(checked: boolean) {
+    setSelectedIds(checked ? pageIds : []);
+  }
+
+  async function saveOne(tx: Transaction) {
+    const draft = getDraft(tx);
+    if (draft.title.trim().length < 2) {
+      throw new Error(`عنوان «${tx.title}» حداقل ۲ کاراکتر باشد`);
+    }
+    await updateTransaction(tx._id, {
+      title: draft.title.trim(),
+      categoryId: draft.categoryId || categoryIdValue(tx.categoryId),
+      tags: draft.tags,
+      needsReview: false,
+    });
+  }
+
   const saveMutation = useMutation({
     mutationFn: async (tx: Transaction) => {
-      const draft = getDraft(tx);
-      if (draft.title.trim().length < 2) {
-        throw new Error("عنوان حداقل ۲ کاراکتر باشد");
-      }
-      return updateTransaction(tx._id, {
-        title: draft.title.trim(),
-        categoryId: draft.categoryId || categoryIdValue(tx.categoryId),
-        tags: draft.tags,
-        needsReview: false,
-      });
+      await saveOne(tx);
+      return tx._id;
     },
-    onSuccess: (_data, tx) => {
-      message.success("عنوان ذخیره شد");
+    onSuccess: (id) => {
+      message.success("ذخیره شد و از بررسی خارج شد");
       setDrafts((d) => {
         const next = { ...d };
-        delete next[tx._id];
+        delete next[id];
         return next;
       });
+      setSelectedIds((ids) => ids.filter((x) => x !== id));
       void queryClient.invalidateQueries({ queryKey: ["transactions"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
@@ -90,6 +133,51 @@ export default function ReviewPage() {
           ? err.message
           : (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
             "خطا در ذخیره";
+      message.error(msg);
+    },
+  });
+
+  const bulkSaveMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const selected = items.filter((tx) => ids.includes(tx._id));
+      if (selected.length === 0) throw new Error("موردی انتخاب نشده");
+
+      const invalid = selected.find((tx) => getDraft(tx).title.trim().length < 2);
+      if (invalid) {
+        throw new Error("برای همه موارد انتخاب‌شده عنوان حداقل ۲ کاراکتری وارد کنید");
+      }
+
+      const results = await Promise.allSettled(selected.map((tx) => saveOne(tx)));
+      const failed = results.filter((r) => r.status === "rejected").length;
+      const ok = results.length - failed;
+      if (ok === 0) throw new Error("هیچ موردی ذخیره نشد");
+      return { ok, failed, ids: selected.map((t) => t._id) };
+    },
+    onSuccess: ({ ok, failed, ids }) => {
+      if (failed > 0) {
+        message.warning(
+          `${toPersianDigits(String(ok))} مورد ذخیره شد، ${toPersianDigits(String(failed))} مورد ناموفق`
+        );
+      } else {
+        message.success(
+          `${toPersianDigits(String(ok))} مورد ذخیره و از بررسی خارج شد`
+        );
+      }
+      setDrafts((d) => {
+        const next = { ...d };
+        for (const id of ids) delete next[id];
+        return next;
+      });
+      setSelectedIds([]);
+      void queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+    onError: (err: unknown) => {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+            "خطا در ذخیره گروهی";
       message.error(msg);
     },
   });
@@ -106,15 +194,12 @@ export default function ReviewPage() {
         return;
       }
       const draft = getDraft(tx);
-      setDrafts((d) => ({
-        ...d,
-        [tx._id]: { ...draft, categoryId: result.suggestion!._id },
-      }));
+      setDraft(tx._id, { ...draft, categoryId: result.suggestion!._id });
       message.success(`پیشنهاد: ${result.suggestion.name}`);
     },
   });
 
-  const items = listQ.data?.items ?? [];
+  const selectedOnPage = selectedIds.filter((id) => pageIds.includes(id));
 
   return (
     <Space orientation="vertical" size="middle" className="w-full max-w-3xl">
@@ -126,7 +211,7 @@ export default function ReviewPage() {
           </Flex>
         </Title>
         <Text type="secondary">
-          برای هر واریز/برداشت مشخص کنید برای چه بوده، سپس ذخیره کنید.
+          موارد را تکی یا گروهی انتخاب کنید، عنوان بگذارید، سپس ذخیره و خروج از بررسی کنید.
         </Text>
       </div>
 
@@ -139,12 +224,54 @@ export default function ReviewPage() {
         />
       ) : null}
 
+      {items.length > 0 ? (
+        <Card size="small">
+          <Flex justify="space-between" align="center" gap="middle" wrap="wrap">
+            <Checkbox
+              checked={allSelected}
+              indeterminate={!allSelected && someSelected}
+              onChange={(e) => toggleSelectAll(e.target.checked)}
+            >
+              انتخاب همه ({toPersianDigits(String(items.length))})
+            </Checkbox>
+
+            <Button
+              type="primary"
+              icon={<CheckOutlined />}
+              disabled={selectedOnPage.length === 0}
+              loading={bulkSaveMutation.isPending}
+              onClick={() => bulkSaveMutation.mutate(selectedOnPage)}
+            >
+              ذخیره و خروج از بررسی
+              {selectedOnPage.length > 0
+                ? ` (${toPersianDigits(String(selectedOnPage.length))})`
+                : ""}
+            </Button>
+          </Flex>
+        </Card>
+      ) : null}
+
       <Space orientation="vertical" size="middle" className="w-full">
         {items.map((tx) => {
           const draft = getDraft(tx);
           const cats = (categoriesQ.data ?? []).filter((c) => c.type === tx.type);
+          const checked = selectedIds.includes(tx._id);
+
           return (
-            <Card key={tx._id}>
+            <Card
+              key={tx._id}
+              className={cn(checked && "ring-1 ring-brand-500/40")}
+              title={
+                <Checkbox
+                  checked={checked}
+                  onChange={(e) => toggleSelect(tx._id, e.target.checked)}
+                >
+                  <Text type="secondary" className="text-xs font-normal">
+                    انتخاب برای ذخیره گروهی
+                  </Text>
+                </Checkbox>
+              }
+            >
               <Space orientation="vertical" size="middle" className="w-full">
                 <Flex
                   justify="space-between"
@@ -177,10 +304,7 @@ export default function ReviewPage() {
                   placeholder="مثلاً اجاره / حقوق / خرید لپ‌تاپ"
                   value={draft.title}
                   onChange={(e) =>
-                    setDrafts((d) => ({
-                      ...d,
-                      [tx._id]: { ...draft, title: e.target.value },
-                    }))
+                    setDraft(tx._id, { ...draft, title: e.target.value })
                   }
                   onBlur={() => {
                     if (draft.title.trim().length >= 2) {
@@ -196,10 +320,7 @@ export default function ReviewPage() {
                         className="min-w-0 flex-1"
                         value={draft.categoryId}
                         onChange={(categoryId) =>
-                          setDrafts((d) => ({
-                            ...d,
-                            [tx._id]: { ...draft, categoryId },
-                          }))
+                          setDraft(tx._id, { ...draft, categoryId })
                         }
                         options={cats.map((c) => ({ value: c._id, label: c.name }))}
                       />
@@ -215,12 +336,7 @@ export default function ReviewPage() {
                   <Col xs={24} md={10}>
                     <TagsInput
                       value={draft.tags}
-                      onChange={(tags) =>
-                        setDrafts((d) => ({
-                          ...d,
-                          [tx._id]: { ...draft, tags },
-                        }))
-                      }
+                      onChange={(tags) => setDraft(tx._id, { ...draft, tags })}
                     />
                   </Col>
                 </Row>
@@ -228,7 +344,7 @@ export default function ReviewPage() {
                 <Button
                   type="primary"
                   icon={<CheckOutlined />}
-                  loading={saveMutation.isPending}
+                  loading={saveMutation.isPending && saveMutation.variables?._id === tx._id}
                   onClick={() => saveMutation.mutate(tx)}
                 >
                   ذخیره و خروج از بررسی
