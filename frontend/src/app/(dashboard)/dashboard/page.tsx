@@ -28,7 +28,7 @@ type MarketPrices = {
     changePercent: number;
     fetchDate: string;
     fetchedAt: string;
-  };
+  } | null;
   currency: {
     usdFreeToman: number;
     usdtToman: number;
@@ -37,6 +37,10 @@ type MarketPrices = {
     fetchDate: string;
     fetchedAt: string;
   } | null;
+  errors?: {
+    gold?: string;
+    currency?: string;
+  };
 };
 
 export default function DashboardPage() {
@@ -56,7 +60,15 @@ export default function DashboardPage() {
 
   const marketQ = useQuery({
     queryKey: ["market-prices"],
-    queryFn: async () => (await api.get("/api/market-prices")).data.data as MarketPrices,
+    queryFn: async () => {
+      try {
+        return (await api.get("/api/market-prices")).data.data as MarketPrices;
+      } catch (err: unknown) {
+        const ax = err as { response?: { data?: { message?: string } } };
+        const msg = ax.response?.data?.message;
+        throw new Error(msg || (err instanceof Error ? err.message : "خطا در دریافت قیمت‌ها"));
+      }
+    },
     staleTime: 5 * 60_000,
     retry: 1,
   });
@@ -210,8 +222,19 @@ export default function DashboardPage() {
             ))}
           </Row>
         ) : marketQ.error ? (
-          <Text type="secondary">قیمت طلا در دسترس نیست.</Text>
-        ) : gold ? (
+          <Text type="secondary">
+            قیمت طلا در دسترس نیست
+            {marketQ.error instanceof Error && marketQ.error.message
+              ? ` — ${marketQ.error.message}`
+              : ""}
+            .
+          </Text>
+        ) : !gold ? (
+          <Text type="secondary">
+            قیمت طلا در دسترس نیست
+            {market?.errors?.gold ? ` — ${market.errors.gold}` : ""}.
+          </Text>
+        ) : (
           <Row gutter={[16, 16]}>
             <Col xs={24} sm={12} lg={6}>
               <Statistic
@@ -266,7 +289,7 @@ export default function DashboardPage() {
               </Text>
             </Col>
           </Row>
-        ) : null}
+        )}
       </Card>
 
       <Card
@@ -287,8 +310,16 @@ export default function DashboardPage() {
               </Col>
             ))}
           </Row>
-        ) : !currency ? (
-          <Text type="secondary">قیمت ارز در دسترس نیست.</Text>
+        ) : marketQ.error || !currency ? (
+          <Text type="secondary">
+            قیمت ارز در دسترس نیست
+            {market?.errors?.currency
+              ? ` — ${market.errors.currency}`
+              : marketQ.error instanceof Error && marketQ.error.message
+                ? ` — ${marketQ.error.message}`
+                : ""}
+            .
+          </Text>
         ) : (
           <Row gutter={[16, 16]}>
             <Col xs={24} sm={12}>

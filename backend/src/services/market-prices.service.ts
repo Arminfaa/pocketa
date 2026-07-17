@@ -10,7 +10,10 @@ export const MESGHAL_GRAMS = 4.608;
 export const CURRENCY_REFRESH_HOUR_TEHRAN = 14;
 
 const GOLD_API_URL = "https://www.goldapi.io/api/XAU/USD";
-const NAVASAN_API_URL = "http://api.navasan.tech/latest/";
+const NAVASAN_API_URLS = [
+  "https://api.navasan.tech/latest/",
+  "http://api.navasan.tech/latest/",
+];
 
 export type GoldPayload = {
   ounceUsd: number;
@@ -31,18 +34,22 @@ export type CurrencyPayload = {
 };
 
 export type MarketPricesResponse = {
-  gold: GoldPayload & {
+  gold: (GoldPayload & {
     gram18kToman: number | null;
     gram24kToman: number | null;
     mesghal18kToman: number | null;
     mesghal24kToman: number | null;
     fetchDate: string;
     fetchedAt: string;
-  };
-  currency: CurrencyPayload & {
+  }) | null;
+  currency: (CurrencyPayload & {
     fetchDate: string;
     fetchedAt: string;
-  } | null;
+  }) | null;
+  errors?: {
+    gold?: string;
+    currency?: string;
+  };
 };
 
 type GoldApiResponse = {
@@ -51,6 +58,8 @@ type GoldApiResponse = {
   price_gram_18k?: number;
   price_gram_24k?: number;
   timestamp?: number;
+  error?: string;
+  message?: string;
 };
 
 type NavasanItem = {
@@ -60,7 +69,10 @@ type NavasanItem = {
   date?: string;
 };
 
-type NavasanResponse = Record<string, NavasanItem>;
+type NavasanResponse = Record<string, NavasanItem> & {
+  error?: string;
+  message?: string;
+};
 
 function roundUsd(n: number): number {
   return Math.round(n * 100) / 100;
@@ -76,7 +88,17 @@ function parseTomanValue(raw: string | number | undefined): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+function errorMessage(err: unknown): string {
+  if (err instanceof AppError) return err.message;
+  if (err instanceof Error) return err.message;
+  return "خطای ناشناخته";
+}
+
 function mapGoldResponse(raw: GoldApiResponse): GoldPayload {
+  if (raw.error || (raw.message && raw.price == null)) {
+    throw new AppError(502, String(raw.error || raw.message || "خطای سرویس طلا"));
+  }
+
   const gram18k = Number(raw.price_gram_18k);
   const gram24k = Number(raw.price_gram_24k);
   const ounce = Number(raw.price);
@@ -102,6 +124,10 @@ function mapGoldResponse(raw: GoldApiResponse): GoldPayload {
 }
 
 function mapNavasanResponse(raw: NavasanResponse): CurrencyPayload {
+  if (raw.error || raw.message) {
+    throw new AppError(502, String(raw.error || raw.message));
+  }
+
   const usd = raw.usd_sell;
   const usdt = raw.usdt ?? raw.usd_usdt;
 
@@ -130,7 +156,7 @@ function mapNavasanResponse(raw: NavasanResponse): CurrencyPayload {
 async function fetchGoldFromApi(): Promise<GoldPayload> {
   const apiKey = env.GOLD_API_KEY?.trim();
   if (!apiKey) {
-    throw new AppError(503, "سرویس قیمت طلا پیکربندی نشده است");
+    throw new AppError(503, "سرویس قیمت طلا پیکربندی نشده است (GOLD_API_KEY)");
   }
 
   let response: Response;
@@ -141,45 +167,85 @@ async function fetchGoldFromApi(): Promise<GoldPayload> {
         "x-access-token": apiKey,
         Accept: "application/json",
       },
-      signal: AbortSignal.timeout(12_000),
+      signal: AbortSignal.timeout(15_000),
     });
-  } catch {
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("[market] gold fetch network error", err);
     throw new AppError(502, "خطا در ارتباط با سرویس قیمت طلا");
   }
 
-  if (!response.ok) {
-    throw new AppError(502, "سرویس قیمت طلا در دسترس نیست");
+  const text = await response.text();
+  let raw: GoldApiResponse;
+  try {
+    raw = JSON.parse(text) as GoldApiResponse;
+  } catch {
+    // eslint-disable-next-line no-console
+    console.error("[market] gold non-JSON response", response.status, text.slice(0, 300));
+    throw new AppError(502, "پاسخ نامعتبر از سرویس قیمت طلا");
   }
 
-  const raw = (await response.json()) as GoldApiResponse;
+  if (!response.ok) {
+    // eslint-disable-next-line no-console
+    console.error("[market] gold HTTP error", response.status, raw);
+    throw new AppError(
+      502,
+      String(raw.error || raw.message || `سرویس طلا HTTP ${response.status}`)
+    );
+  }
+
   return mapGoldResponse(raw);
 }
 
 async function fetchCurrencyFromApi(): Promise<CurrencyPayload> {
   const apiKey = env.NAVASAN_API_KEY?.trim();
   if (!apiKey) {
-    throw new AppError(503, "سرویس قیمت ارز پیکربندی نشده است");
+    throw new AppError(503, "سرویس قیمت ارز پیکربندی نشده است (NAVASAN_API_KEY)");
   }
 
-  const url = `${NAVASAN_API_URL}?api_key=${encodeURIComponent(apiKey)}`;
+  let lastError: unknown;
 
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      method: "GET",
-      headers: { Accept: "application/json" },
-      signal: AbortSignal.timeout(12_000),
-    });
-  } catch {
-    throw new AppError(502, "خطا در ارتباط با سرویس قیمت ارز");
+  for (const base of NAVASAN_API_URLS) {
+    const url = `${base}?api_key=${encodeURIComponent(apiKey)}`;
+    try {
+      const response = await fetch(url, {
+        method: "GET",
+        headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(15_000),
+      });
+
+      const text = await response.text();
+      let raw: NavasanResponse;
+      try {
+        raw = JSON.parse(text) as NavasanResponse;
+      } catch {
+        // eslint-disable-next-line no-console
+        console.error("[market] navasan non-JSON", base, response.status, text.slice(0, 300));
+        lastError = new AppError(502, "پاسخ نامعتبر از سرویس قیمت ارز");
+        continue;
+      }
+
+      if (!response.ok) {
+        // eslint-disable-next-line no-console
+        console.error("[market] navasan HTTP error", base, response.status, raw);
+        lastError = new AppError(
+          502,
+          String(raw.error || raw.message || `سرویس ارز HTTP ${response.status}`)
+        );
+        continue;
+      }
+
+      return mapNavasanResponse(raw);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("[market] navasan fetch failed", base, err);
+      lastError = err;
+    }
   }
 
-  if (!response.ok) {
-    throw new AppError(502, "سرویس قیمت ارز در دسترس نیست");
-  }
-
-  const raw = (await response.json()) as NavasanResponse;
-  return mapNavasanResponse(raw);
+  throw lastError instanceof AppError
+    ? lastError
+    : new AppError(502, "خطا در ارتباط با سرویس قیمت ارز");
 }
 
 async function saveSnapshot(kind: "gold" | "currency", payload: GoldPayload | CurrencyPayload) {
@@ -232,11 +298,7 @@ export async function refreshCurrencyIfNeeded(
   }
 
   // Keep yesterday's rate until the scheduled 14:00 window (unless cron)
-  if (
-    !opts.ignoreHourGate &&
-    existing &&
-    hour < CURRENCY_REFRESH_HOUR_TEHRAN
-  ) {
+  if (!opts.ignoreHourGate && existing && hour < CURRENCY_REFRESH_HOUR_TEHRAN) {
     return;
   }
 
@@ -257,46 +319,73 @@ export async function refreshCurrencyIfNeeded(
 
 /** Cron 14:00 Tehran: refresh both if not yet stored for today. */
 export async function refreshMarketPricesDaily(): Promise<void> {
-  await Promise.all([
+  const results = await Promise.allSettled([
     refreshGoldIfNeeded(),
     refreshCurrencyIfNeeded({ ignoreHourGate: true }),
   ]);
+  for (const r of results) {
+    if (r.status === "rejected") {
+      // eslint-disable-next-line no-console
+      console.error("[cron] market refresh item failed", r.reason);
+    }
+  }
 }
 
 export async function getMarketPrices(): Promise<MarketPricesResponse> {
-  await Promise.all([
+  const errors: { gold?: string; currency?: string } = {};
+
+  // Independent refreshes — one failing source must not block the other
+  const [goldResult, currencyResult] = await Promise.allSettled([
     refreshGoldIfNeeded(),
     refreshCurrencyIfNeeded(),
   ]);
+
+  if (goldResult.status === "rejected") {
+    errors.gold = errorMessage(goldResult.reason);
+    // eslint-disable-next-line no-console
+    console.error("[market] gold refresh rejected", goldResult.reason);
+  }
+  if (currencyResult.status === "rejected") {
+    errors.currency = errorMessage(currencyResult.reason);
+    // eslint-disable-next-line no-console
+    console.error("[market] currency refresh rejected", currencyResult.reason);
+  }
 
   const [goldDoc, currencyDoc] = await Promise.all([
     MarketPriceModel.findOne({ kind: "gold" }).lean(),
     MarketPriceModel.findOne({ kind: "currency" }).lean(),
   ]);
 
-  if (!goldDoc?.payload) {
-    throw new AppError(503, "قیمت طلا هنوز در دسترس نیست");
-  }
-
-  const gold = goldDoc.payload as GoldPayload;
+  const gold = goldDoc?.payload ? (goldDoc.payload as GoldPayload) : null;
   const currency = currencyDoc?.payload
     ? (currencyDoc.payload as CurrencyPayload)
     : null;
+
+  if (!gold && !currency) {
+    throw new AppError(
+      503,
+      errors.gold ||
+        errors.currency ||
+        "قیمت طلا و ارز هنوز در دسترس نیست — کلیدها و لاگ Render را بررسی کنید"
+    );
+  }
 
   const usd = currency?.usdFreeToman ?? null;
   const toToman = (usdPrice: number): number | null =>
     usd == null ? null : roundToman(usdPrice * usd);
 
   return {
-    gold: {
-      ...gold,
-      gram18kToman: toToman(gold.gram18kUsd),
-      gram24kToman: toToman(gold.gram24kUsd),
-      mesghal18kToman: toToman(gold.mesghal18kUsd),
-      mesghal24kToman: toToman(gold.mesghal24kUsd),
-      fetchDate: goldDoc.fetchDate,
-      fetchedAt: new Date(goldDoc.fetchedAt).toISOString(),
-    },
+    gold: gold
+      ? {
+          ...gold,
+          gram18kToman: toToman(gold.gram18kUsd),
+          gram24kToman: toToman(gold.gram24kUsd),
+          mesghal18kToman: toToman(gold.mesghal18kUsd),
+          mesghal24kToman: toToman(gold.mesghal24kUsd),
+          fetchDate: goldDoc!.fetchDate,
+          fetchedAt: new Date(goldDoc!.fetchedAt).toISOString(),
+        }
+      : null,
     currency: currency
       ? {
           ...currency,
@@ -304,6 +393,6 @@ export async function getMarketPrices(): Promise<MarketPricesResponse> {
           fetchedAt: new Date(currencyDoc!.fetchedAt).toISOString(),
         }
       : null,
+    ...(Object.keys(errors).length ? { errors } : {}),
   };
 }
-
