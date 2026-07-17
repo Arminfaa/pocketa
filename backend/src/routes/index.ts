@@ -12,6 +12,7 @@ import recurringRoutes from "./recurring.routes";
 import goalsRoutes from "./goals.routes";
 import pushRoutes from "./push.routes";
 import goldPricesRoutes from "./gold-prices.routes";
+import marketPricesRoutes from "./market-prices.routes";
 
 const router = Router();
 
@@ -28,6 +29,7 @@ router.use("/recurring", recurringRoutes);
 router.use("/goals", goalsRoutes);
 router.use("/push", pushRoutes);
 router.use("/gold-prices", goldPricesRoutes);
+router.use("/market-prices", marketPricesRoutes);
 
 export default router;
 
