@@ -12,6 +12,7 @@ import {
   Input,
   Popconfirm,
   Row,
+  Segmented,
   Select,
   Space,
   Statistic,
@@ -20,6 +21,7 @@ import {
   Typography,
 } from "antd";
 import {
+  CalculatorOutlined,
   DeleteOutlined,
   FundOutlined,
   PlusOutlined,
@@ -39,8 +41,11 @@ import { JalaliDateInput } from "@/components/ui/jalali-date-input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { QueryError } from "@/components/ui/query-error";
+import { AssetCalculator } from "@/components/investments/AssetCalculator";
 
 const { Title, Text } = Typography;
+
+type PageTab = "investments" | "calculator";
 
 const assetOptions = [
   { value: "gold" as const, label: "طلا (گرم)" },
@@ -67,6 +72,7 @@ export default function InvestmentsPage() {
   const isMobile = !screens.md;
   const { message } = App.useApp();
   const queryClient = useQueryClient();
+  const [tab, setTab] = useState<PageTab>("investments");
 
   const [title, setTitle] = useState("");
   const [assetType, setAssetType] = useState<InvestmentAssetType>("gold");
@@ -81,7 +87,11 @@ export default function InvestmentsPage() {
   const [profitEndDate, setProfitEndDate] = useState("");
   const [notes, setNotes] = useState("");
 
-  const q = useQuery({ queryKey: ["investments"], queryFn: fetchInvestments });
+  const q = useQuery({
+    queryKey: ["investments"],
+    queryFn: fetchInvestments,
+    enabled: tab === "investments",
+  });
 
   const previewProfitQty = useMemo(() => {
     const qty = parseAmountInput(quantity);
@@ -175,32 +185,6 @@ export default function InvestmentsPage() {
     },
   });
 
-  if (q.isLoading) {
-    return (
-      <Flex vertical gap="large">
-        <Skeleton className="h-10 w-48" rows={1} />
-        <Row gutter={[16, 16]}>
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Col key={i} xs={24} sm={8}>
-              <Card>
-                <Skeleton className="h-16 w-full" rows={1} />
-              </Card>
-            </Col>
-          ))}
-        </Row>
-      </Flex>
-    );
-  }
-
-  if (q.error) {
-    return (
-      <QueryError
-        message="خطا در دریافت سرمایه‌گذاری‌ها."
-        onRetry={() => void q.refetch()}
-      />
-    );
-  }
-
   const summary = q.data?.summary;
   const items = q.data?.items ?? [];
 
@@ -212,277 +196,321 @@ export default function InvestmentsPage() {
           سرمایه‌گذاری / پس‌انداز
         </Title>
         <Text type="secondary">
-          طلا و دلار جدا از حساب بانکی — ارزش روز و سود دوره‌ای
+          طلا و دلار جدا از حساب بانکی — ارزش روز، سود دوره‌ای و محاسبه‌گر
         </Text>
       </div>
 
-      <Row gutter={[16, 16]}>
-        <Col xs={24} sm={8}>
-          <Card>
-            <Statistic
-              title="ارزش فعلی"
-              value={
-                summary?.totalValue != null ? formatToman(summary.totalValue) : "—"
-              }
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={8}>
-          <Card>
-            <Statistic title="هزینه خرید" value={formatToman(summary?.totalCost ?? 0)} />
-          </Card>
-        </Col>
-        <Col xs={24} sm={8}>
-          <Card>
-            <Statistic
-              title="سود / زیان"
-              value={
-                summary?.totalUnrealizedPnl != null
-                  ? formatToman(summary.totalUnrealizedPnl)
-                  : "—"
-              }
-              className={
-                summary?.totalUnrealizedPnl != null && summary.totalUnrealizedPnl >= 0
-                  ? "[&_.ant-statistic-content-value]:text-emerald-500"
-                  : summary?.totalUnrealizedPnl != null
-                    ? "[&_.ant-statistic-content-value]:text-red-500"
-                    : undefined
-              }
-            />
-          </Card>
-        </Col>
-      </Row>
+      <Segmented
+        block
+        value={tab}
+        onChange={(v) => setTab(v as PageTab)}
+        options={[
+          {
+            value: "investments",
+            label: "سرمایه‌گذاری‌ها",
+            icon: <FundOutlined />,
+          },
+          {
+            value: "calculator",
+            label: "محاسبه‌گر طلا / دلار",
+            icon: <CalculatorOutlined />,
+          },
+        ]}
+      />
 
-      <Card title="افزودن سرمایه‌گذاری">
-        <Flex vertical gap="middle">
-          <Input
-            placeholder="عنوان (مثلاً طلای خونه)"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
+      {tab === "calculator" ? <AssetCalculator /> : null}
 
-          <Row gutter={[12, 12]}>
+      {tab === "investments" && q.isLoading ? (
+        <Row gutter={[16, 16]}>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Col key={i} xs={24} sm={8}>
+              <Card>
+                <Skeleton className="h-16 w-full" rows={1} />
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      ) : null}
+
+      {tab === "investments" && q.error ? (
+        <QueryError
+          message="خطا در دریافت سرمایه‌گذاری‌ها."
+          onRetry={() => void q.refetch()}
+        />
+      ) : null}
+
+      {tab === "investments" && q.isSuccess ? (
+        <>
+          <Row gutter={[16, 16]}>
             <Col xs={24} sm={8}>
-              <Text type="secondary" className="text-xs">
-                نوع دارایی
-              </Text>
-              <Select
-                className="w-full"
-                value={assetType}
-                options={assetOptions}
-                onChange={setAssetType}
-              />
+              <Card>
+                <Statistic
+                  title="ارزش فعلی"
+                  value={
+                    summary?.totalValue != null ? formatToman(summary.totalValue) : "—"
+                  }
+                />
+              </Card>
             </Col>
             <Col xs={24} sm={8}>
-              <Text type="secondary" className="text-xs">
-                مقدار ({assetUnitLabel(assetType)})
-              </Text>
-              <AmountInput
-                value={quantity}
-                onChange={setQuantity}
-                placeholder="مثلاً ۴۲٫۹۸۰"
-                allowDecimals
-                decimalPlaces={3}
-                showWords={false}
-              />
+              <Card>
+                <Statistic title="هزینه خرید" value={formatToman(summary?.totalCost ?? 0)} />
+              </Card>
             </Col>
             <Col xs={24} sm={8}>
-              <Text type="secondary" className="text-xs">
-                قیمت خرید هر {assetUnitLabel(assetType)} (تومان)
-              </Text>
-              <AmountInput
-                value={purchasePrice}
-                onChange={setPurchasePrice}
-                placeholder="قیمت خرید"
-              />
+              <Card>
+                <Statistic
+                  title="سود / زیان"
+                  value={
+                    summary?.totalUnrealizedPnl != null
+                      ? formatToman(summary.totalUnrealizedPnl)
+                      : "—"
+                  }
+                  className={
+                    summary?.totalUnrealizedPnl != null && summary.totalUnrealizedPnl >= 0
+                      ? "[&_.ant-statistic-content-value]:text-emerald-500"
+                      : summary?.totalUnrealizedPnl != null
+                        ? "[&_.ant-statistic-content-value]:text-red-500"
+                        : undefined
+                  }
+                />
+              </Card>
             </Col>
           </Row>
 
-          <div>
-            <Text type="secondary" className="text-xs">
-              تاریخ خرید
-            </Text>
-            <JalaliDateInput value={purchaseDate} onChange={setPurchaseDate} />
-          </div>
+          <Card title="افزودن سرمایه‌گذاری">
+            <Flex vertical gap="middle">
+              <Input
+                placeholder="عنوان (مثلاً طلای خونه)"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
 
-          <Flex align="center" gap="middle">
-            <Switch checked={hasProfit} onChange={setHasProfit} />
-            <Text>سود دوره‌ای دارد</Text>
-          </Flex>
-
-          {hasProfit ? (
-            <Card size="small" className="bg-transparent">
-              <Flex vertical gap="middle">
-                <Row gutter={[12, 12]}>
-                  <Col xs={24} sm={8}>
-                    <Text type="secondary" className="text-xs">
-                      نوع سود
-                    </Text>
-                    <Select
-                      className="w-full"
-                      value={profitMode}
-                      options={profitModeOptions}
-                      onChange={setProfitMode}
-                    />
-                  </Col>
-                  <Col xs={24} sm={8}>
-                    <Text type="secondary" className="text-xs">
-                      {profitMode === "percent"
-                        ? "درصد سود"
-                        : `مقدار سود (${assetUnitLabel(assetType)})`}
-                    </Text>
-                    <AmountInput
-                      value={profitValue}
-                      onChange={setProfitValue}
-                      placeholder={profitMode === "percent" ? "مثلاً ۲" : "مثلاً ۱٫۵"}
-                      allowDecimals
-                      decimalPlaces={profitMode === "percent" ? 2 : 3}
-                      showWords={false}
-                    />
-                  </Col>
-                  <Col xs={24} sm={8}>
-                    <Text type="secondary" className="text-xs">
-                      دوره
-                    </Text>
-                    <Select
-                      className="w-full"
-                      value={profitFrequency}
-                      options={frequencyOptions}
-                      onChange={setProfitFrequency}
-                    />
-                  </Col>
-                </Row>
-
-                <Row gutter={[12, 12]}>
-                  <Col xs={24} sm={12}>
-                    <Text type="secondary" className="text-xs">
-                      تاریخ پرداخت سود
-                    </Text>
-                    <JalaliDateInput value={profitNextDate} onChange={setProfitNextDate} />
-                  </Col>
-                  <Col xs={24} sm={12}>
-                    <Text type="secondary" className="text-xs">
-                      تا چه تاریخی (اختیاری)
-                    </Text>
-                    <JalaliDateInput value={profitEndDate} onChange={setProfitEndDate} />
-                  </Col>
-                </Row>
-
-                {previewProfitQty != null ? (
+              <Row gutter={[12, 12]}>
+                <Col xs={24} sm={8}>
                   <Text type="secondary" className="text-xs">
-                    هر دوره ≈ {previewProfitQty.toLocaleString("fa-IR", { maximumFractionDigits: 3 })}{" "}
-                    {assetUnitLabel(assetType)} سود → در جریان دوره‌ای به‌عنوان درآمد ثبت می‌شود و
-                    مبلغ تومان با قیمت روز محاسبه می‌گردد.
+                    نوع دارایی
                   </Text>
-                ) : null}
-              </Flex>
-            </Card>
-          ) : null}
-
-          <Input.TextArea
-            rows={2}
-            placeholder="یادداشت (اختیاری)"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-          />
-
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            loading={createMutation.isPending}
-            onClick={() => createMutation.mutate()}
-          >
-            ذخیره
-          </Button>
-        </Flex>
-      </Card>
-
-      {items.length === 0 ? (
-        <EmptyState title="هنوز سرمایه‌گذاری ثبت نشده" />
-      ) : (
-        <Flex vertical gap="middle">
-          {items.map((item) => (
-            <Card
-              key={item.id}
-              title={
-                <Space wrap>
-                  <span>{item.title}</span>
-                  <Tag color={item.assetType === "gold" ? "gold" : "blue"}>
-                    {item.assetType === "gold" ? "طلا" : "دلار"}
-                  </Tag>
-                  {item.hasProfit ? <Tag color="green">سوددار</Tag> : null}
-                </Space>
-              }
-              extra={
-                <Popconfirm
-                  title="حذف شود؟"
-                  okText="بله"
-                  cancelText="خیر"
-                  onConfirm={() => deleteMutation.mutate(item.id)}
-                >
-                  <Button
-                    danger
-                    type="text"
-                    icon={<DeleteOutlined />}
-                    loading={deleteMutation.isPending}
-                  />
-                </Popconfirm>
-              }
-            >
-              <Row gutter={[16, 16]}>
-                <Col xs={12} sm={6}>
-                  <Statistic
-                    title="مقدار"
-                    value={`${item.quantity.toLocaleString("fa-IR")} ${assetUnitLabel(item.assetType)}`}
+                  <Select
+                    className="w-full"
+                    value={assetType}
+                    options={assetOptions}
+                    onChange={setAssetType}
                   />
                 </Col>
-                <Col xs={12} sm={6}>
-                  <Statistic
-                    title="قیمت خرید"
-                    value={formatToman(item.purchasePricePerUnit)}
+                <Col xs={24} sm={8}>
+                  <Text type="secondary" className="text-xs">
+                    مقدار ({assetUnitLabel(assetType)})
+                  </Text>
+                  <AmountInput
+                    value={quantity}
+                    onChange={setQuantity}
+                    placeholder="مثلاً ۴۲٫۹۸۰"
+                    allowDecimals
+                    decimalPlaces={3}
+                    showWords={false}
                   />
                 </Col>
-                <Col xs={12} sm={6}>
-                  <Statistic
-                    title="ارزش فعلی"
-                    value={item.currentValue != null ? formatToman(item.currentValue) : "—"}
-                  />
-                </Col>
-                <Col xs={12} sm={6}>
-                  <Statistic
-                    title="سود/زیان"
-                    value={
-                      item.unrealizedPnl != null ? formatToman(item.unrealizedPnl) : "—"
-                    }
-                    className={
-                      item.unrealizedPnl != null && item.unrealizedPnl >= 0
-                        ? "[&_.ant-statistic-content-value]:text-emerald-500"
-                        : item.unrealizedPnl != null
-                          ? "[&_.ant-statistic-content-value]:text-red-500"
-                          : undefined
-                    }
+                <Col xs={24} sm={8}>
+                  <Text type="secondary" className="text-xs">
+                    قیمت خرید هر {assetUnitLabel(assetType)} (تومان)
+                  </Text>
+                  <AmountInput
+                    value={purchasePrice}
+                    onChange={setPurchasePrice}
+                    placeholder="قیمت خرید"
                   />
                 </Col>
               </Row>
 
-              <div className="mt-3">
+              <div>
                 <Text type="secondary" className="text-xs">
-                  خرید: {formatJalaliDate(item.purchaseDate)}
-                  {item.hasProfit
-                    ? ` · سود هر دوره: ${item.profitAssetQuantity.toLocaleString("fa-IR", {
-                        maximumFractionDigits: 3,
-                      })} ${assetUnitLabel(item.assetType)}${
-                        item.profitTomanPerPeriod != null
-                          ? ` ≈ ${formatToman(item.profitTomanPerPeriod)}`
-                          : ""
-                      } · موعد: ${item.profitNextDate ? formatJalaliDate(item.profitNextDate) : "—"}`
-                    : ""}
+                  تاریخ خرید
                 </Text>
+                <JalaliDateInput value={purchaseDate} onChange={setPurchaseDate} />
               </div>
-            </Card>
-          ))}
-        </Flex>
-      )}
+
+              <Flex align="center" gap="middle">
+                <Switch checked={hasProfit} onChange={setHasProfit} />
+                <Text>سود دوره‌ای دارد</Text>
+              </Flex>
+
+              {hasProfit ? (
+                <Card size="small" className="bg-transparent">
+                  <Flex vertical gap="middle">
+                    <Row gutter={[12, 12]}>
+                      <Col xs={24} sm={8}>
+                        <Text type="secondary" className="text-xs">
+                          نوع سود
+                        </Text>
+                        <Select
+                          className="w-full"
+                          value={profitMode}
+                          options={profitModeOptions}
+                          onChange={setProfitMode}
+                        />
+                      </Col>
+                      <Col xs={24} sm={8}>
+                        <Text type="secondary" className="text-xs">
+                          {profitMode === "percent"
+                            ? "درصد سود"
+                            : `مقدار سود (${assetUnitLabel(assetType)})`}
+                        </Text>
+                        <AmountInput
+                          value={profitValue}
+                          onChange={setProfitValue}
+                          placeholder={profitMode === "percent" ? "مثلاً ۲" : "مثلاً ۱٫۵"}
+                          allowDecimals
+                          decimalPlaces={profitMode === "percent" ? 2 : 3}
+                          showWords={false}
+                        />
+                      </Col>
+                      <Col xs={24} sm={8}>
+                        <Text type="secondary" className="text-xs">
+                          دوره
+                        </Text>
+                        <Select
+                          className="w-full"
+                          value={profitFrequency}
+                          options={frequencyOptions}
+                          onChange={setProfitFrequency}
+                        />
+                      </Col>
+                    </Row>
+
+                    <Row gutter={[12, 12]}>
+                      <Col xs={24} sm={12}>
+                        <Text type="secondary" className="text-xs">
+                          تاریخ پرداخت سود
+                        </Text>
+                        <JalaliDateInput value={profitNextDate} onChange={setProfitNextDate} />
+                      </Col>
+                      <Col xs={24} sm={12}>
+                        <Text type="secondary" className="text-xs">
+                          تا چه تاریخی (اختیاری)
+                        </Text>
+                        <JalaliDateInput value={profitEndDate} onChange={setProfitEndDate} />
+                      </Col>
+                    </Row>
+
+                    {previewProfitQty != null ? (
+                      <Text type="secondary" className="text-xs">
+                        هر دوره ≈{" "}
+                        {previewProfitQty.toLocaleString("fa-IR", { maximumFractionDigits: 3 })}{" "}
+                        {assetUnitLabel(assetType)} سود → در جریان دوره‌ای به‌عنوان درآمد ثبت
+                        می‌شود و مبلغ تومان با قیمت روز محاسبه می‌گردد.
+                      </Text>
+                    ) : null}
+                  </Flex>
+                </Card>
+              ) : null}
+
+              <Input.TextArea
+                rows={2}
+                placeholder="یادداشت (اختیاری)"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                loading={createMutation.isPending}
+                onClick={() => createMutation.mutate()}
+              >
+                ذخیره
+              </Button>
+            </Flex>
+          </Card>
+
+          {items.length === 0 ? (
+            <EmptyState title="هنوز سرمایه‌گذاری ثبت نشده" />
+          ) : (
+            <Flex vertical gap="middle">
+              {items.map((item) => (
+                <Card
+                  key={item.id}
+                  title={
+                    <Space wrap>
+                      <span>{item.title}</span>
+                      <Tag color={item.assetType === "gold" ? "gold" : "blue"}>
+                        {item.assetType === "gold" ? "طلا" : "دلار"}
+                      </Tag>
+                      {item.hasProfit ? <Tag color="green">سوددار</Tag> : null}
+                    </Space>
+                  }
+                  extra={
+                    <Popconfirm
+                      title="حذف شود؟"
+                      okText="بله"
+                      cancelText="خیر"
+                      onConfirm={() => deleteMutation.mutate(item.id)}
+                    >
+                      <Button
+                        danger
+                        type="text"
+                        icon={<DeleteOutlined />}
+                        loading={deleteMutation.isPending}
+                      />
+                    </Popconfirm>
+                  }
+                >
+                  <Row gutter={[16, 16]}>
+                    <Col xs={12} sm={6}>
+                      <Statistic
+                        title="مقدار"
+                        value={`${item.quantity.toLocaleString("fa-IR")} ${assetUnitLabel(item.assetType)}`}
+                      />
+                    </Col>
+                    <Col xs={12} sm={6}>
+                      <Statistic
+                        title="قیمت خرید"
+                        value={formatToman(item.purchasePricePerUnit)}
+                      />
+                    </Col>
+                    <Col xs={12} sm={6}>
+                      <Statistic
+                        title="ارزش فعلی"
+                        value={item.currentValue != null ? formatToman(item.currentValue) : "—"}
+                      />
+                    </Col>
+                    <Col xs={12} sm={6}>
+                      <Statistic
+                        title="سود/زیان"
+                        value={
+                          item.unrealizedPnl != null ? formatToman(item.unrealizedPnl) : "—"
+                        }
+                        className={
+                          item.unrealizedPnl != null && item.unrealizedPnl >= 0
+                            ? "[&_.ant-statistic-content-value]:text-emerald-500"
+                            : item.unrealizedPnl != null
+                              ? "[&_.ant-statistic-content-value]:text-red-500"
+                              : undefined
+                        }
+                      />
+                    </Col>
+                  </Row>
+
+                  <div className="mt-3">
+                    <Text type="secondary" className="text-xs">
+                      خرید: {formatJalaliDate(item.purchaseDate)}
+                      {item.hasProfit
+                        ? ` · سود هر دوره: ${item.profitAssetQuantity.toLocaleString("fa-IR", {
+                            maximumFractionDigits: 3,
+                          })} ${assetUnitLabel(item.assetType)}${
+                            item.profitTomanPerPeriod != null
+                              ? ` ≈ ${formatToman(item.profitTomanPerPeriod)}`
+                              : ""
+                          } · موعد: ${item.profitNextDate ? formatJalaliDate(item.profitNextDate) : "—"}`
+                        : ""}
+                    </Text>
+                  </div>
+                </Card>
+              ))}
+            </Flex>
+          )}
+        </>
+      ) : null}
     </Flex>
   );
 }
