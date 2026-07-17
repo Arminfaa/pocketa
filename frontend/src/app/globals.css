@@ -130,18 +130,18 @@
   }
 
   .market-ticker-viewport {
-    @apply overflow-x-auto overflow-y-hidden px-2;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
+    @apply overflow-hidden px-2;
     cursor: grab;
+    touch-action: pan-y;
+    user-select: none;
   }
 
-  .market-ticker-viewport::-webkit-scrollbar {
-    display: none;
+  .market-ticker--paused .market-ticker-viewport {
+    cursor: grabbing;
   }
 
   .market-ticker-track {
-    @apply flex w-max items-center gap-3 px-1;
+    @apply flex w-max items-center gap-3 px-1 will-change-transform;
   }
 
   .market-ticker-chip {
@@ -181,11 +181,5 @@
 
   :dir(rtl) .market-ticker-fade--end {
     background: linear-gradient(to right, var(--card), transparent);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .market-ticker-viewport {
-      @apply overflow-x-auto;
-    }
   }
 }

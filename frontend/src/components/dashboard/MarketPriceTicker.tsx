@@ -95,8 +95,9 @@ function buildItems(market: MarketTickerData | undefined): TickerItem[] {
 }
 
 function TickerChip({ item }: { item: TickerItem }) {
+  // RTL: راست = نام، بعد قیمت بولد، بعد تومان
   return (
-    <div className="market-ticker-chip">
+    <div className="market-ticker-chip" dir="rtl">
       <span className="market-ticker-label">{item.label}</span>
       <span className="market-ticker-value">{item.amount}</span>
       <span className="market-ticker-unit">{item.unit}</span>
@@ -104,12 +105,11 @@ function TickerChip({ item }: { item: TickerItem }) {
   );
 }
 
-/** Keep scroll inside the first half of a duplicated track for seamless looping. */
-function normalizeLoopScroll(el: HTMLDivElement) {
-  const half = el.scrollWidth / 2;
-  if (half <= 0) return;
-  while (el.scrollLeft >= half) el.scrollLeft -= half;
-  while (el.scrollLeft < 0) el.scrollLeft += half;
+function normalizeOffset(offset: number, half: number): number {
+  if (half <= 0) return 0;
+  let x = offset % half;
+  if (x < 0) x += half;
+  return x;
 }
 
 type Props = {
@@ -121,8 +121,12 @@ type Props = {
 
 export function MarketPriceTicker({ market, loading, errorMessage, className }: Props) {
   const items = buildItems(market);
-  const viewportRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const offsetRef = useRef(0);
   const pausedRef = useRef(false);
+  const draggingRef = useRef(false);
+  const dragStartXRef = useRef(0);
+  const dragStartOffsetRef = useRef(0);
   const [paused, setPaused] = useState(false);
 
   function setPausedState(next: boolean) {
@@ -130,46 +134,77 @@ export function MarketPriceTicker({ market, loading, errorMessage, className }: 
     setPaused(next);
   }
 
+  function applyTransform() {
+    const track = trackRef.current;
+    if (!track) return;
+    const half = track.scrollWidth / 2;
+    offsetRef.current = normalizeOffset(offsetRef.current, half || 1);
+    // حرکت به سمت راست (مناسب RTL): آیتم‌های جدید از چپ وارد می‌شوند
+    track.style.transform = `translate3d(${offsetRef.current}px, 0, 0)`;
+  }
+
   useEffect(() => {
-    const el = viewportRef.current;
-    if (!el || items.length === 0 || loading) return;
+    const track = trackRef.current;
+    if (!track || items.length === 0 || loading) return;
 
     let frame = 0;
     let last = performance.now();
-    const speed = 36; // px / sec
+    const speed = 42; // px / sec
+    const reduceMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     const step = (now: number) => {
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
 
-      if (!pausedRef.current) {
-        const half = el.scrollWidth / 2;
-        // Only auto-scroll when content overflows (one set wider than viewport)
-        if (half > el.clientWidth + 4) {
-          el.scrollLeft += speed * dt;
-          normalizeLoopScroll(el);
-        }
+      if (!reduceMotion && !pausedRef.current && !draggingRef.current) {
+        offsetRef.current += speed * dt;
+        applyTransform();
       }
 
       frame = requestAnimationFrame(step);
     };
 
-    frame = requestAnimationFrame(step);
+    // Wait one frame so duplicated track has layout width
+    frame = requestAnimationFrame(() => {
+      applyTransform();
+      frame = requestAnimationFrame(step);
+    });
 
-    const onWheel = (e: WheelEvent) => {
-      if (!pausedRef.current) return;
-      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
-      e.preventDefault();
-      el.scrollLeft += e.deltaY;
-      normalizeLoopScroll(el);
-    };
-    el.addEventListener("wheel", onWheel, { passive: false });
+    const onResize = () => applyTransform();
+    window.addEventListener("resize", onResize);
 
     return () => {
       cancelAnimationFrame(frame);
-      el.removeEventListener("wheel", onWheel);
+      window.removeEventListener("resize", onResize);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- applyTransform reads refs
   }, [items.length, loading]);
+
+  function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    setPausedState(true);
+    draggingRef.current = true;
+    dragStartXRef.current = e.clientX;
+    dragStartOffsetRef.current = offsetRef.current;
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (!draggingRef.current) return;
+    const dx = e.clientX - dragStartXRef.current;
+    offsetRef.current = dragStartOffsetRef.current + dx;
+    applyTransform();
+  }
+
+  function onPointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    draggingRef.current = false;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
+  }
 
   if (loading) {
     return (
@@ -189,7 +224,6 @@ export function MarketPriceTicker({ market, loading, errorMessage, className }: 
     );
   }
 
-  // Two copies → seamless infinite loop via half-width wrap
   const loop = [...items, ...items];
 
   return (
@@ -198,31 +232,22 @@ export function MarketPriceTicker({ market, loading, errorMessage, className }: 
       aria-label="قیمت طلا و ارز"
       onMouseEnter={() => setPausedState(true)}
       onMouseLeave={() => {
-        const el = viewportRef.current;
-        if (el) normalizeLoopScroll(el);
+        draggingRef.current = false;
+        applyTransform();
         setPausedState(false);
       }}
-      onTouchStart={() => setPausedState(true)}
-      onTouchEnd={() => {
-        const el = viewportRef.current;
-        if (el) normalizeLoopScroll(el);
-        setPausedState(false);
-      }}
-      onTouchCancel={() => setPausedState(false)}
     >
       <div className="market-ticker-fade market-ticker-fade--start" aria-hidden />
       <div className="market-ticker-fade market-ticker-fade--end" aria-hidden />
 
       <div
-        ref={viewportRef}
         className="market-ticker-viewport"
-        dir="ltr"
-        onScroll={() => {
-          const el = viewportRef.current;
-          if (el && pausedRef.current) normalizeLoopScroll(el);
-        }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
       >
-        <div className="market-ticker-track">
+        <div ref={trackRef} className="market-ticker-track" dir="ltr">
           {loop.map((item, i) => (
             <TickerChip key={`${item.id}-${i}`} item={item} />
           ))}
