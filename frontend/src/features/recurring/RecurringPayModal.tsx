@@ -145,7 +145,11 @@ export function RecurringPayModal({
         <Flex gap="small" justify="flex-end" wrap="wrap">
           <Button onClick={onClose}>انصراف</Button>
           <Button type="primary" loading={submitting} onClick={handleSubmit}>
-            {effectiveMode === "postpone" ? "تعویق قسط" : "ثبت تراکنش"}
+            {effectiveMode === "postpone"
+              ? item.kind === "recurring"
+                ? "تعویق قسط"
+                : "تعویق سررسید"
+              : "ثبت تراکنش"}
           </Button>
         </Flex>
       }
@@ -187,18 +191,41 @@ export function RecurringPayModal({
             buttonStyle="solid"
             block
           />
-        ) : null}
+        ) : (
+          <Radio.Group
+            className="w-full"
+            value={mode}
+            onChange={(e) => {
+              const next = e.target.value as RecurringPaymentMode;
+              setMode(next);
+              if (next === "postpone") setPartialEnabled(false);
+            }}
+            options={[
+              { value: "full", label: "تسویه / پرداخت" },
+              { value: "postpone", label: "تعویق سررسید" },
+            ]}
+            optionType="button"
+            buttonStyle="solid"
+            block
+          />
+        )}
 
         {mode === "postpone" ? (
           <Space orientation="vertical" size="small" className="w-full">
-            <Text type="secondary" className="text-sm">
-              قسط این ماه پرداخت نمی‌شود. یک بدهی یک‌باره به مبلغ{" "}
-              {formatToman(baseAmount)} ثبت می‌شود و قسط ماه بعد{" "}
-              {postponePreview ? formatToman(postponePreview) : "—"} خواهد بود.
-            </Text>
+            {item.kind === "recurring" ? (
+              <Text type="secondary" className="text-sm">
+                قسط این ماه پرداخت نمی‌شود. یک بدهی یک‌باره به مبلغ{" "}
+                {formatToman(baseAmount)} ثبت می‌شود و قسط ماه بعد{" "}
+                {postponePreview ? formatToman(postponePreview) : "—"} خواهد بود.
+              </Text>
+            ) : (
+              <Text type="secondary" className="text-sm">
+                پرداختی ثبت نمی‌شود و سررسید این بدهی به تاریخ جدید منتقل می‌شود.
+              </Text>
+            )}
             <div>
               <Text type="secondary" className="mb-1 block text-xs">
-                تاریخ بدهی تعویق‌شده
+                {item.kind === "recurring" ? "تاریخ بدهی تعویق‌شده" : "تاریخ سررسید جدید"}
               </Text>
               <JalaliDateInput value={postponeDueDate} onChange={setPostponeDueDate} />
             </div>

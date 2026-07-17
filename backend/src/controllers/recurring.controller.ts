@@ -400,13 +400,24 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
   let deferredDebt = null;
 
   if (mode === "postpone") {
-    if (kind !== "recurring") {
-      throw new AppError(400, "تعویق فقط برای اقساط ماهانه امکان‌پذیر است");
-    }
-
     const deferDate = normalizeJalaliDate(
       parsed.data.postponeDueDate ?? recurring.nextPaymentDate
     );
+
+    if (kind === "one_time") {
+      recurring.nextPaymentDate = deferDate;
+      await recurring.save();
+
+      return sendSuccess(
+        res,
+        {
+          transaction: null,
+          nextPaymentDate: recurring.nextPaymentDate,
+          active: recurring.active,
+        },
+        `سررسید بدهی به ${deferDate} تعویق شد`
+      );
+    }
 
     deferredDebt = await createDeferredOneTimeDebt(
       userId,
