@@ -14,15 +14,29 @@ import { enablePushNotifications, fetchPushStatus } from "@/lib/push";
 
 const { Text } = Typography;
 
-type GoldPrices = {
-  ounceUsd: number;
-  gram18kUsd: number;
-  gram24kUsd: number;
-  mesghal18kUsd: number;
-  mesghal24kUsd: number;
-  changePercent: number;
-  updatedAt: string;
-  cached: boolean;
+type MarketPrices = {
+  gold: {
+    ounceUsd: number;
+    gram18kUsd: number;
+    gram24kUsd: number;
+    mesghal18kUsd: number;
+    mesghal24kUsd: number;
+    gram18kToman: number | null;
+    gram24kToman: number | null;
+    mesghal18kToman: number | null;
+    mesghal24kToman: number | null;
+    changePercent: number;
+    fetchDate: string;
+    fetchedAt: string;
+  };
+  currency: {
+    usdFreeToman: number;
+    usdtToman: number;
+    usdChange: number;
+    usdtChange: number;
+    fetchDate: string;
+    fetchedAt: string;
+  } | null;
 };
 
 export default function DashboardPage() {
@@ -40,10 +54,10 @@ export default function DashboardPage() {
     },
   });
 
-  const goldQ = useQuery({
-    queryKey: ["gold-prices"],
-    queryFn: async () => (await api.get("/api/gold-prices")).data.data as GoldPrices,
-    staleTime: 60_000,
+  const marketQ = useQuery({
+    queryKey: ["market-prices"],
+    queryFn: async () => (await api.get("/api/market-prices")).data.data as MarketPrices,
+    staleTime: 5 * 60_000,
     retry: 1,
   });
 
@@ -80,7 +94,9 @@ export default function DashboardPage() {
   });
 
   const dashboard = dashboardQ.data;
-  const gold = goldQ.data;
+  const market = marketQ.data;
+  const gold = market?.gold;
+  const currency = market?.currency;
   const showPushPrompt =
     pushStatusQ.isSuccess &&
     !pushStatusQ.data.thisDevice &&
@@ -173,42 +189,116 @@ export default function DashboardPage() {
       </Row>
 
       <Card
-        title="قیمت طلا (دلار)"
+        title="قیمت طلا"
         extra={
           gold ? (
             <Text type="secondary" className="text-xs">
-              تغییر اونس: {gold.changePercent > 0 ? "+" : ""}
-              {gold.changePercent.toFixed(2)}%
+              به‌روز: {gold.fetchDate}
+              {gold.changePercent
+                ? ` · اونس ${gold.changePercent > 0 ? "+" : ""}${gold.changePercent.toFixed(2)}%`
+                : ""}
             </Text>
           ) : null
         }
       >
-        {goldQ.isLoading ? (
+        {marketQ.isLoading ? (
           <Row gutter={[16, 16]}>
             {Array.from({ length: 4 }).map((_, i) => (
               <Col key={i} xs={24} sm={12} lg={6}>
-                <Skeleton className="h-14 w-full" rows={1} />
+                <Skeleton className="h-16 w-full" rows={1} />
               </Col>
             ))}
           </Row>
-        ) : goldQ.error ? (
+        ) : marketQ.error ? (
           <Text type="secondary">قیمت طلا در دسترس نیست.</Text>
         ) : gold ? (
           <Row gutter={[16, 16]}>
             <Col xs={24} sm={12} lg={6}>
-              <Statistic title="گرم ۱۸ عیار" value={formatUsd(gold.gram18kUsd)} />
+              <Statistic
+                title="گرم ۱۸ عیار"
+                value={
+                  gold.gram18kToman != null
+                    ? formatToman(gold.gram18kToman)
+                    : formatUsd(gold.gram18kUsd)
+                }
+              />
+              <Text type="secondary" className="text-xs">
+                {formatUsd(gold.gram18kUsd)}
+              </Text>
             </Col>
             <Col xs={24} sm={12} lg={6}>
-              <Statistic title="گرم ۲۴ عیار" value={formatUsd(gold.gram24kUsd)} />
+              <Statistic
+                title="گرم ۲۴ عیار"
+                value={
+                  gold.gram24kToman != null
+                    ? formatToman(gold.gram24kToman)
+                    : formatUsd(gold.gram24kUsd)
+                }
+              />
+              <Text type="secondary" className="text-xs">
+                {formatUsd(gold.gram24kUsd)}
+              </Text>
             </Col>
             <Col xs={24} sm={12} lg={6}>
-              <Statistic title="مثقال ۱۸ عیار" value={formatUsd(gold.mesghal18kUsd)} />
+              <Statistic
+                title="مثقال ۱۸ عیار"
+                value={
+                  gold.mesghal18kToman != null
+                    ? formatToman(gold.mesghal18kToman)
+                    : formatUsd(gold.mesghal18kUsd)
+                }
+              />
+              <Text type="secondary" className="text-xs">
+                {formatUsd(gold.mesghal18kUsd)}
+              </Text>
             </Col>
             <Col xs={24} sm={12} lg={6}>
-              <Statistic title="مثقال ۲۴ عیار" value={formatUsd(gold.mesghal24kUsd)} />
+              <Statistic
+                title="مثقال ۲۴ عیار"
+                value={
+                  gold.mesghal24kToman != null
+                    ? formatToman(gold.mesghal24kToman)
+                    : formatUsd(gold.mesghal24kUsd)
+                }
+              />
+              <Text type="secondary" className="text-xs">
+                {formatUsd(gold.mesghal24kUsd)}
+              </Text>
             </Col>
           </Row>
         ) : null}
+      </Card>
+
+      <Card
+        title="قیمت ارز"
+        extra={
+          currency ? (
+            <Text type="secondary" className="text-xs">
+              به‌روز: {currency.fetchDate}
+            </Text>
+          ) : null
+        }
+      >
+        {marketQ.isLoading ? (
+          <Row gutter={[16, 16]}>
+            {Array.from({ length: 2 }).map((_, i) => (
+              <Col key={i} xs={24} sm={12}>
+                <Skeleton className="h-14 w-full" rows={1} />
+              </Col>
+            ))}
+          </Row>
+        ) : !currency ? (
+          <Text type="secondary">قیمت ارز در دسترس نیست.</Text>
+        ) : (
+          <Row gutter={[16, 16]}>
+            <Col xs={24} sm={12}>
+              <Statistic title="دلار آزاد" value={formatToman(currency.usdFreeToman)} />
+            </Col>
+            <Col xs={24} sm={12}>
+              <Statistic title="تتر" value={formatToman(currency.usdtToman)} />
+            </Col>
+          </Row>
+        )}
       </Card>
 
       <Row gutter={[16, 16]}>
