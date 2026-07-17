@@ -6,7 +6,7 @@ import { Button, Card, Col, Flex, Row, Select, Typography } from "antd";
 import { ReloadOutlined } from "@ant-design/icons";
 import api from "@/services/api";
 import { AmountInput } from "@/components/ui/amount-input";
-import { Skeleton } from "@/components/ui/skeleton";
+import { AssetCalculatorSkeleton } from "@/components/skeletons";
 import { QueryError } from "@/components/ui/query-error";
 import {
   formatAmountInputValue,
@@ -144,7 +144,7 @@ export function AssetCalculator() {
         </Button>
       </Flex>
 
-      {marketQ.isLoading ? <Skeleton className="h-40 w-full" rows={2} /> : null}
+      {marketQ.isLoading ? <AssetCalculatorSkeleton /> : null}
 
       {marketQ.error ? (
         <QueryError

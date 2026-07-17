@@ -5,8 +5,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatToman } from "@/lib/format";
 import { App, Button, Card, Col, Flex, Grid, Row, Statistic, Typography } from "antd";
 import { BellOutlined } from "@ant-design/icons";
-import { Skeleton } from "@/components/ui/skeleton";
 import { QueryError } from "@/components/ui/query-error";
+import { DashboardSkeleton } from "@/components/skeletons";
+import { Sk } from "@/components/ui/skeleton";
 import { MarketPriceTicker } from "@/components/dashboard/MarketPriceTicker";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
@@ -145,15 +146,7 @@ export default function DashboardPage() {
       ) : null}
 
       {dashboardQ.isLoading ? (
-        <Row gutter={[16, 16]}>
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Col key={i} xs={24} sm={12} lg={6}>
-              <Card>
-                <Skeleton className="h-16 w-full" rows={1} />
-              </Card>
-            </Col>
-          ))}
-        </Row>
+        <DashboardSkeleton />
       ) : dashboardQ.error ? (
         <QueryError
           message="خطا در دریافت اطلاعات داشبورد."
@@ -199,37 +192,33 @@ export default function DashboardPage() {
           <Row gutter={[16, 16]}>
             <Col xs={24} lg={12}>
               <Card title="نمودار درآمد و هزینه (این ماه)">
-                {dashboard ? (
-                  <ResponsiveContainer width="100%" height={isMobile ? 300 : 260}>
-                    <BarChart
-                      data={[
-                        {
-                          name: "این ماه",
-                          income: dashboard.totals.incomeThisMonth,
-                          expense: dashboard.totals.expenseThisMonth,
-                        },
-                      ]}
-                    >
-                      <XAxis dataKey="name" tick={{ fontSize: isMobile ? 10 : 12 }} />
-                      <YAxis tick={{ fontSize: isMobile ? 10 : 12 }} width={70} />
-                      <Tooltip formatter={(value) => formatToman(Number(value ?? 0))} />
-                      <Legend />
-                      <Bar dataKey="income" fill="#10b981" name="درآمد" radius={[8, 8, 0, 0]} />
-                      <Bar dataKey="expense" fill="#ef4444" name="هزینه" radius={[8, 8, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <Text type="secondary">اطلاعات کافی نیست.</Text>
-                )}
+                <ResponsiveContainer width="100%" height={isMobile ? 300 : 260}>
+                  <BarChart
+                    data={[
+                      {
+                        name: "این ماه",
+                        income: dashboard.totals.incomeThisMonth,
+                        expense: dashboard.totals.expenseThisMonth,
+                      },
+                    ]}
+                  >
+                    <XAxis dataKey="name" tick={{ fontSize: isMobile ? 10 : 12 }} />
+                    <YAxis tick={{ fontSize: isMobile ? 10 : 12 }} width={70} />
+                    <Tooltip formatter={(value) => formatToman(Number(value ?? 0))} />
+                    <Legend />
+                    <Bar dataKey="income" fill="#10b981" name="درآمد" radius={[8, 8, 0, 0]} />
+                    <Bar dataKey="expense" fill="#ef4444" name="هزینه" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
               </Card>
             </Col>
 
             <Col xs={24} lg={12}>
               <Card title="بیشترین دسته‌های هزینه">
                 {categoriesQ.isLoading ? (
-                  <Skeleton className="h-[260px] w-full" />
+                  <Sk className="h-[300px] w-full rounded-2xl md:h-[260px]" />
                 ) : categoriesQ.data ? (
-                  <ResponsiveContainer width="100%" height={260}>
+                  <ResponsiveContainer width="100%" height={isMobile ? 300 : 260}>
                     <BarChart
                       data={categoriesQ.data.expense.map((c: { name: string; amount: number }) => ({
                         name: c.name,

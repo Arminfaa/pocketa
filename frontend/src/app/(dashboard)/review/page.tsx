@@ -37,7 +37,7 @@ import {
   accountName,
 } from "@/lib/transaction-helpers";
 import { normalizeJalaliDateInput } from "@/lib/amount";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ReviewListSkeleton } from "@/components/skeletons";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TagsInput } from "@/components/ui/tags-input";
 import { JalaliDateInput } from "@/components/ui/jalali-date-input";
@@ -358,7 +358,7 @@ export default function ReviewPage() {
         </Text>
       </div>
 
-      {listQ.isLoading ? <Skeleton className="h-48 w-full" /> : null}
+      {listQ.isLoading ? <ReviewListSkeleton /> : null}
 
       {!listQ.isLoading && items.length === 0 ? (
         <EmptyState
