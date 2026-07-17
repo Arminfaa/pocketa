@@ -96,7 +96,7 @@ function DetailRow({
 function assetUnitLabel(type: InvestmentAssetType, goldKind?: GoldKind | null): string {
   if (type === "usd") return "دلار";
   if (type === "rial") return "تومان";
-  if (goldKind === "quarter_coin") return "عدد";
+  if (goldKind === "quarter_coin") return "تعداد";
   return "گرم";
 }
 
@@ -174,6 +174,13 @@ export default function InvestmentsPage() {
         assetType === "rial" ? 1 : parseAmountInput(purchasePrice);
       if (title.trim().length < 2) throw new Error("عنوان را وارد کنید");
       if (!Number.isFinite(qty) || qty <= 0) throw new Error("مقدار معتبر نیست");
+      if (
+        assetType === "gold" &&
+        goldKind === "quarter_coin" &&
+        (!Number.isInteger(qty) || qty < 1)
+      ) {
+        throw new Error("تعداد ربع سکه باید عدد صحیح باشد");
+      }
       if (assetType !== "rial" && (!Number.isFinite(price) || price <= 0)) {
         throw new Error("قیمت خرید معتبر نیست");
       }
@@ -373,7 +380,11 @@ export default function InvestmentsPage() {
                 ) : null}
                 <Col xs={24} sm={8}>
                   <Text type="secondary" className="text-xs">
-                    {assetType === "rial" ? "مبلغ (تومان)" : `مقدار (${unitLabel})`}
+                    {assetType === "rial"
+                      ? "مبلغ (تومان)"
+                      : assetType === "gold" && goldKind === "quarter_coin"
+                        ? "تعداد ربع سکه"
+                        : `مقدار (${unitLabel})`}
                   </Text>
                   <AmountInput
                     value={quantity}
@@ -385,9 +396,16 @@ export default function InvestmentsPage() {
                           ? "مثلاً ۲"
                           : "مثلاً ۴۲٫۹۸۰"
                     }
-                    allowDecimals={assetType !== "rial"}
+                    allowDecimals={
+                      assetType !== "rial" &&
+                      !(assetType === "gold" && goldKind === "quarter_coin")
+                    }
                     decimalPlaces={
-                      assetType === "usd" || goldKind === "quarter_coin" ? 2 : 3
+                      assetType === "gold" && goldKind === "quarter_coin"
+                        ? 0
+                        : assetType === "usd"
+                          ? 2
+                          : 3
                     }
                     showWords={false}
                   />
@@ -395,7 +413,9 @@ export default function InvestmentsPage() {
                 {assetType !== "rial" ? (
                   <Col xs={24} sm={8}>
                     <Text type="secondary" className="text-xs">
-                      قیمت خرید هر {unitLabel} (تومان)
+                      {assetType === "gold" && goldKind === "quarter_coin"
+                        ? "قیمت خرید هر ربع سکه (تومان)"
+                        : `قیمت خرید هر ${unitLabel} (تومان)`}
                     </Text>
                     <AmountInput
                       value={purchasePrice}
@@ -540,10 +560,18 @@ export default function InvestmentsPage() {
                 >
                   <div className="flex flex-col">
                     <DetailRow
-                      label="مقدار"
-                      value={`${item.quantity.toLocaleString("fa-IR", {
-                        maximumFractionDigits: 3,
-                      })} ${assetUnitLabel(item.assetType, item.goldKind)}`}
+                      label={
+                        item.assetType === "gold" && item.goldKind === "quarter_coin"
+                          ? "تعداد"
+                          : "مقدار"
+                      }
+                      value={
+                        item.assetType === "gold" && item.goldKind === "quarter_coin"
+                          ? `${item.quantity.toLocaleString("fa-IR")} عدد ربع سکه`
+                          : `${item.quantity.toLocaleString("fa-IR", {
+                              maximumFractionDigits: 3,
+                            })} ${assetUnitLabel(item.assetType, item.goldKind)}`
+                      }
                     />
                     <DetailRow
                       label="قیمت خرید"
