@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import dynamic from "next/dynamic";
 import {
   Card,
   Col,
@@ -15,20 +16,6 @@ import {
   Statistic,
   Typography,
 } from "antd";
-import {
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Legend,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-} from "recharts";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { fetchCategoryReport, fetchMonthlyReport } from "@/services/reports";
 import { formatJalaliDate, formatToman } from "@/lib/format";
@@ -42,6 +29,26 @@ const CARD_EXTRA_STACK =
 const { Title, Text } = Typography;
 
 const PIE_FALLBACK = ["#06b6d4", "#8b5cf6", "#f59e0b", "#ef4444", "#22c55e", "#3b82f6", "#ec4899"];
+
+const ChartSk = () => <Sk className="h-[300px] w-full rounded-2xl md:h-[280px]" />;
+const ChartSkSm = () => <Sk className="h-[260px] w-full rounded-2xl" />;
+
+const ReportsTrendLineChart = dynamic(
+  () => import("@/features/reports/ReportsCharts").then((m) => m.ReportsTrendLineChart),
+  { ssr: false, loading: ChartSk }
+);
+const ReportsMonthBarChart = dynamic(
+  () => import("@/features/reports/ReportsCharts").then((m) => m.ReportsMonthBarChart),
+  { ssr: false, loading: ChartSk }
+);
+const ReportsExpensePieChart = dynamic(
+  () => import("@/features/reports/ReportsCharts").then((m) => m.ReportsExpensePieChart),
+  { ssr: false, loading: ChartSkSm }
+);
+const ReportsCategoryCompareChart = dynamic(
+  () => import("@/features/reports/ReportsCharts").then((m) => m.ReportsCategoryCompareChart),
+  { ssr: false, loading: ChartSkSm }
+);
 
 type ReportMode = "range" | "monthly";
 
@@ -94,7 +101,7 @@ export default function ReportsPage() {
     return (categoriesQ.data?.expense ?? []).map((c, i) => ({
       name: c.name,
       value: c.amount,
-      color: c.color || PIE_FALLBACK[i % PIE_FALLBACK.length],
+      color: c.color || PIE_FALLBACK[i % PIE_FALLBACK.length]!,
     }));
   }, [categoriesQ.data]);
 
@@ -240,9 +247,7 @@ export default function ReportsPage() {
               ]}
             />
           ) : null}
-          {monthlyQ.isLoading ? (
-            <Sk className="h-[300px] w-full rounded-2xl md:h-[280px]" />
-          ) : null}
+          {monthlyQ.isLoading ? <ChartSk /> : null}
           {monthlyQ.error ? (
             <QueryError
               message="خطا در دریافت گزارش ماهانه."
@@ -250,55 +255,16 @@ export default function ReportsPage() {
             />
           ) : null}
           {monthlyQ.data ? (
-            <ResponsiveContainer width="100%" height={isMobile ? 300 : 280}>
-              <LineChart data={monthlyChart}>
-                <XAxis
-                  dataKey="label"
-                  angle={isMobile ? -35 : 0}
-                  textAnchor={isMobile ? "end" : "middle"}
-                  height={isMobile ? 60 : 30}
-                  tick={{ fontSize: isMobile ? 10 : 12 }}
-                />
-                <YAxis tick={{ fontSize: 11 }} width={70} />
-                <Tooltip
-                  formatter={(value) => formatToman(Number(value ?? 0))}
-                  contentStyle={{
-                    background: "var(--card)",
-                    border: "1px solid var(--border)",
-                    borderRadius: 12,
-                  }}
-                />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="income"
-                  name="درآمد"
-                  stroke="#10b981"
-                  strokeWidth={2}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="expense"
-                  name="هزینه"
-                  stroke="#ef4444"
-                  strokeWidth={2}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="net"
-                  name="خالص"
-                  stroke="#22c55e"
-                  strokeWidth={2}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            <ReportsTrendLineChart
+              data={monthlyChart}
+              height={isMobile ? 300 : 280}
+              isMobile={isMobile}
+            />
           ) : null}
         </Card>
       ) : (
         <Card title={`درآمد و هزینه ${MONTH_LABELS[month - 1]} ${year}`}>
-          {categoriesQ.isLoading ? (
-            <Sk className="h-[300px] w-full rounded-2xl md:h-[280px]" />
-          ) : null}
+          {categoriesQ.isLoading ? <ChartSk /> : null}
           {categoriesQ.error ? (
             <QueryError
               message="خطا در دریافت گزارش ماهانه."
@@ -306,23 +272,11 @@ export default function ReportsPage() {
             />
           ) : null}
           {categoriesQ.data ? (
-            <ResponsiveContainer width="100%" height={isMobile ? 300 : 280}>
-              <BarChart data={singleMonthBar}>
-                <XAxis dataKey="name" tick={{ fontSize: isMobile ? 10 : 12 }} />
-                <YAxis tick={{ fontSize: 11 }} width={70} />
-                <Tooltip
-                  formatter={(value) => formatToman(Number(value ?? 0))}
-                  contentStyle={{
-                    background: "var(--card)",
-                    border: "1px solid var(--border)",
-                    borderRadius: 12,
-                  }}
-                />
-                <Legend />
-                <Bar dataKey="income" name="درآمد" fill="#10b981" radius={[8, 8, 0, 0]} />
-                <Bar dataKey="expense" name="هزینه" fill="#ef4444" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <ReportsMonthBarChart
+              data={singleMonthBar}
+              height={isMobile ? 300 : 280}
+              isMobile={isMobile}
+            />
           ) : null}
         </Card>
       )}
@@ -332,27 +286,9 @@ export default function ReportsPage() {
           <Row gutter={[16, 16]}>
             <Col xs={24} lg={12}>
               <Card title="هزینه به تفکیک دسته">
-                {categoriesQ.isLoading ? (
-                  <Sk className="h-[260px] w-full rounded-2xl" />
-                ) : null}
+                {categoriesQ.isLoading ? <ChartSkSm /> : null}
                 {categoriesQ.data && expensePie.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={260}>
-                    <PieChart>
-                      <Pie
-                        data={expensePie}
-                        dataKey="value"
-                        nameKey="name"
-                        outerRadius={90}
-                        label={false}
-                      >
-                        {expensePie.map((entry) => (
-                          <Cell key={entry.name} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(value) => formatToman(Number(value ?? 0))} />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  <ReportsExpensePieChart data={expensePie} />
                 ) : !categoriesQ.isLoading ? (
                   <Flex align="center" justify="center" className="h-[260px]">
                     <Text type="secondary">هزینه‌ای در این ماه ثبت نشده است.</Text>
@@ -363,29 +299,15 @@ export default function ReportsPage() {
 
             <Col xs={24} lg={12}>
               <Card title="مقایسه دسته‌های هزینه">
-                {categoriesQ.isLoading ? (
-                  <Sk className="h-[260px] w-full rounded-2xl" />
-                ) : null}
+                {categoriesQ.isLoading ? <ChartSkSm /> : null}
                 {categoriesQ.data && (categoriesQ.data.expense?.length ?? 0) > 0 ? (
-                  <ResponsiveContainer width="100%" height={260}>
-                    <BarChart
-                      data={categoriesQ.data.expense.map((c) => ({
-                        name: c.name,
-                        amount: c.amount,
-                      }))}
-                    >
-                      <XAxis
-                        dataKey="name"
-                        angle={isMobile ? -35 : 0}
-                        textAnchor={isMobile ? "end" : "middle"}
-                        height={isMobile ? 60 : 30}
-                        tick={{ fontSize: isMobile ? 10 : 11 }}
-                      />
-                      <YAxis tick={{ fontSize: 11 }} width={70} />
-                      <Tooltip formatter={(value) => formatToman(Number(value ?? 0))} />
-                      <Bar dataKey="amount" name="مبلغ" fill="#ef4444" radius={[8, 8, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <ReportsCategoryCompareChart
+                    data={categoriesQ.data.expense.map((c) => ({
+                      name: c.name,
+                      amount: c.amount,
+                    }))}
+                    isMobile={isMobile}
+                  />
                 ) : !categoriesQ.isLoading ? (
                   <Flex align="center" justify="center" className="h-[260px]">
                     <Text type="secondary">داده‌ای برای نمودار نیست.</Text>

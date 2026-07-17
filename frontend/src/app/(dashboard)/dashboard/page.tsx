@@ -2,6 +2,7 @@
 
 import api from "@/services/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import dynamic from "next/dynamic";
 import { formatToman } from "@/lib/format";
 import { App, Button, Card, Col, Flex, Grid, Row, Statistic, Typography } from "antd";
 import { BellOutlined } from "@ant-design/icons";
@@ -9,11 +10,32 @@ import { QueryError } from "@/components/ui/query-error";
 import { DashboardSkeleton } from "@/components/skeletons";
 import { Sk } from "@/components/ui/skeleton";
 import { MarketPriceTicker } from "@/components/dashboard/MarketPriceTicker";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { enablePushNotifications, fetchPushStatus } from "@/lib/push";
 
 const { Text } = Typography;
+
+const DashboardIncomeExpenseChart = dynamic(
+  () =>
+    import("@/features/dashboard/DashboardCharts").then(
+      (m) => m.DashboardIncomeExpenseChart
+    ),
+  {
+    ssr: false,
+    loading: () => <Sk className="h-[300px] w-full rounded-2xl md:h-[260px]" />,
+  }
+);
+
+const DashboardCategoryBarChart = dynamic(
+  () =>
+    import("@/features/dashboard/DashboardCharts").then(
+      (m) => m.DashboardCategoryBarChart
+    ),
+  {
+    ssr: false,
+    loading: () => <Sk className="h-[300px] w-full rounded-2xl md:h-[260px]" />,
+  }
+);
 
 type MarketPrices = {
   gold: {
@@ -76,6 +98,9 @@ export default function DashboardPage() {
     retry: 1,
   });
 
+  const dashboardReady = dashboardQ.isSuccess;
+
+  // Defer secondary work until KPIs are on screen
   const categoriesQ = useQuery({
     queryKey: ["reports-categories", selectedAccountId],
     queryFn: async () => {
@@ -84,9 +109,15 @@ export default function DashboardPage() {
       const suffix = qs.toString() ? `?${qs.toString()}` : "";
       return (await api.get(`/api/reports/categories${suffix}`)).data.data;
     },
+    enabled: dashboardReady,
   });
 
-  const pushStatusQ = useQuery({ queryKey: ["push-status"], queryFn: fetchPushStatus });
+  const pushStatusQ = useQuery({
+    queryKey: ["push-status"],
+    queryFn: fetchPushStatus,
+    enabled: dashboardReady,
+    staleTime: 5 * 60_000,
+  });
 
   const pushMutation = useMutation({
     mutationFn: enablePushNotifications,
@@ -111,6 +142,8 @@ export default function DashboardPage() {
     marketQ.error instanceof Error
       ? marketQ.error.message
       : market?.errors?.gold || market?.errors?.currency;
+
+  const chartHeight = isMobile ? 300 : 260;
 
   return (
     <Flex vertical gap="large">
@@ -192,52 +225,30 @@ export default function DashboardPage() {
           <Row gutter={[16, 16]}>
             <Col xs={24} lg={12}>
               <Card title="نمودار درآمد و هزینه (این ماه)">
-                <ResponsiveContainer width="100%" height={isMobile ? 300 : 260}>
-                  <BarChart
-                    data={[
-                      {
-                        name: "این ماه",
-                        income: dashboard.totals.incomeThisMonth,
-                        expense: dashboard.totals.expenseThisMonth,
-                      },
-                    ]}
-                  >
-                    <XAxis dataKey="name" tick={{ fontSize: isMobile ? 10 : 12 }} />
-                    <YAxis tick={{ fontSize: isMobile ? 10 : 12 }} width={70} />
-                    <Tooltip formatter={(value) => formatToman(Number(value ?? 0))} />
-                    <Legend />
-                    <Bar dataKey="income" fill="#10b981" name="درآمد" radius={[8, 8, 0, 0]} />
-                    <Bar dataKey="expense" fill="#ef4444" name="هزینه" radius={[8, 8, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <DashboardIncomeExpenseChart
+                  income={dashboard.totals.incomeThisMonth}
+                  expense={dashboard.totals.expenseThisMonth}
+                  height={chartHeight}
+                  tickFontSize={isMobile ? 10 : 12}
+                />
               </Card>
             </Col>
 
             <Col xs={24} lg={12}>
               <Card title="بیشترین دسته‌های هزینه">
-                {categoriesQ.isLoading ? (
+                {categoriesQ.isLoading || !dashboardReady ? (
                   <Sk className="h-[300px] w-full rounded-2xl md:h-[260px]" />
                 ) : categoriesQ.data ? (
-                  <ResponsiveContainer width="100%" height={isMobile ? 300 : 260}>
-                    <BarChart
-                      data={categoriesQ.data.expense.map((c: { name: string; amount: number }) => ({
+                  <DashboardCategoryBarChart
+                    data={categoriesQ.data.expense.map(
+                      (c: { name: string; amount: number }) => ({
                         name: c.name,
                         amount: c.amount,
-                      }))}
-                    >
-                      <XAxis
-                        dataKey="name"
-                        angle={isMobile ? -35 : 0}
-                        textAnchor={isMobile ? "end" : "middle"}
-                        height={isMobile ? 60 : 30}
-                        tick={{ fontSize: isMobile ? 10 : 12 }}
-                      />
-                      <YAxis tick={{ fontSize: isMobile ? 10 : 12 }} width={70} />
-                      <Tooltip formatter={(value) => formatToman(Number(value ?? 0))} />
-                      <Legend />
-                      <Bar dataKey="amount" fill="#ef4444" name="مبلغ" radius={[8, 8, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
+                      })
+                    )}
+                    height={chartHeight}
+                    isMobile={isMobile}
+                  />
                 ) : (
                   <Text type="secondary">اطلاعات کافی نیست.</Text>
                 )}

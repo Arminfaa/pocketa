@@ -272,6 +272,7 @@ async function saveSnapshot(kind: "gold" | "currency", payload: GoldPayload | Cu
     { kind, fetchDate: date, fetchedAt, payload },
     { upsert: true, new: true, setDefaultsOnInsert: true }
   );
+  memoryCache = null;
   return { fetchDate: date, fetchedAt };
 }
 
@@ -349,44 +350,18 @@ export async function refreshMarketPricesDaily(): Promise<void> {
   }
 }
 
-export async function getMarketPrices(): Promise<MarketPricesResponse> {
-  const errors: { gold?: string; currency?: string } = {};
+const MEMORY_TTL_MS = 30_000;
+let memoryCache: { at: number; data: MarketPricesResponse } | null = null;
 
-  // Independent refreshes — one failing source must not block the other
-  const [goldResult, currencyResult] = await Promise.allSettled([
-    refreshGoldIfNeeded(),
-    refreshCurrencyIfNeeded(),
-  ]);
-
-  if (goldResult.status === "rejected") {
-    errors.gold = errorMessage(goldResult.reason);
-    // eslint-disable-next-line no-console
-    console.error("[market] gold refresh rejected", goldResult.reason);
-  }
-  if (currencyResult.status === "rejected") {
-    errors.currency = errorMessage(currencyResult.reason);
-    // eslint-disable-next-line no-console
-    console.error("[market] currency refresh rejected", currencyResult.reason);
-  }
-
-  const [goldDoc, currencyDoc] = await Promise.all([
-    MarketPriceModel.findOne({ kind: "gold" }).lean(),
-    MarketPriceModel.findOne({ kind: "currency" }).lean(),
-  ]);
-
+function buildMarketResponse(
+  goldDoc: { payload?: unknown; fetchDate: string; fetchedAt: Date } | null,
+  currencyDoc: { payload?: unknown; fetchDate: string; fetchedAt: Date } | null,
+  errors: { gold?: string; currency?: string } = {}
+): MarketPricesResponse {
   const gold = goldDoc?.payload ? (goldDoc.payload as GoldPayload) : null;
   const currency = currencyDoc?.payload
     ? (currencyDoc.payload as CurrencyPayload)
     : null;
-
-  if (!gold && !currency) {
-    throw new AppError(
-      503,
-      errors.gold ||
-        errors.currency ||
-        "قیمت طلا و ارز هنوز در دسترس نیست — کلیدها و لاگ Render را بررسی کنید"
-    );
-  }
 
   const usd = currency?.usdFreeToman ?? null;
   const toToman = (usdPrice: number): number | null =>
@@ -422,4 +397,68 @@ export async function getMarketPrices(): Promise<MarketPricesResponse> {
       : null,
     ...(Object.keys(errors).length ? { errors } : {}),
   };
+}
+
+/**
+ * Fast path for API/read traffic: return Mongo (or memory) snapshots immediately.
+ * External refresh is background-only when today's snapshot is missing — never blocks
+ * the response when any prior data exists. Cron + startup bootstrap own daily refresh.
+ */
+export async function getMarketPrices(): Promise<MarketPricesResponse> {
+  if (memoryCache && Date.now() - memoryCache.at < MEMORY_TTL_MS) {
+    return memoryCache.data;
+  }
+
+  const { date } = tehranNow();
+  let [goldDoc, currencyDoc] = await Promise.all([
+    MarketPriceModel.findOne({ kind: "gold" }).lean(),
+    MarketPriceModel.findOne({ kind: "currency" }).lean(),
+  ]);
+
+  const needGold = !goldDoc || goldDoc.fetchDate !== date;
+  const needCurrency = !currencyDoc || currencyDoc.fetchDate !== date;
+
+  // Cold start (no snapshots at all): must await once so clients get data
+  if (!goldDoc && !currencyDoc) {
+    const errors: { gold?: string; currency?: string } = {};
+    const [goldResult, currencyResult] = await Promise.allSettled([
+      refreshGoldIfNeeded(),
+      refreshCurrencyIfNeeded(),
+    ]);
+    if (goldResult.status === "rejected") {
+      errors.gold = errorMessage(goldResult.reason);
+    }
+    if (currencyResult.status === "rejected") {
+      errors.currency = errorMessage(currencyResult.reason);
+    }
+    [goldDoc, currencyDoc] = await Promise.all([
+      MarketPriceModel.findOne({ kind: "gold" }).lean(),
+      MarketPriceModel.findOne({ kind: "currency" }).lean(),
+    ]);
+    if (!goldDoc && !currencyDoc) {
+      throw new AppError(
+        503,
+        errors.gold ||
+          errors.currency ||
+          "قیمت طلا و ارز هنوز در دسترس نیست — کلیدها و لاگ Render را بررسی کنید"
+      );
+    }
+    const data = buildMarketResponse(goldDoc, currencyDoc, errors);
+    memoryCache = { at: Date.now(), data };
+    return data;
+  }
+
+  // Have something to show: refresh stale kinds in background (do not await)
+  if (needGold || needCurrency) {
+    void Promise.allSettled([
+      needGold ? refreshGoldIfNeeded() : Promise.resolve(),
+      needCurrency ? refreshCurrencyIfNeeded() : Promise.resolve(),
+    ]).then(() => {
+      memoryCache = null;
+    });
+  }
+
+  const data = buildMarketResponse(goldDoc, currencyDoc);
+  memoryCache = { at: Date.now(), data };
+  return data;
 }

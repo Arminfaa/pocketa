@@ -79,8 +79,16 @@ export default function TransactionsPage() {
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-  const accountsQ = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
-  const categoriesQ = useQuery({ queryKey: ["categories"], queryFn: fetchCategories });
+  const accountsQ = useQuery({
+    queryKey: ["accounts"],
+    queryFn: fetchAccounts,
+    staleTime: 5 * 60_000,
+  });
+  const categoriesQ = useQuery({
+    queryKey: ["categories"],
+    queryFn: fetchCategories,
+    staleTime: 5 * 60_000,
+  });
 
   const listKey = useMemo(
     () => ["transactions", selectedAccountId, page, pageSize, filters] as const,
