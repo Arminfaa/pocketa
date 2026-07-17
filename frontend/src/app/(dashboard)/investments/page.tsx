@@ -335,8 +335,8 @@ export default function InvestmentsPage() {
                       value={profitValue}
                       onChange={setProfitValue}
                       placeholder={profitMode === "percent" ? "مثلاً ۲" : "مثلاً ۱٫۵"}
-                      allowDecimals={profitMode === "fixed"}
-                      decimalPlaces={3}
+                      allowDecimals
+                      decimalPlaces={profitMode === "percent" ? 2 : 3}
                       showWords={false}
                     />
                   </Col>

@@ -68,8 +68,12 @@ export function AmountInput({
         : formatAmountInputValue(value);
 
   const numeric = parseAmountInput(display);
+  // Never show toman words for decimal/quantity-style inputs
   const words =
-    !allowDecimals && showWords && Number.isFinite(numeric) && numeric > 0
+    showWords === true &&
+    !allowDecimals &&
+    Number.isFinite(numeric) &&
+    numeric > 0
       ? tomanAmountToWords(numeric)
       : null;
 
