@@ -26,6 +26,7 @@ import {
   PlusOutlined,
   AccountBookOutlined,
 } from "@ant-design/icons";
+import { RecurringPayModal } from "@/features/recurring/RecurringPayModal";
 import {
   createRecurring,
   deleteRecurring,
@@ -33,6 +34,7 @@ import {
   generateRecurring,
   type DebtEndMode,
   type DebtKind,
+  type GenerateRecurringPayload,
   type RecurringItem,
 } from "@/services/recurring";
 import { fetchAccounts } from "@/services/accounts";
@@ -45,7 +47,6 @@ import { getTodayJalali } from "@/lib/transaction-helpers";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { QueryError } from "@/components/ui/query-error";
-import { AppModal } from "@/components/ui/modal";
 import { AmountInput } from "@/components/ui/amount-input";
 import { NumberInput } from "@/components/ui/number-input";
 import { JalaliDateInput } from "@/components/ui/jalali-date-input";
@@ -100,7 +101,6 @@ export default function RecurringPage() {
   const [reminderHour, setReminderHour] = useState(20);
   const [categoryId, setCategoryId] = useState("");
   const [payItem, setPayItem] = useState<RecurringItem | null>(null);
-  const [payAccountId, setPayAccountId] = useState("");
 
   const listQ = useQuery({ queryKey: ["recurring"], queryFn: fetchRecurring });
   const accountsQ = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
@@ -168,12 +168,11 @@ export default function RecurringPage() {
   });
 
   const generateMutation = useMutation({
-    mutationFn: ({ id, accountId }: { id: string; accountId: string }) =>
-      generateRecurring(id, accountId),
-    onSuccess: () => {
-      message.success("تراکنش ثبت شد");
+    mutationFn: ({ id, payload }: { id: string; payload: GenerateRecurringPayload }) =>
+      generateRecurring(id, payload),
+    onSuccess: (data) => {
+      message.success(data.message ?? "عملیات انجام شد");
       setPayItem(null);
-      setPayAccountId("");
       void queryClient.invalidateQueries({ queryKey: ["recurring"] });
       void queryClient.invalidateQueries({ queryKey: ["transactions"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
@@ -475,12 +474,19 @@ export default function RecurringPage() {
                     </Text>
                   </div>
                 </div>
-                <Text
-                  strong
-                  className={cn(financeTypeTextClass(item.type), "font-semibold")}
-                >
-                  {formatToman(item.amount)}
-                </Text>
+                <div className="text-left shrink-0">
+                  <Text
+                    strong
+                    className={cn(financeTypeTextClass(item.type), "font-semibold block")}
+                  >
+                    {formatToman(item.amount)}
+                  </Text>
+                  {item.baseAmount != null && item.amount !== item.baseAmount ? (
+                    <Text type="secondary" className="text-xs">
+                      پایه {formatToman(item.baseAmount)}
+                    </Text>
+                  ) : null}
+                </div>
               </Flex>
               <Flex
                 gap="small"
@@ -492,10 +498,7 @@ export default function RecurringPage() {
                   type="primary"
                   block={isMobile}
                   icon={<CaretRightOutlined />}
-                  onClick={() => {
-                    setPayItem(item);
-                    setPayAccountId(defaultAccountId);
-                  }}
+                  onClick={() => setPayItem(item)}
                 >
                   ثبت تراکنش الان
                 </Button>
@@ -524,56 +527,18 @@ export default function RecurringPage() {
         />
       ) : null}
 
-      <AppModal
+      <RecurringPayModal
         open={!!payItem}
-        onClose={() => {
-          setPayItem(null);
-          setPayAccountId("");
+        item={payItem}
+        accounts={accountsQ.data ?? []}
+        defaultAccountId={defaultAccountId}
+        submitting={generateMutation.isPending}
+        onClose={() => setPayItem(null)}
+        onSubmit={(payload) => {
+          if (!payItem) return;
+          generateMutation.mutate({ id: payItem.id, payload });
         }}
-        title="ثبت تراکنش"
-        subtitle={payItem ? payItem.title : undefined}
-        footer={
-          <Flex gap="small" justify="flex-end" wrap="wrap">
-            <Button
-              onClick={() => {
-                setPayItem(null);
-                setPayAccountId("");
-              }}
-            >
-              انصراف
-            </Button>
-            <Button
-              type="primary"
-              loading={generateMutation.isPending}
-              onClick={() => {
-                if (!payItem) return;
-                const acc = payAccountId || defaultAccountId;
-                if (!acc) {
-                  message.error("حساب بانکی را انتخاب کنید");
-                  return;
-                }
-                generateMutation.mutate({ id: payItem.id, accountId: acc });
-              }}
-            >
-              ثبت تراکنش
-            </Button>
-          </Flex>
-        }
-      >
-        <Space orientation="vertical" size="middle" className="w-full">
-          <Text type="secondary">حساب بانکی که این پرداخت از آن انجام می‌شود را انتخاب کنید.</Text>
-          <Select
-            className="w-full"
-            placeholder="انتخاب حساب بانکی"
-            value={payAccountId || defaultAccountId || undefined}
-            onChange={setPayAccountId}
-            options={(accountsQ.data ?? []).map((a: BankAccount) => ({
-              value: a.id,
-              label: a.name,
-            }))}
-          />
-        </Space>
-      </AppModal>
+      />
     </Space>
   );
 }

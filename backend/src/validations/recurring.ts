@@ -79,7 +79,47 @@ export const RecurringUpdateSchema = z
     }
   });
 
-/** حساب بانکی فقط موقع تبدیل به تراکنش الزامی است */
-export const RecurringGenerateSchema = z.object({
-  accountId: z.string().min(1),
-});
+/** حساب بانکی فقط موقع تبدیل به تراکنش (full/partial) الزامی است */
+export const RecurringGenerateSchema = z
+  .object({
+    accountId: z.string().min(1).optional(),
+    mode: z.enum(["full", "partial", "postpone"]).default("full"),
+    paidAmount: z.coerce.number().positive().optional(),
+    remainderHandling: z.enum(["next_month", "new_debt"]).optional(),
+    remainderDueDate: JalaliDateSchema.optional(),
+    postponeDueDate: JalaliDateSchema.optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.mode === "full" || data.mode === "partial") {
+      if (!data.accountId) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "حساب بانکی را انتخاب کنید",
+          path: ["accountId"],
+        });
+      }
+    }
+    if (data.mode === "partial") {
+      if (data.paidAmount == null) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "مبلغ پرداختی را وارد کنید",
+          path: ["paidAmount"],
+        });
+      }
+      if (!data.remainderHandling) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "نحوه تسویه مانده را انتخاب کنید",
+          path: ["remainderHandling"],
+        });
+      }
+      if (data.remainderHandling === "new_debt" && !data.remainderDueDate) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "تاریخ سررسید مانده را وارد کنید",
+          path: ["remainderDueDate"],
+        });
+      }
+    }
+  });

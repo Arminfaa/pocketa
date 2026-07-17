@@ -5,10 +5,14 @@ import api from "@/services/api";
 export type DebtKind = "recurring" | "one_time";
 export type DebtEndMode = "forever" | "months";
 
+export type RecurringPaymentMode = "full" | "partial" | "postpone";
+export type RemainderHandling = "next_month" | "new_debt";
+
 export type RecurringItem = {
   id: string;
   title: string;
   amount: number;
+  baseAmount: number;
   type: "income" | "expense";
   kind: DebtKind;
   dayOfMonth: number | null;
@@ -23,6 +27,15 @@ export type RecurringItem = {
   isDue: boolean;
   paidThisMonth: boolean;
   category: { _id: string; name: string; color?: string; type?: string } | string;
+};
+
+export type GenerateRecurringPayload = {
+  accountId?: string;
+  mode?: RecurringPaymentMode;
+  paidAmount?: number;
+  remainderHandling?: RemainderHandling;
+  remainderDueDate?: string;
+  postponeDueDate?: string;
 };
 
 export type CreateDebtPayload =
@@ -88,6 +101,10 @@ export async function deleteRecurring(id: string): Promise<void> {
   await api.delete(`/api/recurring/${id}`);
 }
 
-export async function generateRecurring(id: string, accountId: string): Promise<void> {
-  await api.post(`/api/recurring/${id}/generate`, { accountId });
+export async function generateRecurring(
+  id: string,
+  payload: GenerateRecurringPayload
+): Promise<{ message?: string }> {
+  const res = await api.post(`/api/recurring/${id}/generate`, payload);
+  return { message: res.data?.message as string | undefined };
 }

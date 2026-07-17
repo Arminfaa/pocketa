@@ -8,6 +8,8 @@ const RecurringTransactionSchema = new Schema(
     categoryId: { type: Schema.Types.ObjectId, ref: "Category", required: true },
     title: { type: String, required: true, trim: true },
     amount: { type: Number, required: true, min: 0 },
+    /** مبلغ پایه قسط (بدون مانده منتقل‌شده) — اگر خالی باشد برابر amount در نظر گرفته می‌شود */
+    baseAmount: { type: Number, required: false, min: 0 },
     type: { type: String, required: true, enum: ["income", "expense"] },
     /** recurring = اقساط ماهانه؛ one_time = بدهی یک‌باره */
     kind: {
