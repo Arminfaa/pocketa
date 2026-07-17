@@ -118,4 +118,91 @@
   .finance-type-toggle .finance-type-income:hover {
     @apply !text-emerald-500;
   }
+
+  /* Dashboard market price ticker */
+  .market-ticker {
+    @apply relative overflow-hidden rounded-2xl border border-app-border bg-app-card;
+    padding-block: 0.65rem;
+  }
+
+  .market-ticker--empty {
+    @apply flex items-center justify-center px-4 py-3;
+  }
+
+  .market-ticker-track {
+    @apply flex w-max items-center gap-3;
+    animation: market-ticker-scroll 42s linear infinite;
+  }
+
+  .market-ticker:hover .market-ticker-track {
+    animation-play-state: paused;
+  }
+
+  .market-ticker-chip {
+    @apply flex shrink-0 items-baseline gap-2 whitespace-nowrap rounded-xl px-3 py-1;
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+  }
+
+  .market-ticker-label {
+    @apply text-xs text-app-muted;
+  }
+
+  .market-ticker-value {
+    @apply text-sm font-semibold text-app-fg;
+  }
+
+  .market-ticker-sub {
+    @apply text-[11px] text-app-muted;
+  }
+
+  .market-ticker-fade {
+    @apply pointer-events-none absolute inset-y-0 z-10 w-8;
+  }
+
+  .market-ticker-fade--start {
+    inset-inline-start: 0;
+    background: linear-gradient(to right, var(--card), transparent);
+  }
+
+  .market-ticker-fade--end {
+    inset-inline-end: 0;
+    background: linear-gradient(to left, var(--card), transparent);
+  }
+
+  :dir(rtl) .market-ticker-fade--start {
+    background: linear-gradient(to left, var(--card), transparent);
+  }
+
+  :dir(rtl) .market-ticker-fade--end {
+    background: linear-gradient(to right, var(--card), transparent);
+  }
+
+  @keyframes market-ticker-scroll {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(50%);
+    }
+  }
+
+  :dir(ltr) .market-ticker-track {
+    animation-name: market-ticker-scroll-ltr;
+  }
+
+  @keyframes market-ticker-scroll-ltr {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .market-ticker-track {
+      animation: none;
+      @apply w-full flex-wrap justify-center;
+    }
+  }
 }
