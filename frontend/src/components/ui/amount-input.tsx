@@ -4,9 +4,13 @@ import type { KeyboardEvent } from "react";
 import { Input, Typography } from "antd";
 import type { InputProps } from "antd";
 import {
+  extractDecimalAmountString,
   extractEnglishDigits,
   formatAmountInputValue,
+  formatDecimalAmountInputValue,
   isAmountInputChunk,
+  isDecimalAmountInputChunk,
+  isDecimalSeparatorChar,
   isDigitChar,
   parseAmountInput,
   tomanAmountToWords,
@@ -18,6 +22,10 @@ type Props = Omit<InputProps, "value" | "onChange" | "type" | "inputMode"> & {
   onChange?: (value: string) => void;
   /** Show Persian words under the field (default true). */
   showWords?: boolean;
+  /** Allow fractional values (e.g. 42.980 grams). */
+  allowDecimals?: boolean;
+  /** Max digits after decimal when allowDecimals (default 3). */
+  decimalPlaces?: number;
 };
 
 function allowControlKey(e: KeyboardEvent<HTMLInputElement>): boolean {
@@ -38,28 +46,40 @@ function allowControlKey(e: KeyboardEvent<HTMLInputElement>): boolean {
 }
 
 /**
- * Money input: digits only (fa/en), live thousand-separators, Persian words under field.
- * Stored display may use fa-IR digits; parseAmountInput() yields a server-ready number.
+ * Money/quantity input: digits (fa/en).
+ * Default: integer toman with thousand-separators + Persian words.
+ * With allowDecimals: fractional quantities like ۴۲٫۹۸۰
  */
 export function AmountInput({
   value,
   onChange,
   showWords = true,
+  allowDecimals = false,
+  decimalPlaces = 3,
   className,
   dir = "ltr",
   ...rest
 }: Props) {
   const display =
-    value === "" || value == null ? "" : formatAmountInputValue(value);
+    value === "" || value == null
+      ? ""
+      : allowDecimals
+        ? formatDecimalAmountInputValue(value, decimalPlaces)
+        : formatAmountInputValue(value);
 
   const numeric = parseAmountInput(display);
   const words =
-    showWords && Number.isFinite(numeric) && numeric > 0
+    !allowDecimals && showWords && Number.isFinite(numeric) && numeric > 0
       ? tomanAmountToWords(numeric)
       : null;
 
-  function commitDigits(raw: string) {
+  function commitRaw(raw: string) {
     if (!onChange) return;
+    if (allowDecimals) {
+      const normalized = extractDecimalAmountString(raw, decimalPlaces);
+      onChange(normalized ? formatDecimalAmountInputValue(normalized, decimalPlaces) : "");
+      return;
+    }
     const digitsOnly = extractEnglishDigits(raw).slice(0, 15);
     onChange(digitsOnly ? formatAmountInputValue(digitsOnly) : "");
   }
@@ -70,26 +90,35 @@ export function AmountInput({
         {...rest}
         dir={dir}
         value={display}
-        inputMode="numeric"
+        inputMode={allowDecimals ? "decimal" : "numeric"}
         autoComplete="off"
         className={cn("font-semibold tabular-nums", className)}
         onKeyDown={(e) => {
           if (allowControlKey(e)) return;
+          if (allowDecimals && isDecimalSeparatorChar(e.key)) {
+            if (display.includes(".") || display.includes("٫")) {
+              e.preventDefault();
+            }
+            return;
+          }
           if (e.key.length === 1 && !isDigitChar(e.key)) {
             e.preventDefault();
           }
         }}
         onBeforeInput={(e) => {
           const data = (e as unknown as { data?: string | null }).data;
-          if (data && !isAmountInputChunk(data)) {
-            e.preventDefault();
+          if (!data) return;
+          if (allowDecimals) {
+            if (!isDecimalAmountInputChunk(data)) e.preventDefault();
+            return;
           }
+          if (!isAmountInputChunk(data)) e.preventDefault();
         }}
         onPaste={(e) => {
           e.preventDefault();
-          commitDigits(e.clipboardData.getData("text"));
+          commitRaw(e.clipboardData.getData("text"));
         }}
-        onChange={(e) => commitDigits(e.target.value)}
+        onChange={(e) => commitRaw(e.target.value)}
       />
       {words ? (
         <Typography.Text type="secondary" className="mt-1 block text-xs leading-relaxed">

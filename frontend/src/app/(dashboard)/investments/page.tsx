@@ -277,7 +277,14 @@ export default function InvestmentsPage() {
               <Text type="secondary" className="text-xs">
                 مقدار ({assetUnitLabel(assetType)})
               </Text>
-              <AmountInput value={quantity} onChange={setQuantity} placeholder="مثلاً ۵۰" />
+              <AmountInput
+                value={quantity}
+                onChange={setQuantity}
+                placeholder="مثلاً ۴۲٫۹۸۰"
+                allowDecimals
+                decimalPlaces={3}
+                showWords={false}
+              />
             </Col>
             <Col xs={24} sm={8}>
               <Text type="secondary" className="text-xs">
@@ -327,7 +334,10 @@ export default function InvestmentsPage() {
                     <AmountInput
                       value={profitValue}
                       onChange={setProfitValue}
-                      placeholder={profitMode === "percent" ? "مثلاً ۲" : "مثلاً ۱"}
+                      placeholder={profitMode === "percent" ? "مثلاً ۲" : "مثلاً ۱٫۵"}
+                      allowDecimals={profitMode === "fixed"}
+                      decimalPlaces={3}
+                      showWords={false}
                     />
                   </Col>
                   <Col xs={24} sm={8}>

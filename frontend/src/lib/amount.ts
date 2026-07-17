@@ -7,6 +7,8 @@ const arabicDigits = "٠١٢٣٤٥٦٧٨٩";
 const DIGIT_CHAR_RE = /[0-9۰-۹٠-٩]/;
 const DIGIT_ONLY_RE = /^[0-9۰-۹٠-٩]+$/;
 const AMOUNT_INPUT_CHUNK_RE = /^[0-9۰-۹٠-٩,\u066C\u060C\s]+$/;
+/** Digits + decimal separators (. ٫ , ،) for quantity fields */
+const DECIMAL_AMOUNT_CHUNK_RE = /^[0-9۰-۹٠-٩.\u066B,\u066C\u060C\s]+$/;
 
 export function toEnglishDigits(input: string): string {
   return input.replace(/[۰-۹٠-٩]/g, (d) => {
@@ -27,6 +29,35 @@ export function extractEnglishDigits(raw: string): string {
   return toEnglishDigits(raw).replace(/\D/g, "");
 }
 
+/**
+ * Normalize a decimal quantity string to English digits + optional `.`
+ * Accepts `.` / `٫` and also `,` / `،` as decimal separator when used once.
+ */
+export function extractDecimalAmountString(raw: string, maxFractionDigits = 3): string {
+  let s = toEnglishDigits(String(raw)).replace(/[\u200E\u200F\s]/g, "");
+  // Arabic decimal separator → .
+  s = s.replace(/\u066B/g, ".");
+  // Treat a single , or ، as decimal when no `.` is present
+  if (!s.includes(".")) {
+    s = s.replace(/[,\u066C\u060C]/, ".");
+  }
+  // Drop remaining thousand-style separators
+  s = s.replace(/[,\u066C\u060C]/g, "");
+  // Keep digits + at most one dot
+  const cleaned = s.replace(/[^\d.]/g, "");
+  const firstDot = cleaned.indexOf(".");
+  if (firstDot === -1) return cleaned.slice(0, 15);
+
+  const intPart = cleaned.slice(0, firstDot).replace(/\./g, "").slice(0, 12);
+  const fracPart = cleaned
+    .slice(firstDot + 1)
+    .replace(/\./g, "")
+    .slice(0, maxFractionDigits);
+  if (!intPart && !fracPart) return "";
+  if (cleaned.endsWith(".") && fracPart === "") return `${intPart || "0"}.`;
+  return `${intPart || "0"}.${fracPart}`;
+}
+
 /** Keep digits + `/` for Jalali date fields, English digits only. */
 export function normalizeJalaliDateInput(raw: string): string {
   return toEnglishDigits(raw).replace(/[^\d/]/g, "").slice(0, 10);
@@ -40,8 +71,16 @@ export function isAmountInputChunk(chunk: string): boolean {
   return AMOUNT_INPUT_CHUNK_RE.test(chunk);
 }
 
+export function isDecimalAmountInputChunk(chunk: string): boolean {
+  return DECIMAL_AMOUNT_CHUNK_RE.test(chunk);
+}
+
 export function isDigitChar(char: string): boolean {
   return DIGIT_CHAR_RE.test(char);
+}
+
+export function isDecimalSeparatorChar(char: string): boolean {
+  return char === "." || char === "٫" || char === "," || char === "،" || char === "٬";
 }
 
 /** Strip separators / spaces and parse a money field to a number (NaN if empty/invalid). */
@@ -50,8 +89,9 @@ export function parseAmountInput(raw: string | number | null | undefined): numbe
   if (raw == null) return NaN;
   const cleaned = toEnglishDigits(String(raw))
     .replace(/[,\u066C\u060C\u200E\u200F\s]/g, "")
+    .replace(/\u066B/g, ".")
     .trim();
-  if (!cleaned) return NaN;
+  if (!cleaned || cleaned === ".") return NaN;
   const n = Number(cleaned);
   return Number.isFinite(n) ? n : NaN;
 }
@@ -63,6 +103,32 @@ export function formatAmountInputValue(value: string | number | null | undefined
   if (!Number.isFinite(n)) return "";
   const rounded = Math.round(Math.abs(n));
   return new Intl.NumberFormat("fa-IR", { maximumFractionDigits: 0 }).format(rounded);
+}
+
+/** Format a decimal quantity for input (Persian digits, optional fraction, no grouping). */
+export function formatDecimalAmountInputValue(
+  value: string | number | null | undefined,
+  maxFractionDigits = 3
+): string {
+  if (value === "" || value == null) return "";
+  if (typeof value === "string") {
+    const raw = extractDecimalAmountString(value, maxFractionDigits);
+    if (!raw) return "";
+    if (raw.endsWith(".")) {
+      const intPart = raw.slice(0, -1);
+      return `${toPersianDigits(intPart)}.`;
+    }
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return "";
+    const [i = "0", f = ""] = raw.split(".");
+    const frac = f ? toPersianDigits(f) : "";
+    return frac ? `${toPersianDigits(i)}.${frac}` : toPersianDigits(i);
+  }
+  if (!Number.isFinite(value)) return "";
+  return new Intl.NumberFormat("fa-IR", {
+    useGrouping: false,
+    maximumFractionDigits: maxFractionDigits,
+  }).format(Math.abs(value));
 }
 
 const ONES = [
