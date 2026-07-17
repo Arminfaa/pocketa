@@ -2,7 +2,8 @@
 
 import api from "@/services/api";
 
-export type InvestmentAssetType = "gold" | "usd";
+export type InvestmentAssetType = "gold" | "usd" | "rial";
+export type GoldKind = "melted" | "quarter_coin";
 export type ProfitMode = "fixed" | "percent";
 export type ProfitFrequency = "daily" | "monthly" | "yearly";
 
@@ -10,6 +11,7 @@ export type Investment = {
   id: string;
   title: string;
   assetType: InvestmentAssetType;
+  goldKind: GoldKind | null;
   quantity: number;
   purchasePricePerUnit: number;
   purchaseDate: string;
@@ -36,12 +38,15 @@ export type InvestmentsSummary = {
   totalValue: number | null;
   totalUnrealizedPnl: number | null;
   goldQuantity: number;
+  quarterCoinQuantity?: number;
   usdQuantity: number;
+  rialQuantity?: number;
 };
 
 export type CreateInvestmentPayload = {
   title: string;
   assetType: InvestmentAssetType;
+  goldKind?: GoldKind | null;
   quantity: number;
   purchasePricePerUnit: number;
   purchaseDate: string;

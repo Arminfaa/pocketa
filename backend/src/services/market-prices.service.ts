@@ -6,6 +6,12 @@ import { tehranNow } from "../utils/tehranTime";
 /** Iranian mesghal weight in grams */
 export const MESGHAL_GRAMS = 4.608;
 
+/**
+ * ربع سکه (از گرم ۱۸ عیار):
+ * (gram18k / 750) * 900 * 2.033
+ */
+export const QUARTER_COIN_FACTOR = (900 / 750) * 2.033;
+
 /** Refresh free-market dollar / usdt at or after this Tehran hour */
 export const CURRENCY_REFRESH_HOUR_TEHRAN = 14;
 
@@ -21,6 +27,8 @@ export type GoldPayload = {
   gram24kUsd: number;
   mesghal18kUsd: number;
   mesghal24kUsd: number;
+  /** قیمت ربع سکه (USD) — از گرم ۱۸ عیار */
+  quarterCoinUsd: number;
   changePercent: number;
   sourceUpdatedAt: string;
 };
@@ -39,6 +47,7 @@ export type MarketPricesResponse = {
     gram24kToman: number | null;
     mesghal18kToman: number | null;
     mesghal24kToman: number | null;
+    quarterCoinToman: number | null;
     fetchDate: string;
     fetchedAt: string;
   }) | null;
@@ -82,6 +91,11 @@ function roundToman(n: number): number {
   return Math.round(n);
 }
 
+/** Derive quarter-coin USD from 18k gram price (works for cached payloads without the field). */
+export function quarterCoinUsdFromGram18k(gram18kUsd: number): number {
+  return roundUsd(gram18kUsd * QUARTER_COIN_FACTOR);
+}
+
 function parseTomanValue(raw: string | number | undefined): number | null {
   if (raw == null) return null;
   const n = typeof raw === "number" ? raw : Number(String(raw).replace(/,/g, ""));
@@ -112,12 +126,14 @@ function mapGoldResponse(raw: GoldApiResponse): GoldPayload {
       ? new Date(raw.timestamp * 1000).toISOString()
       : new Date().toISOString();
 
+  const gram18kUsd = roundUsd(gram18k);
   return {
     ounceUsd: roundUsd(ounce),
-    gram18kUsd: roundUsd(gram18k),
+    gram18kUsd,
     gram24kUsd: roundUsd(gram24k),
     mesghal18kUsd: roundUsd(gram18k * MESGHAL_GRAMS),
     mesghal24kUsd: roundUsd(gram24k * MESGHAL_GRAMS),
+    quarterCoinUsd: quarterCoinUsdFromGram18k(gram18kUsd),
     changePercent: Number.isFinite(Number(raw.chp)) ? Number(raw.chp) : 0,
     sourceUpdatedAt,
   };
@@ -376,14 +392,23 @@ export async function getMarketPrices(): Promise<MarketPricesResponse> {
   const toToman = (usdPrice: number): number | null =>
     usd == null ? null : roundToman(usdPrice * usd);
 
+  const quarterCoinUsd =
+    gold != null
+      ? Number.isFinite(Number(gold.quarterCoinUsd))
+        ? Number(gold.quarterCoinUsd)
+        : quarterCoinUsdFromGram18k(gold.gram18kUsd)
+      : 0;
+
   return {
     gold: gold
       ? {
           ...gold,
+          quarterCoinUsd,
           gram18kToman: toToman(gold.gram18kUsd),
           gram24kToman: toToman(gold.gram24kUsd),
           mesghal18kToman: toToman(gold.mesghal18kUsd),
           mesghal24kToman: toToman(gold.mesghal24kUsd),
+          quarterCoinToman: toToman(quarterCoinUsd),
           fetchDate: goldDoc!.fetchDate,
           fetchedAt: new Date(goldDoc!.fetchedAt).toISOString(),
         }

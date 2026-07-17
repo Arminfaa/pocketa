@@ -8,19 +8,29 @@ import { InvestmentCreateSchema, InvestmentUpdateSchema } from "../validations/i
 import { normalizeJalaliDate } from "../utils/normalizeDigits";
 import { getMarketPrices } from "../services/market-prices.service";
 import {
+  assetTypeLabel,
   computeProfitAssetQuantity,
   ensureInvestmentIncomeCategory,
   formatAssetQuantity,
+  resolveGoldKind,
+  type GoldKind,
+  type InvestmentAssetType,
 } from "../services/investment.service";
 
 function unitPriceToman(
-  assetType: "gold" | "usd",
+  assetType: InvestmentAssetType | string,
+  goldKind: GoldKind | string | null | undefined,
   market: Awaited<ReturnType<typeof getMarketPrices>>
 ): number | null {
+  if (assetType === "rial") return 1;
+  if (assetType === "usd") return market.currency?.usdFreeToman ?? null;
   if (assetType === "gold") {
+    if (resolveGoldKind(assetType, goldKind) === "quarter_coin") {
+      return market.gold?.quarterCoinToman ?? null;
+    }
     return market.gold?.gram18kToman ?? null;
   }
-  return market.currency?.usdFreeToman ?? null;
+  return null;
 }
 
 function dayOfMonthFromJalali(date: string): number {
@@ -32,7 +42,8 @@ async function mapInvestment(
   inv: {
     _id: unknown;
     title: string;
-    assetType: "gold" | "usd";
+    assetType: InvestmentAssetType | string;
+    goldKind?: GoldKind | string | null;
     quantity: number;
     purchasePricePerUnit: number;
     purchaseDate: string;
@@ -50,7 +61,8 @@ async function mapInvestment(
   },
   market: Awaited<ReturnType<typeof getMarketPrices>> | null
 ) {
-  const unitNow = market ? unitPriceToman(inv.assetType, market) : null;
+  const goldKind = resolveGoldKind(inv.assetType, inv.goldKind);
+  const unitNow = market ? unitPriceToman(inv.assetType, goldKind, market) : null;
   const costBasis = inv.quantity * inv.purchasePricePerUnit;
   const currentValue = unitNow != null ? inv.quantity * unitNow : null;
   const unrealizedPnl = currentValue != null ? currentValue - costBasis : null;
@@ -62,6 +74,7 @@ async function mapInvestment(
     id: inv._id,
     title: inv.title,
     assetType: inv.assetType,
+    goldKind,
     quantity: inv.quantity,
     purchasePricePerUnit: inv.purchasePricePerUnit,
     purchaseDate: inv.purchaseDate,
@@ -108,6 +121,13 @@ export const list = asyncHandler(async (req: Request, res: Response) => {
   const totalValue = withValue.reduce((s, i) => s + (i.currentValue ?? 0), 0);
   const totalPnl = withValue.reduce((s, i) => s + (i.unrealizedPnl ?? 0), 0);
 
+  const goldMeltedQty = mapped
+    .filter((i) => i.assetType === "gold" && i.goldKind !== "quarter_coin")
+    .reduce((s, i) => s + i.quantity, 0);
+  const quarterCoinQty = mapped
+    .filter((i) => i.assetType === "gold" && i.goldKind === "quarter_coin")
+    .reduce((s, i) => s + i.quantity, 0);
+
   return sendSuccess(res, {
     items: mapped,
     summary: {
@@ -115,11 +135,13 @@ export const list = asyncHandler(async (req: Request, res: Response) => {
       totalCost,
       totalValue: withValue.length ? totalValue : null,
       totalUnrealizedPnl: withValue.length ? totalPnl : null,
-      goldQuantity: mapped
-        .filter((i) => i.assetType === "gold")
-        .reduce((s, i) => s + i.quantity, 0),
+      goldQuantity: goldMeltedQty,
+      quarterCoinQuantity: quarterCoinQty,
       usdQuantity: mapped
         .filter((i) => i.assetType === "usd")
+        .reduce((s, i) => s + i.quantity, 0),
+      rialQuantity: mapped
+        .filter((i) => i.assetType === "rial")
         .reduce((s, i) => s + i.quantity, 0),
     },
   });
@@ -135,21 +157,26 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
   const data = parsed.data;
   const purchaseDate = normalizeJalaliDate(data.purchaseDate);
   const profitAssetQuantity = computeProfitAssetQuantity(data);
+  const goldKind = resolveGoldKind(data.assetType, data.goldKind);
+  const purchasePricePerUnit =
+    data.assetType === "rial" ? 1 : data.purchasePricePerUnit;
 
   const investment = await InvestmentModel.create({
     userId,
     title: data.title,
     assetType: data.assetType,
+    goldKind: data.assetType === "gold" ? goldKind : undefined,
     quantity: data.quantity,
-    purchasePricePerUnit: data.purchasePricePerUnit,
+    purchasePricePerUnit,
     purchaseDate,
     hasProfit: data.hasProfit,
     profitMode: data.hasProfit ? data.profitMode : undefined,
     profitValue: data.hasProfit ? data.profitValue : undefined,
     profitFrequency: data.hasProfit ? data.profitFrequency : undefined,
-    profitNextDate: data.hasProfit && data.profitNextDate
-      ? normalizeJalaliDate(data.profitNextDate)
-      : "",
+    profitNextDate:
+      data.hasProfit && data.profitNextDate
+        ? normalizeJalaliDate(data.profitNextDate)
+        : "",
     profitEndDate:
       data.hasProfit && data.profitEndDate ? normalizeJalaliDate(data.profitEndDate) : "",
     profitAssetQuantity: data.hasProfit ? profitAssetQuantity : 0,
@@ -162,14 +189,13 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
     let marketAmount = 1;
     try {
       const market = await getMarketPrices();
-      const unit = unitPriceToman(data.assetType, market);
+      const unit = unitPriceToman(data.assetType, goldKind, market);
       if (unit != null) marketAmount = Math.max(1, Math.round(profitAssetQuantity * unit));
     } catch {
-      // placeholder until market available — generate will reprice
-      marketAmount = Math.max(1, Math.round(profitAssetQuantity * data.purchasePricePerUnit));
+      marketAmount = Math.max(1, Math.round(profitAssetQuantity * purchasePricePerUnit));
     }
 
-    const assetLabel = formatAssetQuantity(profitAssetQuantity, data.assetType);
+    const assetLabel = formatAssetQuantity(profitAssetQuantity, data.assetType, goldKind);
     const nextDate = normalizeJalaliDate(data.profitNextDate);
     const freq = data.profitFrequency;
     const dayOfMonth = dayOfMonthFromJalali(nextDate);
@@ -182,17 +208,18 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
       type: "income",
       kind: "recurring",
       categoryId: category._id,
-      dayOfMonth: freq === "daily" ? dayOfMonth : dayOfMonth,
+      dayOfMonth,
       endMode: "forever",
       paymentsMade: 0,
       reminderHour: 20,
       reminderSentKeys: [],
       nextPaymentDate: nextDate,
       active: true,
-      notes: `سود سرمایه‌گذاری (${data.assetType === "gold" ? "طلا" : "دلار"})`,
+      notes: `سود سرمایه‌گذاری (${assetTypeLabel(data.assetType, goldKind)})`,
       investmentId: investment._id,
       assetQuantity: profitAssetQuantity,
       assetType: data.assetType,
+      goldKind: data.assetType === "gold" ? goldKind : undefined,
       scheduleFrequency: freq,
       endDate: data.profitEndDate ? normalizeJalaliDate(data.profitEndDate) : "",
     });
@@ -266,7 +293,7 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
     }
     if (parsed.data.title) {
       const qty = investment.profitAssetQuantity ?? 0;
-      patch.title = `سود ${formatAssetQuantity(qty, investment.assetType)} — ${investment.title}`;
+      patch.title = `سود ${formatAssetQuantity(qty, investment.assetType, investment.goldKind)} — ${investment.title}`;
     }
     if (Object.keys(patch).length) {
       await RecurringTransactionModel.updateOne(
