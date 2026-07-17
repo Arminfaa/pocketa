@@ -43,8 +43,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { QueryError } from "@/components/ui/query-error";
 import { AssetCalculator } from "@/components/investments/AssetCalculator";
+import { MarketPriceTicker } from "@/components/dashboard/MarketPriceTicker";
 import { cn } from "@/lib/cn";
 import type { ReactNode } from "react";
+import api from "@/services/api";
 
 const { Title, Text } = Typography;
 
@@ -142,6 +144,26 @@ export default function InvestmentsPage() {
     queryFn: fetchInvestments,
     enabled: tab === "investments",
   });
+
+  const marketQ = useQuery({
+    queryKey: ["market-prices"],
+    queryFn: async () => {
+      try {
+        return (await api.get("/api/market-prices")).data.data;
+      } catch (err: unknown) {
+        const ax = err as { response?: { data?: { message?: string } } };
+        const msg = ax.response?.data?.message;
+        throw new Error(msg || (err instanceof Error ? err.message : "خطا در دریافت قیمت‌ها"));
+      }
+    },
+    staleTime: 5 * 60_000,
+    retry: 1,
+  });
+
+  const tickerError =
+    marketQ.error instanceof Error
+      ? marketQ.error.message
+      : marketQ.data?.errors?.gold || marketQ.data?.errors?.currency;
 
   const previewProfitQty = useMemo(() => {
     const qty = parseAmountInput(quantity);
@@ -253,6 +275,12 @@ export default function InvestmentsPage() {
 
   return (
     <Flex vertical gap="large">
+      <MarketPriceTicker
+        market={marketQ.data}
+        loading={marketQ.isLoading}
+        errorMessage={tickerError}
+      />
+
       <div>
         <Title level={isMobile ? 4 : 3} className="!mb-1">
           <FundOutlined className="me-2" />
