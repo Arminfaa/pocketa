@@ -138,20 +138,39 @@ export async function syncInitialBalanceToTarget(
   };
 }
 
-/** Latest bankMeta.balanceAfter for account (by date/time then createdAt). */
+function smsBalanceSortKey(tx: {
+  date?: string | null;
+  bankMeta?: { time?: string | null } | null;
+  createdAt?: Date | string | null;
+}): string {
+  const date = tx.date ?? "";
+  const time = tx.bankMeta?.time?.trim() || "00:00";
+  const created =
+    tx.createdAt instanceof Date
+      ? tx.createdAt.toISOString()
+      : typeof tx.createdAt === "string"
+        ? tx.createdAt
+        : "";
+  return `${date} ${time} ${created}`;
+}
+
+/** Latest bankMeta.balanceAfter for account (by Jalali date + SMS time, then createdAt). */
 export async function findLatestSmsBalance(
   userId: string | mongoose.Types.ObjectId,
   accountId: string | mongoose.Types.ObjectId
 ): Promise<number | null> {
-  const tx = await TransactionModel.findOne({
+  const txs = await TransactionModel.find({
     userId: toObjectId(userId),
     accountId: toObjectId(accountId),
     "bankMeta.balanceAfter": { $exists: true, $ne: null },
   })
-    .sort({ date: -1, createdAt: -1 })
-    .select("bankMeta.balanceAfter")
+    .select("date bankMeta.balanceAfter bankMeta.time createdAt")
     .lean();
 
-  const value = tx?.bankMeta?.balanceAfter;
+  if (txs.length === 0) return null;
+
+  txs.sort((a, b) => smsBalanceSortKey(b).localeCompare(smsBalanceSortKey(a)));
+
+  const value = txs[0]?.bankMeta?.balanceAfter;
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }

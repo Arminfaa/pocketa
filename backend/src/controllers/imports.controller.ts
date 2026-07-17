@@ -14,8 +14,15 @@ import {
   ensureBankSmsCategories,
   findExistingHashes,
 } from "../services/bank-sms-import.service";
-import { syncInitialBalanceToTarget } from "../services/account.service";
+import {
+  findLatestSmsBalance,
+  syncInitialBalanceToTarget,
+} from "../services/account.service";
 import { suggestCategoryForTitle } from "../services/category-suggest.service";
+import {
+  findNearDuplicateImportKeys,
+  nearDuplicateKey,
+} from "../services/bank-sms-import.service";
 
 async function loadUserName(userId: string): Promise<string> {
   const user = await UserModel.findById(userId).select("name").lean();
@@ -39,17 +46,32 @@ export const preview = asyncHandler(async (req: Request, res: Response) => {
   const { items, failedBlocks } = parseBankSmsText(rawText, jalaliYear, accountId, {
     userName,
   });
-  const existing = await findExistingHashes(
-    userId,
-    items.map((i) => i.importHash)
-  );
+  const [existing, nearDupes] = await Promise.all([
+    findExistingHashes(
+      userId,
+      items.map((i) => i.importHash)
+    ),
+    findNearDuplicateImportKeys(userId, accountId, items),
+  ]);
 
-  const previewItems = items.map((item) => ({
-    ...item,
-    isDuplicate: existing.has(item.importHash),
-    suggestedTitle: defaultTitle(item),
-    skipReview: Boolean(item.skipReview),
-  }));
+  const seenNearKeys = new Set<string>();
+  const previewItems = items.map((item) => {
+    const nearKey = nearDuplicateKey({
+      accountId,
+      type: item.type,
+      amount: item.amount,
+      date: item.date,
+    });
+    const dupInBatch = seenNearKeys.has(nearKey);
+    seenNearKeys.add(nearKey);
+    return {
+      ...item,
+      isDuplicate:
+        existing.has(item.importHash) || nearDupes.has(nearKey) || dupInBatch,
+      suggestedTitle: defaultTitle(item),
+      skipReview: Boolean(item.skipReview),
+    };
+  });
 
   const bankHint =
     previewItems.find((i) => i.bankName)?.bankName ??
@@ -88,12 +110,27 @@ export const confirm = asyncHandler(async (req: Request, res: Response) => {
       ? items.filter((i) => selectedHashes.includes(i.importHash))
       : items;
 
-  const existing = await findExistingHashes(
-    userId,
-    selected.map((i) => i.importHash)
-  );
+  const [existing, nearDupes] = await Promise.all([
+    findExistingHashes(
+      userId,
+      selected.map((i) => i.importHash)
+    ),
+    findNearDuplicateImportKeys(userId, accountId, selected),
+  ]);
 
-  const toImport = selected.filter((i) => !existing.has(i.importHash));
+  const seenNearKeys = new Set<string>();
+  const toImport = selected.filter((i) => {
+    if (existing.has(i.importHash)) return false;
+    const nearKey = nearDuplicateKey({
+      accountId,
+      type: i.type,
+      amount: i.amount,
+      date: i.date,
+    });
+    if (nearDupes.has(nearKey) || seenNearKeys.has(nearKey)) return false;
+    seenNearKeys.add(nearKey);
+    return true;
+  });
   const categories = await ensureBankSmsCategories(userId);
 
   const docs = await Promise.all(
@@ -176,14 +213,10 @@ export const confirm = asyncHandler(async (req: Request, res: Response) => {
   } | null = null;
 
   if (syncBalance) {
-    const withBalance = [...toImport]
-      .filter((i) => typeof i.balanceAfter === "number")
-      .sort((a, b) => {
-        const da = `${a.date} ${a.time ?? ""}`;
-        const db = `${b.date} ${b.time ?? ""}`;
-        return db.localeCompare(da);
-      });
-    const latest = withBalance[0]?.balanceAfter;
+    // Use chronologically latest مانده on the account (date + SMS time),
+    // not merely the latest row inside this paste — older batches must not
+    // overwrite a newer SMS balance already stored.
+    const latest = await findLatestSmsBalance(userId, accountId);
     if (typeof latest === "number") {
       const synced = await syncInitialBalanceToTarget(userId, accountId, latest);
       balanceSync = {
