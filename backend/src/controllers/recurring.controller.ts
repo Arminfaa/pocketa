@@ -128,12 +128,15 @@ function mapItem(item: {
   };
 }
 
-async function resolveAssetLinkedAmount(item: {
-  amount: number;
-  assetQuantity?: number | null;
-  assetType?: string | null;
-  goldKind?: string | null;
-}): Promise<number> {
+function resolveAssetLinkedAmount(
+  item: {
+    amount: number;
+    assetQuantity?: number | null;
+    assetType?: string | null;
+    goldKind?: string | null;
+  },
+  market: Awaited<ReturnType<typeof getMarketPrices>> | null
+): number {
   const qty = item.assetQuantity;
   const assetType = item.assetType;
   if (
@@ -148,19 +151,16 @@ async function resolveAssetLinkedAmount(item: {
     return Math.max(1, Math.round(qty));
   }
 
-  try {
-    const market = await getMarketPrices();
-    const unit =
-      assetType === "usd"
-        ? market.currency?.usdFreeToman
-        : item.goldKind === "quarter_coin"
-          ? market.gold?.quarterCoinToman
-          : market.gold?.gram18kToman;
-    if (unit == null || unit <= 0) return item.amount;
-    return Math.max(1, Math.round(qty * unit));
-  } catch {
-    return item.amount;
-  }
+  if (!market) return item.amount;
+
+  const unit =
+    assetType === "usd"
+      ? market.currency?.usdFreeToman
+      : item.goldKind === "quarter_coin"
+        ? market.gold?.quarterCoinToman
+        : market.gold?.gram18kToman;
+  if (unit == null || unit <= 0) return item.amount;
+  return Math.max(1, Math.round(qty * unit));
 }
 
 function belongsToMonthChecklist(
@@ -193,11 +193,19 @@ export const list = asyncHandler(async (req: Request, res: Response) => {
 
   const allItems = await RecurringTransactionModel.find({ userId })
     .sort({ nextPaymentDate: 1 })
-    .populate({ path: "categoryId", select: "name color type icon" });
+    .populate({ path: "categoryId", select: "name color type icon" })
+    .lean();
+
+  let market: Awaited<ReturnType<typeof getMarketPrices>> | null = null;
+  try {
+    market = await getMarketPrices();
+  } catch {
+    market = null;
+  }
 
   const today = todayJalali();
-  const toMapped = async (item: (typeof allItems)[number]) => {
-    const liveAmount = await resolveAssetLinkedAmount(item);
+  const toMapped = (item: (typeof allItems)[number]) => {
+    const liveAmount = resolveAssetLinkedAmount(item, market);
     return mapItem(
       {
         _id: item._id,
@@ -228,7 +236,7 @@ export const list = asyncHandler(async (req: Request, res: Response) => {
     );
   };
 
-  const mappedAll = await Promise.all(allItems.map(toMapped));
+  const mappedAll = allItems.map(toMapped);
   const mapped = activeOnly ? mappedAll.filter((i) => i.active) : mappedAll;
   const monthChecklist = mappedAll
     .filter((item) => belongsToMonthChecklist(item, today))
@@ -472,7 +480,13 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
 
   // سود سرمایه‌گذاری: مبلغ را با قیمت روز طلا/دلار به‌روز کن
   if (recurring.assetQuantity && recurring.assetType) {
-    const priced = await resolveAssetLinkedAmount(recurring);
+    let market: Awaited<ReturnType<typeof getMarketPrices>> | null = null;
+    try {
+      market = await getMarketPrices();
+    } catch {
+      market = null;
+    }
+    const priced = resolveAssetLinkedAmount(recurring, market);
     recurring.amount = priced;
     recurring.baseAmount = priced;
   }

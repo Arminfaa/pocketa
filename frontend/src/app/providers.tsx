@@ -14,6 +14,8 @@ export default function Providers({ children }: { children: React.ReactNode }) {
           queries: {
             retry: 1,
             refetchOnWindowFocus: false,
+            /** Prefer cache on navigation; mutations still invalidate explicitly */
+            staleTime: 60_000,
           },
         },
       })

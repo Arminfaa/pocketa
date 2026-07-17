@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/services/api";
 import { useAuthStore } from "@/stores/auth.store";
+import { DashboardSkeleton } from "@/components/skeletons";
 
 export function RequireAuth({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -24,7 +25,6 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
 
       try {
         // 401 → axios interceptor refreshes via httpOnly cookie, then retries.
-        // Critical after iOS PWA cold start when the short-lived access cookie is gone.
         const res = await api.get("/api/auth/me");
         const nextUser = res.data?.data?.user ?? null;
         setUser(nextUser);
@@ -38,17 +38,24 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
     void run();
   }, [hydrated, router, sessionChecked, setSessionChecked, setUser]);
 
-  // Avoid infinite "preparing" when session was marked checked but user cleared (e.g. 401 logout).
   useEffect(() => {
     if (hydrated && sessionChecked && !user) {
       router.replace("/login");
     }
   }, [hydrated, sessionChecked, user, router]);
 
+  // Optimistic: cached user → render app shell immediately while /me revalidates
+  if (user && !sessionChecked) {
+    return <>{children}</>;
+  }
+
   if (!hydrated || !sessionChecked || !user) {
     return (
-      <div className="min-h-dvh flex items-center justify-center">
-        <div className="text-app-muted">در حال آماده‌سازی...</div>
+      <div className="min-h-dvh bg-app-surface p-3 sm:p-4 md:p-6">
+        <div className="mx-auto w-full max-w-page space-y-4">
+          <div className="text-sm text-app-muted">در حال آماده‌سازی...</div>
+          <DashboardSkeleton />
+        </div>
       </div>
     );
   }

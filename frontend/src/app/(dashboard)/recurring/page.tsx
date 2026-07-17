@@ -109,8 +109,16 @@ export default function RecurringPage() {
   const [payItem, setPayItem] = useState<RecurringItem | null>(null);
 
   const listQ = useQuery({ queryKey: ["recurring"], queryFn: fetchRecurring });
-  const accountsQ = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
-  const categoriesQ = useQuery({ queryKey: ["categories"], queryFn: fetchCategories });
+  const accountsQ = useQuery({
+    queryKey: ["accounts"],
+    queryFn: fetchAccounts,
+    staleTime: 5 * 60_000,
+  });
+  const categoriesQ = useQuery({
+    queryKey: ["categories"],
+    queryFn: fetchCategories,
+    staleTime: 5 * 60_000,
+  });
 
   const categories = useMemo(
     () => (categoriesQ.data ?? []).filter((c: Category) => c.type === type),

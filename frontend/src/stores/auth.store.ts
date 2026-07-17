@@ -8,6 +8,32 @@ export type AuthUser = {
   email: string;
 };
 
+const USER_CACHE_KEY = "pocketa-user-cache";
+
+function readCachedUser(): AuthUser | null {
+  if (typeof window === "undefined") return null;
+  try {
+    window.localStorage.removeItem("pocketa-access-token");
+    const raw = window.sessionStorage.getItem(USER_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as AuthUser;
+    if (parsed?.id && parsed?.email) return parsed;
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+function writeCachedUser(user: AuthUser | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (user) window.sessionStorage.setItem(USER_CACHE_KEY, JSON.stringify(user));
+    else window.sessionStorage.removeItem(USER_CACHE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 type AuthState = {
   user: AuthUser | null;
   hydrated: boolean;
@@ -25,17 +51,20 @@ export const useAuthStore = create<AuthState>((set) => ({
   sessionChecked: false,
 
   hydrate: () => {
-    if (typeof window !== "undefined") {
-      window.localStorage.removeItem("pocketa-access-token");
-    }
-    set({ hydrated: true });
+    // Restore last session user for instant shell while /me revalidates
+    const user = readCachedUser();
+    set({ hydrated: true, ...(user ? { user } : {}) });
   },
 
-  setUser: (user) => set({ user, hydrated: true }),
+  setUser: (user) => {
+    writeCachedUser(user);
+    set({ user, hydrated: true });
+  },
 
   setSessionChecked: (checked) => set({ sessionChecked: checked }),
 
   logout: () => {
+    writeCachedUser(null);
     set({ user: null, hydrated: true, sessionChecked: true });
   },
 }));

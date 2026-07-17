@@ -45,6 +45,7 @@ export default function AppLayout({ children }: PropsWithChildren) {
   const accountsQ = useQuery({
     queryKey: ["accounts"],
     queryFn: fetchAccounts,
+    staleTime: 5 * 60_000,
   });
 
   useEffect(() => {
