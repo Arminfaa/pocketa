@@ -132,19 +132,30 @@ async function resolveAssetLinkedAmount(item: {
   amount: number;
   assetQuantity?: number | null;
   assetType?: string | null;
+  goldKind?: string | null;
 }): Promise<number> {
   const qty = item.assetQuantity;
   const assetType = item.assetType;
-  if (qty == null || qty <= 0 || (assetType !== "gold" && assetType !== "usd")) {
+  if (
+    qty == null ||
+    qty <= 0 ||
+    (assetType !== "gold" && assetType !== "usd" && assetType !== "rial")
+  ) {
     return item.amount;
+  }
+
+  if (assetType === "rial") {
+    return Math.max(1, Math.round(qty));
   }
 
   try {
     const market = await getMarketPrices();
     const unit =
-      assetType === "gold"
-        ? market.gold?.gram18kToman
-        : market.currency?.usdFreeToman;
+      assetType === "usd"
+        ? market.currency?.usdFreeToman
+        : item.goldKind === "quarter_coin"
+          ? market.gold?.quarterCoinToman
+          : market.gold?.gram18kToman;
     if (unit == null || unit <= 0) return item.amount;
     return Math.max(1, Math.round(qty * unit));
   } catch {

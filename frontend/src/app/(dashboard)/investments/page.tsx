@@ -30,6 +30,7 @@ import {
   createInvestment,
   deleteInvestment,
   fetchInvestments,
+  type GoldKind,
   type InvestmentAssetType,
   type ProfitFrequency,
   type ProfitMode,
@@ -50,13 +51,19 @@ const { Title, Text } = Typography;
 type PageTab = "investments" | "calculator";
 
 const assetOptions = [
-  { value: "gold" as const, label: "طلا (گرم)" },
+  { value: "gold" as const, label: "طلا" },
   { value: "usd" as const, label: "دلار" },
+  { value: "rial" as const, label: "ریال" },
+];
+
+const goldKindOptions = [
+  { value: "melted" as const, label: "طلا (آب شده/پارسیان)" },
+  { value: "quarter_coin" as const, label: "ربع سکه" },
 ];
 
 const profitModeOptions = [
   { value: "percent" as const, label: "درصد از مقدار اصلی" },
-  { value: "fixed" as const, label: "مقدار ثابت (گرم/دلار)" },
+  { value: "fixed" as const, label: "مقدار ثابت" },
 ];
 
 const frequencyOptions = [
@@ -86,8 +93,25 @@ function DetailRow({
   );
 }
 
-function assetUnitLabel(type: InvestmentAssetType): string {
-  return type === "gold" ? "گرم" : "دلار";
+function assetUnitLabel(type: InvestmentAssetType, goldKind?: GoldKind | null): string {
+  if (type === "usd") return "دلار";
+  if (type === "rial") return "تومان";
+  if (goldKind === "quarter_coin") return "عدد";
+  return "گرم";
+}
+
+function assetDisplayLabel(type: InvestmentAssetType, goldKind?: GoldKind | null): string {
+  if (type === "usd") return "دلار";
+  if (type === "rial") return "ریال";
+  if (goldKind === "quarter_coin") return "ربع سکه";
+  return "طلا (آب شده/پارسیان)";
+}
+
+function assetTagColor(type: InvestmentAssetType, goldKind?: GoldKind | null): string {
+  if (type === "usd") return "blue";
+  if (type === "rial") return "green";
+  if (goldKind === "quarter_coin") return "orange";
+  return "gold";
 }
 
 export default function InvestmentsPage() {
@@ -99,6 +123,7 @@ export default function InvestmentsPage() {
 
   const [title, setTitle] = useState("");
   const [assetType, setAssetType] = useState<InvestmentAssetType>("gold");
+  const [goldKind, setGoldKind] = useState<GoldKind>("melted");
   const [quantity, setQuantity] = useState("");
   const [purchasePrice, setPurchasePrice] = useState("");
   const [purchaseDate, setPurchaseDate] = useState("");
@@ -109,6 +134,8 @@ export default function InvestmentsPage() {
   const [profitNextDate, setProfitNextDate] = useState("");
   const [profitEndDate, setProfitEndDate] = useState("");
   const [notes, setNotes] = useState("");
+
+  const unitLabel = assetUnitLabel(assetType, goldKind);
 
   const q = useQuery({
     queryKey: ["investments"],
@@ -127,6 +154,7 @@ export default function InvestmentsPage() {
   const resetForm = () => {
     setTitle("");
     setAssetType("gold");
+    setGoldKind("melted");
     setQuantity("");
     setPurchasePrice("");
     setPurchaseDate("");
@@ -142,15 +170,20 @@ export default function InvestmentsPage() {
   const createMutation = useMutation({
     mutationFn: async () => {
       const qty = parseAmountInput(quantity);
-      const price = parseAmountInput(purchasePrice);
+      const price =
+        assetType === "rial" ? 1 : parseAmountInput(purchasePrice);
       if (title.trim().length < 2) throw new Error("عنوان را وارد کنید");
       if (!Number.isFinite(qty) || qty <= 0) throw new Error("مقدار معتبر نیست");
-      if (!Number.isFinite(price) || price <= 0) throw new Error("قیمت خرید معتبر نیست");
+      if (assetType !== "rial" && (!Number.isFinite(price) || price <= 0)) {
+        throw new Error("قیمت خرید معتبر نیست");
+      }
       if (!purchaseDate.trim()) throw new Error("تاریخ خرید را وارد کنید");
+      if (assetType === "gold" && !goldKind) throw new Error("نوع طلا را انتخاب کنید");
 
       const payload: Parameters<typeof createInvestment>[0] = {
         title: title.trim(),
         assetType,
+        goldKind: assetType === "gold" ? goldKind : null,
         quantity: qty,
         purchasePricePerUnit: price,
         purchaseDate: normalizeJalaliDateInput(purchaseDate),
@@ -219,7 +252,7 @@ export default function InvestmentsPage() {
           سرمایه‌گذاری / پس‌انداز
         </Title>
         <Text type="secondary">
-          طلا و دلار جدا از حساب بانکی — ارزش روز، سود دوره‌ای و محاسبه‌گر
+          طلا، دلار و ریال جدا از حساب بانکی — ارزش روز، سود دوره‌ای و محاسبه‌گر
         </Text>
       </div>
 
@@ -310,7 +343,7 @@ export default function InvestmentsPage() {
               />
 
               <Row gutter={[12, 12]}>
-                <Col xs={24} sm={8}>
+                <Col xs={24} sm={assetType === "gold" ? 12 : 8}>
                   <Text type="secondary" className="text-xs">
                     نوع دارایی
                   </Text>
@@ -318,32 +351,59 @@ export default function InvestmentsPage() {
                     className="w-full"
                     value={assetType}
                     options={assetOptions}
-                    onChange={setAssetType}
+                    onChange={(v: InvestmentAssetType) => {
+                      setAssetType(v);
+                      if (v === "gold") setGoldKind("melted");
+                      if (v === "rial") setPurchasePrice("1");
+                    }}
                   />
                 </Col>
+                {assetType === "gold" ? (
+                  <Col xs={24} sm={12}>
+                    <Text type="secondary" className="text-xs">
+                      نوع طلا
+                    </Text>
+                    <Select
+                      className="w-full"
+                      value={goldKind}
+                      options={goldKindOptions}
+                      onChange={setGoldKind}
+                    />
+                  </Col>
+                ) : null}
                 <Col xs={24} sm={8}>
                   <Text type="secondary" className="text-xs">
-                    مقدار ({assetUnitLabel(assetType)})
+                    {assetType === "rial" ? "مبلغ (تومان)" : `مقدار (${unitLabel})`}
                   </Text>
                   <AmountInput
                     value={quantity}
                     onChange={setQuantity}
-                    placeholder="مثلاً ۴۲٫۹۸۰"
-                    allowDecimals
-                    decimalPlaces={3}
+                    placeholder={
+                      assetType === "rial"
+                        ? "مثلاً ۱۰٬۰۰۰٬۰۰۰"
+                        : goldKind === "quarter_coin"
+                          ? "مثلاً ۲"
+                          : "مثلاً ۴۲٫۹۸۰"
+                    }
+                    allowDecimals={assetType !== "rial"}
+                    decimalPlaces={
+                      assetType === "usd" || goldKind === "quarter_coin" ? 2 : 3
+                    }
                     showWords={false}
                   />
                 </Col>
-                <Col xs={24} sm={8}>
-                  <Text type="secondary" className="text-xs">
-                    قیمت خرید هر {assetUnitLabel(assetType)} (تومان)
-                  </Text>
-                  <AmountInput
-                    value={purchasePrice}
-                    onChange={setPurchasePrice}
-                    placeholder="قیمت خرید"
-                  />
-                </Col>
+                {assetType !== "rial" ? (
+                  <Col xs={24} sm={8}>
+                    <Text type="secondary" className="text-xs">
+                      قیمت خرید هر {unitLabel} (تومان)
+                    </Text>
+                    <AmountInput
+                      value={purchasePrice}
+                      onChange={setPurchasePrice}
+                      placeholder="قیمت خرید"
+                    />
+                  </Col>
+                ) : null}
               </Row>
 
               <div>
@@ -377,7 +437,7 @@ export default function InvestmentsPage() {
                         <Text type="secondary" className="text-xs">
                           {profitMode === "percent"
                             ? "درصد سود"
-                            : `مقدار سود (${assetUnitLabel(assetType)})`}
+                            : `مقدار سود (${unitLabel})`}
                         </Text>
                         <AmountInput
                           value={profitValue}
@@ -420,7 +480,7 @@ export default function InvestmentsPage() {
                       <Text type="secondary" className="text-xs">
                         هر دوره ≈{" "}
                         {previewProfitQty.toLocaleString("fa-IR", { maximumFractionDigits: 3 })}{" "}
-                        {assetUnitLabel(assetType)} سود → در جریان دوره‌ای / سررسید‌ها به‌عنوان درآمد ثبت
+                        {unitLabel} سود → در جریان دوره‌ای / سررسید‌ها به‌عنوان درآمد ثبت
                         می‌شود و مبلغ تومان با قیمت روز محاسبه می‌گردد.
                       </Text>
                     ) : null}
@@ -456,8 +516,8 @@ export default function InvestmentsPage() {
                   title={
                     <Space wrap>
                       <span>{item.title}</span>
-                      <Tag color={item.assetType === "gold" ? "gold" : "blue"}>
-                        {item.assetType === "gold" ? "طلا" : "دلار"}
+                      <Tag color={assetTagColor(item.assetType, item.goldKind)}>
+                        {assetDisplayLabel(item.assetType, item.goldKind)}
                       </Tag>
                       {item.hasProfit ? <Tag color="green">سوددار</Tag> : null}
                     </Space>
@@ -483,7 +543,7 @@ export default function InvestmentsPage() {
                       label="مقدار"
                       value={`${item.quantity.toLocaleString("fa-IR", {
                         maximumFractionDigits: 3,
-                      })} ${assetUnitLabel(item.assetType)}`}
+                      })} ${assetUnitLabel(item.assetType, item.goldKind)}`}
                     />
                     <DetailRow
                       label="قیمت خرید"
@@ -516,7 +576,7 @@ export default function InvestmentsPage() {
                           label="سود هر دوره"
                           value={`${item.profitAssetQuantity.toLocaleString("fa-IR", {
                             maximumFractionDigits: 3,
-                          })} ${assetUnitLabel(item.assetType)}${
+                          })} ${assetUnitLabel(item.assetType, item.goldKind)}${
                             item.profitTomanPerPeriod != null
                               ? ` ≈ ${formatToman(item.profitTomanPerPeriod)}`
                               : ""
