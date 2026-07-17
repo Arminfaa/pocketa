@@ -54,7 +54,13 @@ const RecurringTransactionSchema = new Schema(
     },
     /** مقدار سود به واحد دارایی (گرم طلا / دلار) — مبلغ تومان از قیمت روز گرفته می‌شود */
     assetQuantity: { type: Number, required: false, min: 0 },
-    assetType: { type: String, required: false, enum: ["gold", "usd"] },
+    assetType: { type: String, required: false, enum: ["gold", "usd", "rial"] },
+    /** برای طلا: melted | quarter_coin */
+    goldKind: {
+      type: String,
+      required: false,
+      enum: ["melted", "quarter_coin"],
+    },
     /** دوره تکرار سود — پیش‌فرض ماهانه */
     scheduleFrequency: {
       type: String,

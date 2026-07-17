@@ -9,10 +9,12 @@ export type MarketTickerData = {
     gram24kUsd: number;
     mesghal18kUsd: number;
     mesghal24kUsd: number;
+    quarterCoinUsd?: number;
     gram18kToman: number | null;
     gram24kToman: number | null;
     mesghal18kToman: number | null;
     mesghal24kToman: number | null;
+    quarterCoinToman?: number | null;
   } | null;
   currency: {
     usdFreeToman: number;
@@ -69,6 +71,17 @@ function buildItems(market: MarketTickerData | undefined): TickerItem[] {
             ? formatToman(gold.mesghal24kToman)
             : formatUsd(gold.mesghal24kUsd),
         sub: formatUsd(gold.mesghal24kUsd),
+      },
+      {
+        id: "qcoin",
+        label: "ربع سکه",
+        value:
+          gold.quarterCoinToman != null
+            ? formatToman(gold.quarterCoinToman)
+            : gold.quarterCoinUsd != null
+              ? formatUsd(gold.quarterCoinUsd)
+              : "—",
+        sub: gold.quarterCoinUsd != null ? formatUsd(gold.quarterCoinUsd) : undefined,
       }
     );
   }

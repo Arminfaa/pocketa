@@ -21,10 +21,12 @@ type MarketPrices = {
     gram24kUsd: number;
     mesghal18kUsd: number;
     mesghal24kUsd: number;
+    quarterCoinUsd?: number;
     gram18kToman: number | null;
     gram24kToman: number | null;
     mesghal18kToman: number | null;
     mesghal24kToman: number | null;
+    quarterCoinToman?: number | null;
     changePercent: number;
     fetchDate: string;
     fetchedAt: string;

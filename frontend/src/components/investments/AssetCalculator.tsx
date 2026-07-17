@@ -23,6 +23,7 @@ type MarketPrices = {
     gram24kToman: number | null;
     mesghal18kToman: number | null;
     mesghal24kToman: number | null;
+    quarterCoinToman?: number | null;
   } | null;
   currency: {
     usdFreeToman: number;
@@ -30,18 +31,20 @@ type MarketPrices = {
   } | null;
 };
 
-type CalcKind = "gold18" | "gold24" | "mesghal18" | "mesghal24" | "usd";
+type CalcKind = "gold18" | "gold24" | "mesghal18" | "mesghal24" | "quarterCoin" | "usd";
 
 const kindOptions: { value: CalcKind; label: string }[] = [
   { value: "gold18", label: "طلا ۱۸ عیار (گرم)" },
   { value: "gold24", label: "طلا ۲۴ عیار (گرم)" },
   { value: "mesghal18", label: "مثقال ۱۸ عیار" },
   { value: "mesghal24", label: "مثقال ۲۴ عیار" },
+  { value: "quarterCoin", label: "ربع سکه" },
   { value: "usd", label: "دلار آزاد" },
 ];
 
 function unitLabel(kind: CalcKind): string {
   if (kind === "usd") return "دلار";
+  if (kind === "quarterCoin") return "عدد";
   if (kind.startsWith("mesghal")) return "مثقال";
   return "گرم";
 }
@@ -52,6 +55,7 @@ function resolveUnitPrice(kind: CalcKind, market: MarketPrices | undefined): num
   if (kind === "gold18") return market.gold?.gram18kToman ?? null;
   if (kind === "gold24") return market.gold?.gram24kToman ?? null;
   if (kind === "mesghal18") return market.gold?.mesghal18kToman ?? null;
+  if (kind === "quarterCoin") return market.gold?.quarterCoinToman ?? null;
   return market.gold?.mesghal24kToman ?? null;
 }
 
@@ -68,7 +72,7 @@ export function AssetCalculator() {
   });
 
   const unitPrice = resolveUnitPrice(kind, marketQ.data);
-  const qtyDecimals = kind === "usd" ? 2 : 3;
+  const qtyDecimals = kind === "usd" || kind === "quarterCoin" ? 2 : 3;
 
   useEffect(() => {
     if (unitPrice == null || unitPrice <= 0 || !lastEdited.current) return;

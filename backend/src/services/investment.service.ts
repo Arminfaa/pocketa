@@ -32,7 +32,37 @@ export function computeProfitAssetQuantity(input: {
   return 0;
 }
 
-export function formatAssetQuantity(qty: number, assetType: "gold" | "usd"): string {
+export type InvestmentAssetType = "gold" | "usd" | "rial";
+export type GoldKind = "melted" | "quarter_coin";
+
+export function resolveGoldKind(
+  assetType: InvestmentAssetType | string,
+  goldKind?: GoldKind | string | null
+): GoldKind | null {
+  if (assetType !== "gold") return null;
+  return goldKind === "quarter_coin" ? "quarter_coin" : "melted";
+}
+
+export function formatAssetQuantity(
+  qty: number,
+  assetType: InvestmentAssetType | string,
+  goldKind?: GoldKind | string | null
+): string {
   const rounded = Math.round(qty * 1000) / 1000;
-  return assetType === "gold" ? `${rounded} گرم طلا` : `${rounded} دلار`;
+  if (assetType === "usd") return `${rounded} دلار`;
+  if (assetType === "rial") return `${Math.round(qty).toLocaleString("en-US")} تومان`;
+  if (resolveGoldKind(assetType, goldKind) === "quarter_coin") {
+    return `${rounded} ربع سکه`;
+  }
+  return `${rounded} گرم طلا`;
+}
+
+export function assetTypeLabel(
+  assetType: InvestmentAssetType | string,
+  goldKind?: GoldKind | string | null
+): string {
+  if (assetType === "usd") return "دلار";
+  if (assetType === "rial") return "ریال";
+  if (resolveGoldKind(assetType, goldKind) === "quarter_coin") return "ربع سکه";
+  return "طلا (آب شده/پارسیان)";
 }

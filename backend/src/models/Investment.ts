@@ -4,9 +4,25 @@ const InvestmentSchema = new Schema(
   {
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     title: { type: String, required: true, trim: true },
-    /** طلا یا دلار */
-    assetType: { type: String, required: true, enum: ["gold", "usd"], index: true },
-    /** مقدار: گرم طلا یا دلار */
+    /** طلا، دلار یا ریال (نقدی) */
+    assetType: {
+      type: String,
+      required: true,
+      enum: ["gold", "usd", "rial"],
+      index: true,
+    },
+    /**
+     * فقط وقتی assetType=gold:
+     * melted = آب‌شده/پارسیان (گرم)
+     * quarter_coin = ربع سکه (تعداد)
+     */
+    goldKind: {
+      type: String,
+      required: false,
+      enum: ["melted", "quarter_coin"],
+      default: "melted",
+    },
+    /** مقدار: گرم طلا / تعداد ربع سکه / دلار / تومان */
     quantity: { type: Number, required: true, min: 0 },
     /** قیمت خرید هر واحد (تومان) */
     purchasePricePerUnit: { type: Number, required: true, min: 0 },

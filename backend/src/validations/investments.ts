@@ -8,7 +8,9 @@ const JalaliDateSchema = z
 export const InvestmentCreateSchema = z
   .object({
     title: z.string().min(2).max(120).trim(),
-    assetType: z.enum(["gold", "usd"]),
+    assetType: z.enum(["gold", "usd", "rial"]),
+    /** فقط برای طلا — پیش‌فرض آب‌شده/پارسیان */
+    goldKind: z.enum(["melted", "quarter_coin"]).optional().nullable(),
     quantity: z.coerce.number().positive(),
     purchasePricePerUnit: z.coerce.number().positive(),
     purchaseDate: JalaliDateSchema,
@@ -21,6 +23,13 @@ export const InvestmentCreateSchema = z
     notes: z.string().max(500).optional().nullable(),
   })
   .superRefine((data, ctx) => {
+    if (data.assetType === "gold" && !data.goldKind) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "نوع طلا را انتخاب کنید",
+        path: ["goldKind"],
+      });
+    }
     if (!data.hasProfit) return;
 
     if (!data.profitMode) {
