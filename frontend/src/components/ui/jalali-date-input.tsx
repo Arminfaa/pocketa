@@ -1,72 +1,40 @@
 "use client";
 
-import type { KeyboardEvent } from "react";
-import { Input } from "antd";
-import type { InputProps } from "antd";
-import { isDigitChar, normalizeJalaliDateInput } from "@/lib/amount";
+import { DatePicker } from "antd";
+import type { DatePickerProps } from "antd";
+import { normalizeJalaliDateInput } from "@/lib/amount";
+import { jalaliStringToDayjs } from "@/lib/jalali-date";
 import { cn } from "@/lib/cn";
 
-type Props = Omit<InputProps, "value" | "onChange" | "type" | "inputMode"> & {
+type Props = Omit<DatePickerProps, "value" | "onChange" | "picker" | "format"> & {
   value?: string;
   onChange?: (value: string) => void;
 };
 
-function allowControlKey(e: KeyboardEvent<HTMLInputElement>): boolean {
-  if (e.ctrlKey || e.metaKey || e.altKey) return true;
-  return [
-    "Backspace",
-    "Delete",
-    "Tab",
-    "Escape",
-    "Enter",
-    "ArrowLeft",
-    "ArrowRight",
-    "ArrowUp",
-    "ArrowDown",
-    "Home",
-    "End",
-    "/",
-  ].includes(e.key);
-}
-
 /**
- * Jalali date field (YYYY/MM/DD). Digits + `/` only; Persian/Arabic digits
- * are normalized to English so the value is always server-ready.
+ * Ant Design DatePicker with Jalali calendar (via antd-jalali-v5 provider).
+ * Emits YYYY/MM/DD with English digits for the API.
  */
 export function JalaliDateInput({
   value,
   onChange,
   className,
-  dir = "ltr",
   placeholder = "1405/04/25",
   ...rest
 }: Props) {
   return (
-    <Input
+    <DatePicker
       {...rest}
-      dir={dir}
+      className={cn("w-full", className)}
       placeholder={placeholder}
-      value={value ?? ""}
-      inputMode="numeric"
-      autoComplete="off"
-      className={cn("tabular-nums", className)}
-      onKeyDown={(e) => {
-        if (allowControlKey(e)) return;
-        if (e.key.length === 1 && !isDigitChar(e.key) && e.key !== "/") {
-          e.preventDefault();
-        }
-      }}
-      onBeforeInput={(e) => {
-        const data = (e as unknown as { data?: string | null }).data;
-        if (data && !/^[0-9۰-۹٠-٩/]+$/.test(data)) {
-          e.preventDefault();
-        }
-      }}
-      onPaste={(e) => {
-        e.preventDefault();
-        onChange?.(normalizeJalaliDateInput(e.clipboardData.getData("text")));
-      }}
-      onChange={(e) => onChange?.(normalizeJalaliDateInput(e.target.value))}
+      format="YYYY/MM/DD"
+      value={jalaliStringToDayjs(value)}
+      onChange={(_, dateString) =>
+        onChange?.(dateString ? normalizeJalaliDateInput(String(dateString)) : "")
+      }
     />
   );
 }
+
+/** Alias for clarity in new code. */
+export const JalaliDatePicker = JalaliDateInput;

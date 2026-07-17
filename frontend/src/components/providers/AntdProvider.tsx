@@ -3,6 +3,7 @@
 import { AntdRegistry } from "@ant-design/nextjs-registry";
 import { App, ConfigProvider, theme as antdTheme } from "antd";
 import faIR from "antd/locale/fa_IR";
+import JalaliProvider from "antd-jalali-v5";
 import { useThemeStore } from "@/stores/theme.store";
 
 const brand = {
@@ -60,9 +61,14 @@ export function AntdProvider({ children }: { children: React.ReactNode }) {
               controlHeight: 40,
               borderRadius: 12,
             },
+            DatePicker: {
+              controlHeight: 40,
+              borderRadius: 12,
+            },
           },
         }}
       >
+        <JalaliProvider />
         <App message={{ maxCount: 3 }} notification={{ placement: "topLeft" }}>
           {children}
         </App>
