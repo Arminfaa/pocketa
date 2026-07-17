@@ -45,8 +45,6 @@ Required env (see `backend/.env.example`):
 - `JWT_SECRET` / `REFRESH_TOKEN_SECRET`
 - `CORS_ORIGIN` (usually `http://localhost:3000`)
 
-Optional for production avatar upload: Cloudinary keys.
-
 ### 2. Frontend
 
 ```bash

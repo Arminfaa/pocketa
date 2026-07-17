@@ -119,7 +119,7 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
   const parsed = RegisterSchema.safeParse(req.body);
   if (!parsed.success) throw new AppError(400, "خطا در اعتبارسنجی داده‌ها", parsed.error.flatten());
 
-  const { name, email, password, avatar } = parsed.data;
+  const { name, email, password } = parsed.data;
 
   const existing = await UserModel.findOne({ email });
   if (existing) throw new AppError(409, "این ایمیل قبلا ثبت شده است");
@@ -129,7 +129,6 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
     name,
     email,
     password: passwordHash,
-    avatar: avatar ?? null,
   });
 
   // Seed default categories + primary bank account for this user.
@@ -182,7 +181,7 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
 
   setAuthCookies(res, accessToken, refreshToken, expiresAt);
 
-  const userSafe = { id: user._id, name: user.name, email: user.email, avatar: user.avatar ?? null };
+  const userSafe = { id: user._id, name: user.name, email: user.email };
   return sendSuccess(res, { user: userSafe }, "ورود با موفقیت انجام شد");
 });
 
@@ -213,11 +212,11 @@ export const me = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user?.userId;
   if (!userId) throw new AppError(401, "عدم دسترسی");
 
-  const user = await UserModel.findById(userId).select("name email avatar createdAt updatedAt");
+  const user = await UserModel.findById(userId).select("name email createdAt updatedAt");
   if (!user) throw new AppError(404, "کاربر یافت نشد");
 
   return sendSuccess(res, {
-    user: { id: user._id, name: user.name, email: user.email, avatar: user.avatar ?? null },
+    user: { id: user._id, name: user.name, email: user.email },
   });
 });
 

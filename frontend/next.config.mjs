@@ -23,14 +23,6 @@ const nextConfig = {
   turbopack: {
     root: import.meta.dirname,
   },
-  images: {
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "res.cloudinary.com",
-      },
-    ],
-  },
   async rewrites() {
     // Browser → same origin /api/* → Render. Makes auth cookies first-party
     // (required for mobile Safari / Chrome third-party cookie blocking).

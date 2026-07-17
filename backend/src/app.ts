@@ -1,4 +1,3 @@
-import path from "path";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -36,8 +35,6 @@ app.use(
 app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
 app.use(morgan("dev"));
-
-app.use("/uploads", express.static(path.resolve(process.cwd(), "uploads")));
 
 app.use("/api", routes);
 
