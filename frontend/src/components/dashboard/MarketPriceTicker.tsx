@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/cn";
 
@@ -95,7 +96,6 @@ function buildItems(market: MarketTickerData | undefined): TickerItem[] {
 }
 
 function TickerChip({ item }: { item: TickerItem }) {
-  // RTL: راست = نام، بعد قیمت بولد، بعد تومان
   return (
     <div className="market-ticker-chip" dir="rtl">
       <span className="market-ticker-label">{item.label}</span>
@@ -104,6 +104,8 @@ function TickerChip({ item }: { item: TickerItem }) {
     </div>
   );
 }
+
+type MenuBox = { top: number; left: number; width: number };
 
 type Props = {
   market?: MarketTickerData;
@@ -114,7 +116,64 @@ type Props = {
 
 export function MarketPriceTicker({ market, loading, errorMessage, className }: Props) {
   const items = buildItems(market);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuBox, setMenuBox] = useState<MenuBox | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useLayoutEffect(() => {
+    setMounted(true);
+    return () => {
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!menuOpen) {
+      setMenuBox(null);
+      return;
+    }
+
+    function updateBox() {
+      const el = rootRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      setMenuBox({
+        top: rect.bottom + 6,
+        left: rect.left,
+        width: Math.max(rect.width, 220),
+      });
+    }
+
+    updateBox();
+    window.addEventListener("resize", updateBox);
+    // capture scroll from nested overflow containers (dashboard Content)
+    window.addEventListener("scroll", updateBox, true);
+    return () => {
+      window.removeEventListener("resize", updateBox);
+      window.removeEventListener("scroll", updateBox, true);
+    };
+  }, [menuOpen]);
+
+  function clearCloseTimer() {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  }
+
+  function openMenu() {
+    clearCloseTimer();
+    setMenuOpen(true);
+  }
+
+  function scheduleClose() {
+    clearCloseTimer();
+    // small delay so pointer can move from strip → portaled menu
+    closeTimerRef.current = setTimeout(() => setMenuOpen(false), 120);
+  }
 
   if (loading) {
     return (
@@ -136,12 +195,44 @@ export function MarketPriceTicker({ market, loading, errorMessage, className }: 
 
   const loop = [...items, ...items];
 
+  const dropdown =
+    mounted && menuOpen && menuBox
+      ? createPortal(
+          <div
+            ref={menuRef}
+            className="market-ticker-dropdown"
+            role="list"
+            dir="rtl"
+            style={{
+              top: menuBox.top,
+              left: menuBox.left,
+              width: menuBox.width,
+            }}
+            onMouseEnter={openMenu}
+            onMouseLeave={scheduleClose}
+          >
+            {items.map((item) => (
+              <div key={item.id} className="market-ticker-dropdown-row" role="listitem">
+                <span className="market-ticker-label">{item.label}</span>
+                <span className="market-ticker-dropdown-price">
+                  <span className="market-ticker-value">{item.amount}</span>
+                  <span className="market-ticker-unit">{item.unit}</span>
+                </span>
+              </div>
+            ))}
+          </div>,
+          document.body
+        )
+      : null;
+
   return (
     <div
+      ref={rootRef}
       className={cn("market-ticker", menuOpen && "market-ticker--menu-open", className)}
       aria-label="قیمت طلا و ارز"
-      onMouseEnter={() => setMenuOpen(true)}
-      onMouseLeave={() => setMenuOpen(false)}
+      aria-expanded={menuOpen}
+      onMouseEnter={openMenu}
+      onMouseLeave={scheduleClose}
     >
       <div className="market-ticker-strip">
         <div className="market-ticker-fade market-ticker-fade--start" aria-hidden />
@@ -156,19 +247,7 @@ export function MarketPriceTicker({ market, loading, errorMessage, className }: 
         </div>
       </div>
 
-      {menuOpen ? (
-        <div className="market-ticker-dropdown" role="list" dir="rtl">
-          {items.map((item) => (
-            <div key={item.id} className="market-ticker-dropdown-row" role="listitem">
-              <span className="market-ticker-label">{item.label}</span>
-              <span className="market-ticker-dropdown-price">
-                <span className="market-ticker-value">{item.amount}</span>
-                <span className="market-ticker-unit">{item.unit}</span>
-              </span>
-            </div>
-          ))}
-        </div>
-      ) : null}
+      {dropdown}
     </div>
   );
 }

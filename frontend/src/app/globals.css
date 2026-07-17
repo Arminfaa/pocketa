@@ -192,7 +192,7 @@
   }
 
   .market-ticker-dropdown {
-    @apply absolute inset-x-0 top-full z-50 mt-1.5 max-h-[min(70vh,22rem)] overflow-y-auto rounded-2xl border border-app-border bg-app-card p-2 shadow-lg;
+    @apply fixed z-[1100] max-h-[min(70vh,22rem)] overflow-y-auto rounded-2xl border border-app-border bg-app-card p-2 shadow-lg;
   }
 
   .market-ticker-dropdown-row {
