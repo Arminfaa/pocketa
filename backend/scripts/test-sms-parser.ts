@@ -94,3 +94,18 @@ console.log("OK: card-to-card income when user is destination");
 const r5 = parseBankSmsText(cardFail, 1405, "acc1", { userName: "آرمین فاتحی" });
 if (r5.items.length !== 0) throw new Error(`failed status should skip, got ${r5.items.length}`);
 console.log("OK: unsuccessful card transfer skipped");
+
+const cardRial = `رسید کارت به کارت
+ وضعیت تراکنش: موفق
+ نام مقصد: لیلا پویانژاد
+ مبلغ: 10,000,000ریال
+نام مبدا: آرمین فاتحی
+تاریخ و ساعت: 00:11:54 1405/04/27`;
+const r6 = parseBankSmsText(cardRial, 1405, "acc1", { userName: "آرمین فاتحی" });
+if (r6.items[0]?.amount !== 1_000_000) {
+  throw new Error(`card rial: expected 1e6 toman after ÷10, got ${r6.items[0]?.amount}`);
+}
+if (r6.items[0]?.amountRial !== 10_000_000) {
+  throw new Error(`card rial: expected amountRial 1e7, got ${r6.items[0]?.amountRial}`);
+}
+console.log("OK: card-to-card rial amount converted to toman");
