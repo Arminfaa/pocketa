@@ -50,6 +50,7 @@ export type TransactionFormValues = {
   linkToRecurring?: boolean;
   settleRecurringId?: string;
   settleMode?: "full" | "partial";
+  remainderDueDate?: string;
 };
 
 type Category = { _id: string; name: string; type: "income" | "expense"; color?: string };
@@ -68,6 +69,7 @@ type SubmitValues = {
   debtDueDate?: string | null;
   settleRecurringId?: string | null;
   settleMode?: "full" | "partial" | null;
+  remainderDueDate?: string | null;
 };
 
 type Props = {
@@ -164,6 +166,7 @@ export function TransactionFormModal({
         linkToRecurring: false,
         settleRecurringId: undefined,
         settleMode: "full",
+        remainderDueDate: "",
       });
       setTags(initial.tags ?? []);
     } else {
@@ -180,6 +183,7 @@ export function TransactionFormModal({
         linkToRecurring: false,
         settleRecurringId: undefined,
         settleMode: "full",
+        remainderDueDate: "",
       });
       setTags([]);
     }
@@ -274,6 +278,12 @@ export function TransactionFormModal({
         ]);
         return;
       }
+      if (!values.remainderDueDate?.trim()) {
+        form.setFields([
+          { name: "remainderDueDate", errors: ["تاریخ تسویه مانده را وارد کنید"] },
+        ]);
+        return;
+      }
     }
 
     await onSubmit({
@@ -290,6 +300,10 @@ export function TransactionFormModal({
       debtDueDate: asDebt ? normalizeJalaliDateInput(values.debtDueDate!) : undefined,
       settleRecurringId: asSettle ? values.settleRecurringId : undefined,
       settleMode: asSettle ? values.settleMode ?? "full" : undefined,
+      remainderDueDate:
+        asSettle && values.settleMode === "partial"
+          ? normalizeJalaliDateInput(values.remainderDueDate!)
+          : undefined,
     });
   }
 
@@ -442,6 +456,22 @@ export function TransactionFormModal({
                   ? " مبلغ فعلی یکی نیست."
                   : ""}
               </Typography.Paragraph>
+            ) : null}
+
+            {settleMode === "partial" ? (
+              <Form.Item
+                name="remainderDueDate"
+                label="تاریخ تسویه مانده"
+                rules={[
+                  { required: true, message: "تاریخ تسویه مانده را وارد کنید" },
+                  {
+                    pattern: /^\d{4}\/\d{1,2}\/\d{1,2}$/,
+                    message: "تاریخ باید به صورت 1405/01/01 باشد",
+                  },
+                ]}
+              >
+                <JalaliDateInput placeholder="1405/05/01" />
+              </Form.Item>
             ) : null}
           </>
         ) : null}

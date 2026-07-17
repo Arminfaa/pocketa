@@ -57,6 +57,8 @@ export type TransactionInput = {
   /** تسویه سررسید موجود */
   settleRecurringId?: string | null;
   settleMode?: "full" | "partial" | null;
+  /** تاریخ تسویه مانده (برای پرداخت جزئی) */
+  remainderDueDate?: string | null;
 };
 
 export type TransactionsListResponse = {
