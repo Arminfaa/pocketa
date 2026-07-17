@@ -19,6 +19,13 @@ export function formatToman(amount: number): string {
   return `${new Intl.NumberFormat("fa-IR").format(Math.round(amount))} تومان`;
 }
 
+export function formatUsd(amount: number, fractionDigits = 2): string {
+  return `${new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  }).format(amount)} $`;
+}
+
 export function formatJalaliDate(jalaliDate: string): string {
   // Keep YYYY/MM/DD format but convert digits for display.
   return jalaliDate

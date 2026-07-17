@@ -29,6 +29,9 @@ const EnvSchema = z.object({
   VAPID_PUBLIC_KEY: z.string().optional().default(""),
   VAPID_PRIVATE_KEY: z.string().optional().default(""),
   VAPID_SUBJECT: z.string().optional().default("mailto:admin@pocketa.local"),
+
+  // GoldAPI — https://www.goldapi.io
+  GOLD_API_KEY: z.string().optional().default(""),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
