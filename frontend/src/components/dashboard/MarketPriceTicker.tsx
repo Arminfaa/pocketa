@@ -26,9 +26,7 @@ export type MarketTickerData = {
 type TickerItem = {
   id: string;
   label: string;
-  /** Amount number for display (bold) */
   amount: string;
-  /** Unit suffix in small font — e.g. تومان */
   unit: string;
 };
 
@@ -106,6 +104,14 @@ function TickerChip({ item }: { item: TickerItem }) {
   );
 }
 
+/** Keep scroll inside the first half of a duplicated track for seamless looping. */
+function normalizeLoopScroll(el: HTMLDivElement) {
+  const half = el.scrollWidth / 2;
+  if (half <= 0) return;
+  while (el.scrollLeft >= half) el.scrollLeft -= half;
+  while (el.scrollLeft < 0) el.scrollLeft += half;
+}
+
 type Props = {
   market?: MarketTickerData;
   loading?: boolean;
@@ -118,7 +124,11 @@ export function MarketPriceTicker({ market, loading, errorMessage, className }: 
   const viewportRef = useRef<HTMLDivElement>(null);
   const pausedRef = useRef(false);
   const [paused, setPaused] = useState(false);
-  pausedRef.current = paused;
+
+  function setPausedState(next: boolean) {
+    pausedRef.current = next;
+    setPaused(next);
+  }
 
   useEffect(() => {
     const el = viewportRef.current;
@@ -126,20 +136,18 @@ export function MarketPriceTicker({ market, loading, errorMessage, className }: 
 
     let frame = 0;
     let last = performance.now();
-    const speed = 32;
+    const speed = 36; // px / sec
 
     const step = (now: number) => {
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
 
       if (!pausedRef.current) {
-        const maxScroll = el.scrollWidth - el.clientWidth;
-        if (maxScroll > 4) {
-          if (el.scrollLeft >= maxScroll - 1) {
-            el.scrollLeft = 0;
-          } else {
-            el.scrollLeft += speed * dt;
-          }
+        const half = el.scrollWidth / 2;
+        // Only auto-scroll when content overflows (one set wider than viewport)
+        if (half > el.clientWidth + 4) {
+          el.scrollLeft += speed * dt;
+          normalizeLoopScroll(el);
         }
       }
 
@@ -147,13 +155,21 @@ export function MarketPriceTicker({ market, loading, errorMessage, className }: 
     };
 
     frame = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(frame);
-  }, [items.length, loading]);
 
-  function setPausedState(next: boolean) {
-    pausedRef.current = next;
-    setPaused(next);
-  }
+    const onWheel = (e: WheelEvent) => {
+      if (!pausedRef.current) return;
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+      e.preventDefault();
+      el.scrollLeft += e.deltaY;
+      normalizeLoopScroll(el);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+
+    return () => {
+      cancelAnimationFrame(frame);
+      el.removeEventListener("wheel", onWheel);
+    };
+  }, [items.length, loading]);
 
   if (loading) {
     return (
@@ -173,6 +189,7 @@ export function MarketPriceTicker({ market, loading, errorMessage, className }: 
     );
   }
 
+  // Two copies → seamless infinite loop via half-width wrap
   const loop = [...items, ...items];
 
   return (
@@ -180,14 +197,18 @@ export function MarketPriceTicker({ market, loading, errorMessage, className }: 
       className={cn("market-ticker", paused && "market-ticker--paused", className)}
       aria-label="قیمت طلا و ارز"
       onMouseEnter={() => setPausedState(true)}
-      onMouseLeave={() => setPausedState(false)}
-      onTouchStart={() => setPausedState(true)}
-      onFocusCapture={() => setPausedState(true)}
-      onBlurCapture={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
-          setPausedState(false);
-        }
+      onMouseLeave={() => {
+        const el = viewportRef.current;
+        if (el) normalizeLoopScroll(el);
+        setPausedState(false);
       }}
+      onTouchStart={() => setPausedState(true)}
+      onTouchEnd={() => {
+        const el = viewportRef.current;
+        if (el) normalizeLoopScroll(el);
+        setPausedState(false);
+      }}
+      onTouchCancel={() => setPausedState(false)}
     >
       <div className="market-ticker-fade market-ticker-fade--start" aria-hidden />
       <div className="market-ticker-fade market-ticker-fade--end" aria-hidden />
@@ -196,11 +217,9 @@ export function MarketPriceTicker({ market, loading, errorMessage, className }: 
         ref={viewportRef}
         className="market-ticker-viewport"
         dir="ltr"
-        onWheel={(e) => {
-          if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-            e.currentTarget.scrollLeft += e.deltaY;
-          }
-          setPausedState(true);
+        onScroll={() => {
+          const el = viewportRef.current;
+          if (el && pausedRef.current) normalizeLoopScroll(el);
         }}
       >
         <div className="market-ticker-track">
