@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/cn";
 
@@ -105,11 +105,15 @@ function TickerChip({ item }: { item: TickerItem }) {
   );
 }
 
-function normalizeOffset(offset: number, half: number): number {
-  if (half <= 0) return 0;
-  let x = offset % half;
-  if (x < 0) x += half;
-  return x;
+function readTranslateX(el: HTMLElement): number {
+  const t = getComputedStyle(el).transform;
+  if (!t || t === "none") return 0;
+  try {
+    const matrix = new DOMMatrixReadOnly(t);
+    return matrix.m41;
+  } catch {
+    return 0;
+  }
 }
 
 type Props = {
@@ -122,87 +126,60 @@ type Props = {
 export function MarketPriceTicker({ market, loading, errorMessage, className }: Props) {
   const items = buildItems(market);
   const trackRef = useRef<HTMLDivElement>(null);
-  const offsetRef = useRef(0);
-  const pausedRef = useRef(false);
   const draggingRef = useRef(false);
   const dragStartXRef = useRef(0);
   const dragStartOffsetRef = useRef(0);
-  const [paused, setPaused] = useState(false);
+  const [dragging, setDragging] = useState(false);
 
-  function setPausedState(next: boolean) {
-    pausedRef.current = next;
-    setPaused(next);
-  }
-
-  function applyTransform() {
+  function clearManualTransform() {
     const track = trackRef.current;
     if (!track) return;
-    const half = track.scrollWidth / 2;
-    offsetRef.current = normalizeOffset(offsetRef.current, half || 1);
-    // حرکت به سمت راست (مناسب RTL): آیتم‌های جدید از چپ وارد می‌شوند
-    track.style.transform = `translate3d(${offsetRef.current}px, 0, 0)`;
+    track.style.animation = "";
+    track.style.transform = "";
   }
 
-  useEffect(() => {
-    const track = trackRef.current;
-    if (!track || items.length === 0 || loading) return;
-
-    let frame = 0;
-    let last = performance.now();
-    const speed = 42; // px / sec
-    const reduceMotion =
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    const step = (now: number) => {
-      const dt = Math.min(0.05, (now - last) / 1000);
-      last = now;
-
-      if (!reduceMotion && !pausedRef.current && !draggingRef.current) {
-        offsetRef.current += speed * dt;
-        applyTransform();
-      }
-
-      frame = requestAnimationFrame(step);
-    };
-
-    // Wait one frame so duplicated track has layout width
-    frame = requestAnimationFrame(() => {
-      applyTransform();
-      frame = requestAnimationFrame(step);
-    });
-
-    const onResize = () => applyTransform();
-    window.addEventListener("resize", onResize);
-
-    return () => {
-      cancelAnimationFrame(frame);
-      window.removeEventListener("resize", onResize);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- applyTransform reads refs
-  }, [items.length, loading]);
-
   function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
-    setPausedState(true);
+    const track = trackRef.current;
+    if (!track) return;
+
     draggingRef.current = true;
+    setDragging(true);
+
+    // Freeze current animated position, then take over with manual transform
+    const currentX = readTranslateX(track);
+    track.style.animation = "none";
+    track.style.transform = `translate3d(${currentX}px, 0, 0)`;
+
     dragStartXRef.current = e.clientX;
-    dragStartOffsetRef.current = offsetRef.current;
+    dragStartOffsetRef.current = currentX;
     e.currentTarget.setPointerCapture(e.pointerId);
   }
 
   function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
     if (!draggingRef.current) return;
-    const dx = e.clientX - dragStartXRef.current;
-    offsetRef.current = dragStartOffsetRef.current + dx;
-    applyTransform();
+    const track = trackRef.current;
+    if (!track) return;
+
+    const half = track.scrollWidth / 2 || 1;
+    let next = dragStartOffsetRef.current + (e.clientX - dragStartXRef.current);
+    next = ((next % half) + half) % half;
+    track.style.transform = `translate3d(${next}px, 0, 0)`;
   }
 
-  function onPointerUp(e: React.PointerEvent<HTMLDivElement>) {
+  function endDrag(e: React.PointerEvent<HTMLDivElement>) {
+    if (!draggingRef.current) return;
     draggingRef.current = false;
+    setDragging(false);
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
     } catch {
       // ignore
+    }
+    // If pointer left the ticker, CSS :hover is gone → resume animation from start of loop
+    // If still hovering, keep frozen (animation stays none until mouseleave)
+    const root = e.currentTarget.closest(".market-ticker");
+    if (!root?.matches(":hover")) {
+      clearManualTransform();
     }
   }
 
@@ -228,13 +205,13 @@ export function MarketPriceTicker({ market, loading, errorMessage, className }: 
 
   return (
     <div
-      className={cn("market-ticker", paused && "market-ticker--paused", className)}
+      className={cn("market-ticker", dragging && "market-ticker--dragging", className)}
       aria-label="قیمت طلا و ارز"
-      onMouseEnter={() => setPausedState(true)}
       onMouseLeave={() => {
         draggingRef.current = false;
-        applyTransform();
-        setPausedState(false);
+        setDragging(false);
+        // Leaving hover must always restart CSS infinite animation
+        clearManualTransform();
       }}
     >
       <div className="market-ticker-fade market-ticker-fade--start" aria-hidden />
@@ -244,8 +221,8 @@ export function MarketPriceTicker({ market, loading, errorMessage, className }: 
         className="market-ticker-viewport"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
       >
         <div ref={trackRef} className="market-ticker-track" dir="ltr">
           {loop.map((item, i) => (
