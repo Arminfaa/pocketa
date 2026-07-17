@@ -13,6 +13,11 @@ async function start() {
   startReminderCron();
   startMarketPricesCron();
 
+  // eslint-disable-next-line no-console
+  console.log(
+    `[market] keys configured: gold=${Boolean(env.GOLD_API_KEY?.trim())} navasan=${Boolean(env.NAVASAN_API_KEY?.trim())}`
+  );
+
   // Bootstrap snapshots if missing (does not re-hit APIs when today's cache exists)
   void Promise.all([
     refreshGoldIfNeeded(),
