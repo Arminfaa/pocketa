@@ -1,7 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Button, Col, Flex, Form, Grid, Input, Row, Select, Typography } from "antd";
+import {
+  Button,
+  Checkbox,
+  Col,
+  Flex,
+  Form,
+  Grid,
+  Input,
+  Row,
+  Select,
+  Typography,
+} from "antd";
 import { BulbOutlined } from "@ant-design/icons";
 import type { Transaction } from "@/types/transaction";
 import type { BankAccount } from "@/types/account";
@@ -30,6 +41,8 @@ export type TransactionFormValues = {
   title: string;
   description?: string;
   date: string;
+  registerAsDebt?: boolean;
+  debtDueDate?: string;
 };
 
 type Category = { _id: string; name: string; type: "income" | "expense"; color?: string };
@@ -47,6 +60,8 @@ type Props = {
     date: string;
     needsReview?: boolean;
     tags?: string[];
+    registerAsDebt?: boolean;
+    debtDueDate?: string | null;
   }) => Promise<void>;
   accounts: BankAccount[];
   categories: Category[];
@@ -67,6 +82,7 @@ export function TransactionFormModal({
 }: Props) {
   const screens = Grid.useBreakpoint();
   const modalWidth = screens.sm ? 640 : "calc(100vw - 24px)";
+  const isCreate = !initial;
 
   const [form] = Form.useForm<TransactionFormValues>();
   const [tags, setTags] = useState<string[]>([]);
@@ -75,6 +91,7 @@ export function TransactionFormModal({
 
   const type = Form.useWatch("type", form) ?? "expense";
   const title = Form.useWatch("title", form) ?? "";
+  const registerAsDebt = Form.useWatch("registerAsDebt", form) ?? false;
 
   const filteredCategories = useMemo(
     () => categories.filter((c) => c.type === type),
@@ -92,6 +109,8 @@ export function TransactionFormModal({
         title: initial.title,
         description: initial.description ?? "",
         date: initial.date,
+        registerAsDebt: false,
+        debtDueDate: undefined,
       });
       setTags(initial.tags ?? []);
     } else {
@@ -103,6 +122,8 @@ export function TransactionFormModal({
         title: "",
         description: "",
         date: getTodayJalali(),
+        registerAsDebt: false,
+        debtDueDate: "",
       });
       setTags([]);
     }
@@ -115,6 +136,14 @@ export function TransactionFormModal({
       form.setFieldValue("categoryId", "");
     }
   }, [type, filteredCategories, form]);
+
+  useEffect(() => {
+    if (!isCreate || !registerAsDebt) return;
+    if (type !== "income") {
+      form.setFieldValue("type", "income");
+      form.setFieldValue("categoryId", "");
+    }
+  }, [registerAsDebt, isCreate, type, form]);
 
   async function applySuggestion() {
     const t = title.trim();
@@ -139,8 +168,13 @@ export function TransactionFormModal({
       form.setFields([{ name: "amount", errors: ["مبلغ معتبر نیست"] }]);
       return;
     }
+    const asDebt = Boolean(isCreate && values.registerAsDebt);
+    if (asDebt && !values.debtDueDate?.trim()) {
+      form.setFields([{ name: "debtDueDate", errors: ["تاریخ پس دادن را وارد کنید"] }]);
+      return;
+    }
     await onSubmit({
-      type: values.type,
+      type: asDebt ? "income" : values.type,
       amount,
       categoryId: values.categoryId,
       accountId: values.accountId,
@@ -149,6 +183,8 @@ export function TransactionFormModal({
       date: normalizeJalaliDateInput(values.date),
       needsReview: false,
       tags,
+      registerAsDebt: asDebt,
+      debtDueDate: asDebt ? normalizeJalaliDateInput(values.debtDueDate!) : undefined,
     });
   }
 
@@ -170,15 +206,36 @@ export function TransactionFormModal({
             onClick={() => form.submit()}
             className="min-w-[120px]"
           >
-            {submitting ? "در حال ذخیره..." : initial ? "ذخیره تغییرات" : "ثبت تراکنش"}
+            {submitting
+              ? "در حال ذخیره..."
+              : initial
+                ? "ذخیره تغییرات"
+                : registerAsDebt
+                  ? "ثبت درآمد و بدهی"
+                  : "ثبت تراکنش"}
           </Button>
         </Flex>
       }
     >
       <Form form={form} layout="vertical" onFinish={handleFinish} requiredMark={false}>
         <Form.Item name="type" rules={[{ required: true, message: "نوع را انتخاب کنید" }]}>
-          <FinanceTypeToggle />
+          <FinanceTypeToggle disabled={registerAsDebt} />
         </Form.Item>
+
+        {isCreate ? (
+          <Form.Item name="registerAsDebt" valuePropName="checked" className="!mb-3">
+            <Checkbox>
+              ثبت به‌عنوان بدهی (تراکنش مثبت + سررسید بازپرداخت)
+            </Checkbox>
+          </Form.Item>
+        ) : null}
+
+        {isCreate && registerAsDebt ? (
+          <Typography.Paragraph type="secondary" className="!mt-0 !mb-4 text-xs">
+            مبلغ به‌صورت درآمد ثبت می‌شود و همان مبلغ در «جریان دوره‌ای / سررسید‌ها» به‌عنوان بدهی
+            یک‌باره با تاریخ پس دادن ذخیره می‌شود.
+          </Typography.Paragraph>
+        ) : null}
 
         <Form.Item
           name="title"
@@ -217,6 +274,22 @@ export function TransactionFormModal({
             </Form.Item>
           </Col>
         </Row>
+
+        {isCreate && registerAsDebt ? (
+          <Form.Item
+            name="debtDueDate"
+            label="تاریخ پس دادن بدهی"
+            rules={[
+              { required: true, message: "تاریخ پس دادن را وارد کنید" },
+              {
+                pattern: /^\d{4}\/\d{1,2}\/\d{1,2}$/,
+                message: "تاریخ باید به صورت 1405/01/01 باشد",
+              },
+            ]}
+          >
+            <JalaliDateInput placeholder="1405/05/01" />
+          </Form.Item>
+        ) : null}
 
         <Row gutter={[12, 0]}>
           <Col xs={24} sm={12}>

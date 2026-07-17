@@ -13,6 +13,8 @@ import {
 } from "../validations/transactions";
 import { normalizeJalaliDate, toEnglishDigits } from "../utils/normalizeDigits";
 import { ensureDefaultAccount } from "../services/account.service";
+import { ensureDebtExpenseCategory } from "../services/debt-category.service";
+import { RecurringTransactionModel } from "../models/RecurringTransaction";
 import mongoose from "mongoose";
 
 function safeSort(sortBy: string | null | undefined) {
@@ -87,7 +89,20 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
   const parsed = TransactionCreateSchema.safeParse(req.body);
   if (!parsed.success) throw new AppError(400, "خطا در اعتبارسنجی داده‌ها", parsed.error.flatten());
 
-  const { type, amount, categoryId, accountId, title, description, date, tags } = parsed.data;
+  const {
+    amount,
+    categoryId,
+    accountId,
+    title,
+    description,
+    date,
+    tags,
+    registerAsDebt,
+    debtDueDate,
+  } = parsed.data;
+
+  // بدهی یک‌باره: تراکنش مثبت (درآمد) + سررسید بازپرداخت در جریان دوره‌ای
+  const type = registerAsDebt ? "income" : parsed.data.type;
 
   const [category, account] = await Promise.all([
     CategoryModel.findOne({ _id: categoryId, userId }),
@@ -96,6 +111,9 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
 
   if (!category) throw new AppError(404, "دسته‌بندی یافت نشد");
   if (!account) throw new AppError(404, "حساب بانکی یافت نشد");
+  if (category.type !== type) {
+    throw new AppError(400, "نوع دسته با نوع تراکنش همخوانی ندارد");
+  }
 
   const normalizedDate = normalizeJalaliDate(date);
 
@@ -113,7 +131,33 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
     needsReview: false,
   });
 
-  return sendSuccess(res, { item: tx }, "تراکنش ایجاد شد", 201);
+  let debt = null;
+  if (registerAsDebt && debtDueDate) {
+    const debtCategory = await ensureDebtExpenseCategory(userId);
+    const dueDate = normalizeJalaliDate(debtDueDate);
+    debt = await RecurringTransactionModel.create({
+      userId,
+      title,
+      amount,
+      baseAmount: amount,
+      type: "expense",
+      kind: "one_time",
+      categoryId: debtCategory._id,
+      notes: `ثبت از تراکنش مثبت (${normalizedDate})`,
+      active: true,
+      paymentsMade: 0,
+      reminderHour: 20,
+      reminderSentKeys: [],
+      nextPaymentDate: dueDate,
+    });
+  }
+
+  return sendSuccess(
+    res,
+    { item: tx, debt },
+    debt ? "تراکنش مثبت و بدهی یک‌باره ثبت شد" : "تراکنش ایجاد شد",
+    201
+  );
 });
 
 export const update = asyncHandler(async (req: Request, res: Response) => {
