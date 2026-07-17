@@ -72,7 +72,7 @@ export const monthly = asyncHandler(async (req: Request, res: Response) => {
   await assertAccountOwned(userId, accountId);
 
   const monthsCount = Number(req.query.months ?? 6);
-  const n = Number.isFinite(monthsCount) ? Math.max(3, Math.min(12, monthsCount)) : 6;
+  const n = Number.isFinite(monthsCount) ? Math.max(1, Math.min(12, monthsCount)) : 6;
 
   const current = currentJalaliMonthYear();
   const months: { year: number; month: number }[] = [];

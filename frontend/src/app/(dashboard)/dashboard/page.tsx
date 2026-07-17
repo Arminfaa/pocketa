@@ -8,8 +8,7 @@ import { BellOutlined } from "@ant-design/icons";
 import { Skeleton } from "@/components/ui/skeleton";
 import { QueryError } from "@/components/ui/query-error";
 import { MarketPriceTicker } from "@/components/dashboard/MarketPriceTicker";
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from "recharts";
-import { BarChart, Bar, Legend } from "recharts";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { enablePushNotifications, fetchPushStatus } from "@/lib/push";
 
@@ -72,15 +71,6 @@ export default function DashboardPage() {
     },
     staleTime: 5 * 60_000,
     retry: 1,
-  });
-
-  const monthlyQ = useQuery({
-    queryKey: ["reports-monthly", selectedAccountId],
-    queryFn: async () => {
-      const qs = new URLSearchParams({ months: "6" });
-      if (selectedAccountId) qs.set("accountId", selectedAccountId);
-      return (await api.get(`/api/reports/monthly?${qs.toString()}`)).data.data;
-    },
   });
 
   const categoriesQ = useQuery({
@@ -206,31 +196,25 @@ export default function DashboardPage() {
 
           <Row gutter={[16, 16]}>
             <Col xs={24} lg={12}>
-              <Card title="نمودار درآمد و هزینه (۶ ماه اخیر)">
-                {monthlyQ.isLoading ? (
-                  <Skeleton className="h-[260px] w-full" />
-                ) : monthlyQ.data ? (
+              <Card title="نمودار درآمد و هزینه (این ماه)">
+                {dashboard ? (
                   <ResponsiveContainer width="100%" height={isMobile ? 300 : 260}>
-                    <LineChart
-                      data={monthlyQ.data.labels.map((label: string, i: number) => ({
-                        label,
-                        income: monthlyQ.data.income[i],
-                        expense: monthlyQ.data.expense[i],
-                      }))}
+                    <BarChart
+                      data={[
+                        {
+                          name: "این ماه",
+                          income: dashboard.totals.incomeThisMonth,
+                          expense: dashboard.totals.expenseThisMonth,
+                        },
+                      ]}
                     >
-                      <XAxis
-                        dataKey="label"
-                        angle={isMobile ? -35 : 0}
-                        textAnchor={isMobile ? "end" : "middle"}
-                        height={isMobile ? 60 : 30}
-                        tick={{ fontSize: isMobile ? 10 : 12 }}
-                      />
-                      <YAxis tick={{ fontSize: isMobile ? 10 : 12 }} />
-                      <Tooltip />
+                      <XAxis dataKey="name" tick={{ fontSize: isMobile ? 10 : 12 }} />
+                      <YAxis tick={{ fontSize: isMobile ? 10 : 12 }} width={70} />
+                      <Tooltip formatter={(value) => formatToman(Number(value ?? 0))} />
                       <Legend />
-                      <Line type="monotone" dataKey="income" stroke="#10b981" name="درآمد" />
-                      <Line type="monotone" dataKey="expense" stroke="#ef4444" name="هزینه" />
-                    </LineChart>
+                      <Bar dataKey="income" fill="#10b981" name="درآمد" radius={[8, 8, 0, 0]} />
+                      <Bar dataKey="expense" fill="#ef4444" name="هزینه" radius={[8, 8, 0, 0]} />
+                    </BarChart>
                   </ResponsiveContainer>
                 ) : (
                   <Text type="secondary">اطلاعات کافی نیست.</Text>
@@ -257,10 +241,10 @@ export default function DashboardPage() {
                         height={isMobile ? 60 : 30}
                         tick={{ fontSize: isMobile ? 10 : 12 }}
                       />
-                      <YAxis tick={{ fontSize: isMobile ? 10 : 12 }} />
-                      <Tooltip />
+                      <YAxis tick={{ fontSize: isMobile ? 10 : 12 }} width={70} />
+                      <Tooltip formatter={(value) => formatToman(Number(value ?? 0))} />
                       <Legend />
-                      <Bar dataKey="amount" fill="#ef4444" name="مبلغ" />
+                      <Bar dataKey="amount" fill="#ef4444" name="مبلغ" radius={[8, 8, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (

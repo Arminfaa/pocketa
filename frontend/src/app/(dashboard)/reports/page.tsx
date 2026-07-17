@@ -9,6 +9,7 @@ import {
   Grid,
   Input,
   Row,
+  Segmented,
   Select,
   Space,
   Statistic,
@@ -42,11 +43,14 @@ const { Title, Text } = Typography;
 
 const PIE_FALLBACK = ["#06b6d4", "#8b5cf6", "#f59e0b", "#ef4444", "#22c55e", "#3b82f6", "#ec4899"];
 
+type ReportMode = "range" | "monthly";
+
 export default function ReportsPage() {
   const screens = Grid.useBreakpoint();
   const isMobile = !screens.md;
   const selectedAccountId = useAccountFilterStore((s) => s.selectedAccountId);
   const current = getJalaliMonthYear();
+  const [mode, setMode] = useState<ReportMode>("monthly");
   const [months, setMonths] = useState(6);
   const [month, setMonth] = useState(current.month);
   const [year, setYear] = useState(current.year);
@@ -54,12 +58,14 @@ export default function ReportsPage() {
   const monthlyQ = useQuery({
     queryKey: ["reports-monthly", selectedAccountId, months],
     queryFn: () => fetchMonthlyReport({ months, accountId: selectedAccountId }),
+    enabled: mode === "range",
   });
 
   const categoriesQ = useQuery({
     queryKey: ["reports-categories", selectedAccountId, month, year],
     queryFn: () =>
       fetchCategoryReport({ month, year, accountId: selectedAccountId }),
+    enabled: mode === "monthly",
   });
 
   const monthlyChart = useMemo(() => {
@@ -73,6 +79,17 @@ export default function ReportsPage() {
     }));
   }, [monthlyQ.data]);
 
+  const singleMonthBar = useMemo(() => {
+    if (!categoriesQ.data) return [];
+    return [
+      {
+        name: `${MONTH_LABELS[month - 1]} ${year}`,
+        income: categoriesQ.data.incomeTotal ?? 0,
+        expense: categoriesQ.data.expenseTotal ?? 0,
+      },
+    ];
+  }, [categoriesQ.data, month, year]);
+
   const expensePie = useMemo(() => {
     return (categoriesQ.data?.expense ?? []).map((c, i) => ({
       name: c.name,
@@ -80,6 +97,32 @@ export default function ReportsPage() {
       color: c.color || PIE_FALLBACK[i % PIE_FALLBACK.length],
     }));
   }, [categoriesQ.data]);
+
+  const monthPicker = (
+    <Row gutter={[12, 12]}>
+      <Col xs={24} sm={12}>
+        <Text type="secondary">ماه</Text>
+        <Select
+          className="w-full mt-2"
+          value={month}
+          onChange={setMonth}
+          options={MONTH_LABELS.map((label, idx) => ({
+            value: idx + 1,
+            label,
+          }))}
+        />
+      </Col>
+      <Col xs={24} sm={12}>
+        <Text type="secondary">سال</Text>
+        <Input
+          className="mt-2"
+          dir="ltr"
+          value={year}
+          onChange={(e) => setYear(Number(e.target.value) || current.year)}
+        />
+      </Col>
+    </Row>
+  );
 
   return (
     <Space orientation="vertical" size="large" className="w-full">
@@ -94,32 +137,52 @@ export default function ReportsPage() {
         </Text>
       </div>
 
+      <Segmented
+        block
+        value={mode}
+        onChange={(v) => setMode(v as ReportMode)}
+        options={[
+          { value: "monthly", label: "گزارش ماهانه" },
+          { value: "range", label: "روند چندماهه" },
+        ]}
+      />
+
+      {mode === "monthly" ? monthPicker : null}
+
       <Row gutter={[12, 12]}>
         <Col xs={24} md={8}>
           <Card>
             <Statistic
-              title="مجموع درآمد بازه"
+              title={mode === "monthly" ? "درآمد ماه" : "مجموع درآمد بازه"}
               value={
-                monthlyQ.isLoading
-                  ? "—"
-                  : formatToman(monthlyQ.data?.summary.totalIncome ?? 0)
+                mode === "monthly"
+                  ? categoriesQ.isLoading
+                    ? "—"
+                    : formatToman(categoriesQ.data?.incomeTotal ?? 0)
+                  : monthlyQ.isLoading
+                    ? "—"
+                    : formatToman(monthlyQ.data?.summary.totalIncome ?? 0)
               }
               className="[&_.ant-statistic-content-value]:text-emerald-500 [&_.ant-statistic-content-value]:text-xl"
-              loading={monthlyQ.isLoading}
+              loading={mode === "monthly" ? categoriesQ.isLoading : monthlyQ.isLoading}
             />
           </Card>
         </Col>
         <Col xs={24} md={8}>
           <Card>
             <Statistic
-              title="مجموع هزینه بازه"
+              title={mode === "monthly" ? "هزینه ماه" : "مجموع هزینه بازه"}
               value={
-                monthlyQ.isLoading
-                  ? "—"
-                  : formatToman(monthlyQ.data?.summary.totalExpense ?? 0)
+                mode === "monthly"
+                  ? categoriesQ.isLoading
+                    ? "—"
+                    : formatToman(categoriesQ.data?.expenseTotal ?? 0)
+                  : monthlyQ.isLoading
+                    ? "—"
+                    : formatToman(monthlyQ.data?.summary.totalExpense ?? 0)
               }
               className="[&_.ant-statistic-content-value]:text-red-500 [&_.ant-statistic-content-value]:text-xl"
-              loading={monthlyQ.isLoading}
+              loading={mode === "monthly" ? categoriesQ.isLoading : monthlyQ.isLoading}
             />
           </Card>
         </Col>
@@ -128,194 +191,238 @@ export default function ReportsPage() {
             <Statistic
               title="خالص"
               value={
-                monthlyQ.isLoading ? "—" : formatToman(monthlyQ.data?.summary.totalNet ?? 0)
+                mode === "monthly"
+                  ? categoriesQ.isLoading
+                    ? "—"
+                    : formatToman(
+                        (categoriesQ.data?.incomeTotal ?? 0) -
+                          (categoriesQ.data?.expenseTotal ?? 0)
+                      )
+                  : monthlyQ.isLoading
+                    ? "—"
+                    : formatToman(monthlyQ.data?.summary.totalNet ?? 0)
               }
               className="[&_.ant-statistic-content-value]:text-brand-500 [&_.ant-statistic-content-value]:text-xl"
-              loading={monthlyQ.isLoading}
+              loading={mode === "monthly" ? categoriesQ.isLoading : monthlyQ.isLoading}
             />
           </Card>
         </Col>
       </Row>
 
-      <Card
-        title="روند ماهانه درآمد و هزینه"
-        className={isMobile ? CARD_EXTRA_STACK : undefined}
-        extra={
-          !isMobile ? (
+      {mode === "range" ? (
+        <Card
+          title="روند ماهانه درآمد و هزینه"
+          className={isMobile ? CARD_EXTRA_STACK : undefined}
+          extra={
+            !isMobile ? (
+              <Select
+                value={months}
+                onChange={setMonths}
+                className="w-[120px]"
+                options={[
+                  { value: 3, label: "۳ ماه" },
+                  { value: 6, label: "۶ ماه" },
+                  { value: 12, label: "۱۲ ماه" },
+                ]}
+              />
+            ) : undefined
+          }
+        >
+          {isMobile ? (
             <Select
               value={months}
               onChange={setMonths}
-              className="w-[120px]"
+              className="w-full mb-3"
               options={[
                 { value: 3, label: "۳ ماه" },
                 { value: 6, label: "۶ ماه" },
                 { value: 12, label: "۱۲ ماه" },
               ]}
             />
-          ) : undefined
-        }
-      >
-        {isMobile ? (
-          <Select
-            value={months}
-            onChange={setMonths}
-            className="w-full mb-3"
-            options={[
-              { value: 3, label: "۳ ماه" },
-              { value: 6, label: "۶ ماه" },
-              { value: 12, label: "۱۲ ماه" },
-            ]}
-          />
-        ) : null}
-        {monthlyQ.isLoading ? <Skeleton className="h-[280px] w-full" /> : null}
-        {monthlyQ.error ? (
-          <QueryError
-            message="خطا در دریافت گزارش ماهانه."
-            onRetry={() => void monthlyQ.refetch()}
-          />
-        ) : null}
-        {monthlyQ.data ? (
-          <ResponsiveContainer width="100%" height={isMobile ? 300 : 280}>
-            <LineChart data={monthlyChart}>
-              <XAxis
-                dataKey="label"
-                angle={isMobile ? -35 : 0}
-                textAnchor={isMobile ? "end" : "middle"}
-                height={isMobile ? 60 : 30}
-                tick={{ fontSize: isMobile ? 10 : 12 }}
-              />
-              <YAxis tick={{ fontSize: 11 }} width={70} />
-              <Tooltip
-                formatter={(value) => formatToman(Number(value ?? 0))}
-                contentStyle={{
-                  background: "var(--card)",
-                  border: "1px solid var(--border)",
-                  borderRadius: 12,
-                }}
-              />
-              <Legend />
-              <Line type="monotone" dataKey="income" name="درآمد" stroke="#10b981" strokeWidth={2} />
-              <Line type="monotone" dataKey="expense" name="هزینه" stroke="#ef4444" strokeWidth={2} />
-              <Line type="monotone" dataKey="net" name="خالص" stroke="#22c55e" strokeWidth={2} />
-            </LineChart>
-          </ResponsiveContainer>
-        ) : null}
-      </Card>
+          ) : null}
+          {monthlyQ.isLoading ? <Skeleton className="h-[280px] w-full" /> : null}
+          {monthlyQ.error ? (
+            <QueryError
+              message="خطا در دریافت گزارش ماهانه."
+              onRetry={() => void monthlyQ.refetch()}
+            />
+          ) : null}
+          {monthlyQ.data ? (
+            <ResponsiveContainer width="100%" height={isMobile ? 300 : 280}>
+              <LineChart data={monthlyChart}>
+                <XAxis
+                  dataKey="label"
+                  angle={isMobile ? -35 : 0}
+                  textAnchor={isMobile ? "end" : "middle"}
+                  height={isMobile ? 60 : 30}
+                  tick={{ fontSize: isMobile ? 10 : 12 }}
+                />
+                <YAxis tick={{ fontSize: 11 }} width={70} />
+                <Tooltip
+                  formatter={(value) => formatToman(Number(value ?? 0))}
+                  contentStyle={{
+                    background: "var(--card)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 12,
+                  }}
+                />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="income"
+                  name="درآمد"
+                  stroke="#10b981"
+                  strokeWidth={2}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="expense"
+                  name="هزینه"
+                  stroke="#ef4444"
+                  strokeWidth={2}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="net"
+                  name="خالص"
+                  stroke="#22c55e"
+                  strokeWidth={2}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : null}
+        </Card>
+      ) : (
+        <Card title={`درآمد و هزینه ${MONTH_LABELS[month - 1]} ${year}`}>
+          {categoriesQ.isLoading ? <Skeleton className="h-[280px] w-full" /> : null}
+          {categoriesQ.error ? (
+            <QueryError
+              message="خطا در دریافت گزارش ماهانه."
+              onRetry={() => void categoriesQ.refetch()}
+            />
+          ) : null}
+          {categoriesQ.data ? (
+            <ResponsiveContainer width="100%" height={isMobile ? 300 : 280}>
+              <BarChart data={singleMonthBar}>
+                <XAxis dataKey="name" tick={{ fontSize: isMobile ? 10 : 12 }} />
+                <YAxis tick={{ fontSize: 11 }} width={70} />
+                <Tooltip
+                  formatter={(value) => formatToman(Number(value ?? 0))}
+                  contentStyle={{
+                    background: "var(--card)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 12,
+                  }}
+                />
+                <Legend />
+                <Bar dataKey="income" name="درآمد" fill="#10b981" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="expense" name="هزینه" fill="#ef4444" radius={[8, 8, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : null}
+        </Card>
+      )}
 
-      <Row gutter={[12, 12]}>
-        <Col xs={24} sm={12}>
-          <Text type="secondary">ماه تحلیل دسته‌ها</Text>
-          <Select
-            className="w-full mt-2"
-            value={month}
-            onChange={setMonth}
-            options={MONTH_LABELS.map((label, idx) => ({
-              value: idx + 1,
-              label,
-            }))}
-          />
-        </Col>
-        <Col xs={24} sm={12}>
-          <Text type="secondary">سال</Text>
-          <Input
-            className="mt-2"
-            dir="ltr"
-            value={year}
-            onChange={(e) => setYear(Number(e.target.value) || current.year)}
-          />
-        </Col>
-      </Row>
+      {mode === "monthly" ? (
+        <>
+          <Row gutter={[16, 16]}>
+            <Col xs={24} lg={12}>
+              <Card title="هزینه به تفکیک دسته">
+                {categoriesQ.isLoading ? <Skeleton className="h-[260px] w-full" /> : null}
+                {categoriesQ.data && expensePie.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={260}>
+                    <PieChart>
+                      <Pie
+                        data={expensePie}
+                        dataKey="value"
+                        nameKey="name"
+                        outerRadius={90}
+                        label={false}
+                      >
+                        {expensePie.map((entry) => (
+                          <Cell key={entry.name} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value) => formatToman(Number(value ?? 0))} />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : !categoriesQ.isLoading ? (
+                  <Flex align="center" justify="center" className="h-[260px]">
+                    <Text type="secondary">هزینه‌ای در این ماه ثبت نشده است.</Text>
+                  </Flex>
+                ) : null}
+              </Card>
+            </Col>
 
-      <Row gutter={[16, 16]}>
-        <Col xs={24} lg={12}>
-          <Card title="هزینه به تفکیک دسته">
-            {categoriesQ.isLoading ? <Skeleton className="h-[260px] w-full" /> : null}
-            {categoriesQ.data && expensePie.length > 0 ? (
-              <ResponsiveContainer width="100%" height={260}>
-                <PieChart>
-                  <Pie data={expensePie} dataKey="value" nameKey="name" outerRadius={90} label={false}>
-                    {expensePie.map((entry) => (
-                      <Cell key={entry.name} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value) => formatToman(Number(value ?? 0))} />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : !categoriesQ.isLoading ? (
-              <Flex align="center" justify="center" className="h-[260px]">
-                <Text type="secondary">هزینه‌ای در این ماه ثبت نشده است.</Text>
+            <Col xs={24} lg={12}>
+              <Card title="مقایسه دسته‌های هزینه">
+                {categoriesQ.isLoading ? <Skeleton className="h-[260px] w-full" /> : null}
+                {categoriesQ.data && (categoriesQ.data.expense?.length ?? 0) > 0 ? (
+                  <ResponsiveContainer width="100%" height={260}>
+                    <BarChart
+                      data={categoriesQ.data.expense.map((c) => ({
+                        name: c.name,
+                        amount: c.amount,
+                      }))}
+                    >
+                      <XAxis
+                        dataKey="name"
+                        angle={isMobile ? -35 : 0}
+                        textAnchor={isMobile ? "end" : "middle"}
+                        height={isMobile ? 60 : 30}
+                        tick={{ fontSize: isMobile ? 10 : 11 }}
+                      />
+                      <YAxis tick={{ fontSize: 11 }} width={70} />
+                      <Tooltip formatter={(value) => formatToman(Number(value ?? 0))} />
+                      <Bar dataKey="amount" name="مبلغ" fill="#ef4444" radius={[8, 8, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : !categoriesQ.isLoading ? (
+                  <Flex align="center" justify="center" className="h-[260px]">
+                    <Text type="secondary">داده‌ای برای نمودار نیست.</Text>
+                  </Flex>
+                ) : null}
+              </Card>
+            </Col>
+          </Row>
+
+          <Card title={`بیشترین هزینه‌های ${MONTH_LABELS[month - 1]} ${year}`}>
+            {categoriesQ.isLoading ? <Skeleton className="h-40 w-full" /> : null}
+            {!categoriesQ.isLoading && (categoriesQ.data?.topExpenses?.length ?? 0) === 0 ? (
+              <Flex align="center" justify="center" className="py-8">
+                <Text type="secondary">هزینه‌ای برای نمایش وجود ندارد.</Text>
               </Flex>
-            ) : null}
-          </Card>
-        </Col>
-
-        <Col xs={24} lg={12}>
-          <Card title="مقایسه دسته‌های هزینه">
-            {categoriesQ.isLoading ? <Skeleton className="h-[260px] w-full" /> : null}
-            {categoriesQ.data && (categoriesQ.data.expense?.length ?? 0) > 0 ? (
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart
-                  data={categoriesQ.data.expense.map((c) => ({
-                    name: c.name,
-                    amount: c.amount,
-                  }))}
-                >
-                  <XAxis
-                    dataKey="name"
-                    angle={isMobile ? -35 : 0}
-                    textAnchor={isMobile ? "end" : "middle"}
-                    height={isMobile ? 60 : 30}
-                    tick={{ fontSize: isMobile ? 10 : 11 }}
-                  />
-                  <YAxis tick={{ fontSize: 11 }} width={70} />
-                  <Tooltip formatter={(value) => formatToman(Number(value ?? 0))} />
-                  <Bar dataKey="amount" name="مبلغ" fill="#ef4444" radius={[8, 8, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : !categoriesQ.isLoading ? (
-              <Flex align="center" justify="center" className="h-[260px]">
-                <Text type="secondary">داده‌ای برای نمودار نیست.</Text>
-              </Flex>
-            ) : null}
-          </Card>
-        </Col>
-      </Row>
-
-      <Card title={`بیشترین هزینه‌های ${MONTH_LABELS[month - 1]} ${year}`}>
-        {categoriesQ.isLoading ? <Skeleton className="h-40 w-full" /> : null}
-        {!categoriesQ.isLoading && (categoriesQ.data?.topExpenses?.length ?? 0) === 0 ? (
-          <Flex align="center" justify="center" className="py-8">
-            <Text type="secondary">هزینه‌ای برای نمایش وجود ندارد.</Text>
-          </Flex>
-        ) : (
-          <Space orientation="vertical" size={0} className="w-full">
-            {(categoriesQ.data?.topExpenses ?? []).map((tx) => (
-              <Flex
-                key={tx.id}
-                justify="space-between"
-                align="center"
-                gap="middle"
-                className="w-full py-3 border-b border-app-border last:border-b-0"
-              >
-                <div className="min-w-0">
-                  <Text strong ellipsis>
-                    {tx.title}
-                  </Text>
-                  <div>
-                    <Text type="secondary" className="text-xs">
-                      {formatJalaliDate(tx.date)} · {tx.category} · {tx.account}
+            ) : (
+              <Space orientation="vertical" size={0} className="w-full">
+                {(categoriesQ.data?.topExpenses ?? []).map((tx) => (
+                  <Flex
+                    key={tx.id}
+                    justify="space-between"
+                    align="center"
+                    gap="middle"
+                    className="w-full py-3 border-b border-app-border last:border-b-0"
+                  >
+                    <div className="min-w-0">
+                      <Text strong ellipsis>
+                        {tx.title}
+                      </Text>
+                      <div>
+                        <Text type="secondary" className="text-xs">
+                          {formatJalaliDate(tx.date)} · {tx.category} · {tx.account}
+                        </Text>
+                      </div>
+                    </div>
+                    <Text strong className="text-red-500 whitespace-nowrap">
+                      {formatToman(tx.amount)}
                     </Text>
-                  </div>
-                </div>
-                <Text strong className="text-red-500 whitespace-nowrap">
-                  {formatToman(tx.amount)}
-                </Text>
-              </Flex>
-            ))}
-          </Space>
-        )}
-      </Card>
+                  </Flex>
+                ))}
+              </Space>
+            )}
+          </Card>
+        </>
+      ) : null}
     </Space>
   );
 }
