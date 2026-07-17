@@ -40,3 +40,5 @@ services:
         sync: false
       - key: VAPID_SUBJECT
         sync: false
+      - key: EXCHANGE_RATE_API_KEY
+        sync: false
