@@ -2,7 +2,7 @@
 
 import api from "@/services/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { formatToman } from "@/lib/format";
+import { formatToman, formatUsd } from "@/lib/format";
 import { App, Button, Card, Col, Flex, Grid, Row, Statistic, Typography } from "antd";
 import { BellOutlined } from "@ant-design/icons";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,6 +13,17 @@ import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { enablePushNotifications, fetchPushStatus } from "@/lib/push";
 
 const { Text } = Typography;
+
+type GoldPrices = {
+  ounceUsd: number;
+  gram18kUsd: number;
+  gram24kUsd: number;
+  mesghal18kUsd: number;
+  mesghal24kUsd: number;
+  changePercent: number;
+  updatedAt: string;
+  cached: boolean;
+};
 
 export default function DashboardPage() {
   const screens = Grid.useBreakpoint();
@@ -27,6 +38,13 @@ export default function DashboardPage() {
       const qs = selectedAccountId ? `?accountId=${selectedAccountId}` : "";
       return (await api.get(`/api/dashboard${qs}`)).data.data;
     },
+  });
+
+  const goldQ = useQuery({
+    queryKey: ["gold-prices"],
+    queryFn: async () => (await api.get("/api/gold-prices")).data.data as GoldPrices,
+    staleTime: 60_000,
+    retry: 1,
   });
 
   const monthlyQ = useQuery({
@@ -62,6 +80,7 @@ export default function DashboardPage() {
   });
 
   const dashboard = dashboardQ.data;
+  const gold = goldQ.data;
   const showPushPrompt =
     pushStatusQ.isSuccess &&
     !pushStatusQ.data.thisDevice &&
@@ -152,6 +171,45 @@ export default function DashboardPage() {
           </Card>
         </Col>
       </Row>
+
+      <Card
+        title="قیمت طلا (دلار)"
+        extra={
+          gold ? (
+            <Text type="secondary" className="text-xs">
+              تغییر اونس: {gold.changePercent > 0 ? "+" : ""}
+              {gold.changePercent.toFixed(2)}%
+            </Text>
+          ) : null
+        }
+      >
+        {goldQ.isLoading ? (
+          <Row gutter={[16, 16]}>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Col key={i} xs={24} sm={12} lg={6}>
+                <Skeleton className="h-14 w-full" rows={1} />
+              </Col>
+            ))}
+          </Row>
+        ) : goldQ.error ? (
+          <Text type="secondary">قیمت طلا در دسترس نیست.</Text>
+        ) : gold ? (
+          <Row gutter={[16, 16]}>
+            <Col xs={24} sm={12} lg={6}>
+              <Statistic title="گرم ۱۸ عیار" value={formatUsd(gold.gram18kUsd)} />
+            </Col>
+            <Col xs={24} sm={12} lg={6}>
+              <Statistic title="گرم ۲۴ عیار" value={formatUsd(gold.gram24kUsd)} />
+            </Col>
+            <Col xs={24} sm={12} lg={6}>
+              <Statistic title="مثقال ۱۸ عیار" value={formatUsd(gold.mesghal18kUsd)} />
+            </Col>
+            <Col xs={24} sm={12} lg={6}>
+              <Statistic title="مثقال ۲۴ عیار" value={formatUsd(gold.mesghal24kUsd)} />
+            </Col>
+          </Row>
+        ) : null}
+      </Card>
 
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={12}>
