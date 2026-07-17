@@ -123,19 +123,44 @@
   .market-ticker {
     @apply relative overflow-hidden rounded-2xl border border-app-border bg-app-card;
     padding-block: 0.65rem;
+    padding-inline: 2.25rem;
   }
 
   .market-ticker--empty {
     @apply flex items-center justify-center px-4 py-3;
   }
 
-  .market-ticker-track {
-    @apply flex w-max items-center gap-3;
-    animation: market-ticker-scroll 42s linear infinite;
+  .market-ticker-viewport {
+    @apply overflow-x-auto overflow-y-hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    cursor: grab;
   }
 
-  .market-ticker:hover .market-ticker-track {
-    animation-play-state: paused;
+  .market-ticker-viewport::-webkit-scrollbar {
+    display: none;
+  }
+
+  .market-ticker-track {
+    @apply flex w-max items-center gap-3 px-1;
+  }
+
+  .market-ticker-nav {
+    @apply absolute top-1/2 z-20 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-app-border bg-app-card text-app-fg shadow-sm transition;
+    opacity: 0.85;
+  }
+
+  .market-ticker-nav:hover {
+    opacity: 1;
+    background: color-mix(in srgb, var(--accent) 12%, var(--card));
+  }
+
+  .market-ticker-nav--prev {
+    inset-inline-start: 0.35rem;
+  }
+
+  .market-ticker-nav--next {
+    inset-inline-end: 0.35rem;
   }
 
   .market-ticker-chip {
@@ -156,16 +181,16 @@
   }
 
   .market-ticker-fade {
-    @apply pointer-events-none absolute inset-y-0 z-10 w-8;
+    @apply pointer-events-none absolute inset-y-0 z-10 w-10;
   }
 
   .market-ticker-fade--start {
-    inset-inline-start: 0;
+    inset-inline-start: 2rem;
     background: linear-gradient(to right, var(--card), transparent);
   }
 
   .market-ticker-fade--end {
-    inset-inline-end: 0;
+    inset-inline-end: 2rem;
     background: linear-gradient(to left, var(--card), transparent);
   }
 
@@ -177,32 +202,9 @@
     background: linear-gradient(to right, var(--card), transparent);
   }
 
-  @keyframes market-ticker-scroll {
-    from {
-      transform: translateX(0);
-    }
-    to {
-      transform: translateX(50%);
-    }
-  }
-
-  :dir(ltr) .market-ticker-track {
-    animation-name: market-ticker-scroll-ltr;
-  }
-
-  @keyframes market-ticker-scroll-ltr {
-    from {
-      transform: translateX(0);
-    }
-    to {
-      transform: translateX(-50%);
-    }
-  }
-
   @media (prefers-reduced-motion: reduce) {
-    .market-ticker-track {
-      animation: none;
-      @apply w-full flex-wrap justify-center;
+    .market-ticker-viewport {
+      @apply overflow-x-auto;
     }
   }
 }
