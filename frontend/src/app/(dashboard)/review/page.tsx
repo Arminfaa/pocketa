@@ -52,6 +52,9 @@ type Draft = {
   debtDueDate: string;
 };
 
+const AUTO_REVIEW_TITLE_INCOME = "واریز بررسی‌شده";
+const AUTO_REVIEW_TITLE_EXPENSE = "برداشت بررسی‌شده";
+
 function defaultDraft(tx: Transaction): Draft {
   return {
     title: tx.title.includes("بدون عنوان") ? "" : tx.title,
@@ -60,6 +63,28 @@ function defaultDraft(tx: Transaction): Draft {
     registerAsDebt: false,
     debtDueDate: "",
   };
+}
+
+/** عنوان نهایی برای ذخیره؛ در حالت گروهی اگر خالی باشد خودکار نام می‌گذارد. */
+function resolveSaveTitle(
+  tx: Transaction,
+  draft: Draft,
+  opts?: { autoTitleIfEmpty?: boolean }
+): string {
+  const trimmed = draft.title.trim();
+  if (trimmed.length >= 2) return trimmed;
+
+  if (opts?.autoTitleIfEmpty) {
+    const cleaned = tx.title
+      .replace(/\s*\(بدون عنوان\)\s*/g, " ")
+      .replace(/\s*بدون عنوان\s*/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (cleaned.length >= 2) return cleaned;
+    return tx.type === "income" ? AUTO_REVIEW_TITLE_INCOME : AUTO_REVIEW_TITLE_EXPENSE;
+  }
+
+  throw new Error(`عنوان «${tx.title}» حداقل ۲ کاراکتر باشد`);
 }
 
 export default function ReviewPage() {
@@ -110,17 +135,15 @@ export default function ReviewPage() {
     setSelectedIds(checked ? pageIds : []);
   }
 
-  async function saveOne(tx: Transaction) {
+  async function saveOne(tx: Transaction, opts?: { autoTitleIfEmpty?: boolean }) {
     const draft = getDraft(tx);
-    if (draft.title.trim().length < 2) {
-      throw new Error(`عنوان «${tx.title}» حداقل ۲ کاراکتر باشد`);
-    }
+    const title = resolveSaveTitle(tx, draft, opts);
     if (draft.registerAsDebt && !draft.debtDueDate.trim()) {
-      throw new Error(`برای «${draft.title.trim() || tx.title}» تاریخ پس دادن بدهی را وارد کنید`);
+      throw new Error(`برای «${title}» تاریخ پس دادن بدهی را وارد کنید`);
     }
 
     await updateTransaction(tx._id, {
-      title: draft.title.trim(),
+      title,
       categoryId: draft.categoryId || categoryIdValue(tx.categoryId),
       tags: draft.tags,
       needsReview: false,
@@ -168,11 +191,6 @@ export default function ReviewPage() {
       const selected = items.filter((tx) => ids.includes(tx._id));
       if (selected.length === 0) throw new Error("موردی انتخاب نشده");
 
-      const invalidTitle = selected.find((tx) => getDraft(tx).title.trim().length < 2);
-      if (invalidTitle) {
-        throw new Error("برای همه موارد انتخاب‌شده عنوان حداقل ۲ کاراکتری وارد کنید");
-      }
-
       const invalidDebt = selected.find(
         (tx) => getDraft(tx).registerAsDebt && !getDraft(tx).debtDueDate.trim()
       );
@@ -181,7 +199,9 @@ export default function ReviewPage() {
       }
 
       const anyDebt = selected.some((tx) => getDraft(tx).registerAsDebt);
-      const results = await Promise.allSettled(selected.map((tx) => saveOne(tx)));
+      const results = await Promise.allSettled(
+        selected.map((tx) => saveOne(tx, { autoTitleIfEmpty: true }))
+      );
       const failed = results.filter((r) => r.status === "rejected").length;
       const ok = results.length - failed;
       if (ok === 0) throw new Error("هیچ موردی ذخیره نشد");
