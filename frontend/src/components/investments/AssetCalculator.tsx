@@ -44,7 +44,7 @@ const kindOptions: { value: CalcKind; label: string }[] = [
 
 function unitLabel(kind: CalcKind): string {
   if (kind === "usd") return "دلار";
-  if (kind === "quarterCoin") return "عدد";
+  if (kind === "quarterCoin") return "تعداد";
   if (kind.startsWith("mesghal")) return "مثقال";
   return "گرم";
 }
@@ -72,7 +72,7 @@ export function AssetCalculator() {
   });
 
   const unitPrice = resolveUnitPrice(kind, marketQ.data);
-  const qtyDecimals = kind === "usd" || kind === "quarterCoin" ? 2 : 3;
+  const qtyDecimals = kind === "quarterCoin" ? 0 : kind === "usd" ? 2 : 3;
 
   useEffect(() => {
     if (unitPrice == null || unitPrice <= 0 || !lastEdited.current) return;
@@ -181,13 +181,13 @@ export function AssetCalculator() {
             <Row gutter={[16, 16]}>
               <Col xs={24} sm={12}>
                 <Text type="secondary" className="mb-1 block text-xs">
-                  مقدار ({unitLabel(kind)})
+                  {kind === "quarterCoin" ? "تعداد ربع سکه" : `مقدار (${unitLabel(kind)})`}
                 </Text>
                 <AmountInput
                   value={quantity}
                   onChange={onQuantityChange}
-                  placeholder="مثلاً ۱۰"
-                  allowDecimals
+                  placeholder={kind === "quarterCoin" ? "مثلاً ۲" : "مثلاً ۱۰"}
+                  allowDecimals={kind !== "quarterCoin"}
                   decimalPlaces={qtyDecimals}
                   showWords={false}
                   disabled={unitPrice == null}
