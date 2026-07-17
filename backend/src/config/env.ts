@@ -29,9 +29,6 @@ const EnvSchema = z.object({
   VAPID_PUBLIC_KEY: z.string().optional().default(""),
   VAPID_PRIVATE_KEY: z.string().optional().default(""),
   VAPID_SUBJECT: z.string().optional().default("mailto:admin@pocketa.local"),
-
-  /** ExchangeRate-API key for USD → IRR (gold price service) */
-  EXCHANGE_RATE_API_KEY: z.string().optional().default(""),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
