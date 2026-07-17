@@ -205,7 +205,7 @@ export default function RecurringPage() {
         <Title level={4} className="!m-0">
           <Space>
             <AccountBookOutlined />
-            جریان دوره‌ای
+            جریان دوره‌ای / سررسید‌ها
           </Space>
         </Title>
         <Text type="secondary">
@@ -434,7 +434,7 @@ export default function RecurringPage() {
       {listQ.isLoading ? <Skeleton className="h-40 w-full" /> : null}
       {listQ.error ? (
         <QueryError
-          message="خطا در دریافت جریان دوره‌ای."
+          message="خطا در دریافت جریان دوره‌ای / سررسید‌ها."
           onRetry={() => void listQ.refetch()}
         />
       ) : null}
