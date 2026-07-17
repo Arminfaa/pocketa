@@ -13,6 +13,7 @@ import {
 } from "../validations/recurring";
 import { normalizeJalaliDate, toEnglishDigits } from "../utils/normalizeDigits";
 import {
+  advanceJalaliDate,
   advanceMonthlyByDay,
   isDueOnOrBefore,
   isSameJalaliMonth,
@@ -20,7 +21,9 @@ import {
   jalaliYearMonth,
   nextOccurrenceFromDayOfMonth,
   todayJalali,
+  type Frequency,
 } from "../utils/jalaliDate";
+import { getMarketPrices } from "../services/market-prices.service";
 
 function parseYm(today: string): { jy: number; jm: number } {
   const [y, m] = normalizeJalaliDate(toEnglishDigits(today)).split("/").map(Number);
@@ -83,6 +86,12 @@ function mapItem(item: {
   reminderHour?: number | null;
   categoryId: unknown;
   createdAt?: Date;
+  investmentId?: unknown;
+  assetQuantity?: number | null;
+  assetType?: string | null;
+  scheduleFrequency?: string | null;
+  endDate?: string | null;
+  liveAmount?: number | null;
 }, today: string) {
   const kind = (item.kind as "recurring" | "one_time" | undefined) ?? "recurring";
   const lastPaymentDate = item.lastPaymentDate
@@ -90,11 +99,12 @@ function mapItem(item: {
     : null;
   const paidThisMonth = computePaidThisMonth(item, today);
   const baseAmount = item.baseAmount ?? item.amount;
+  const amount = item.liveAmount ?? item.amount;
   return {
     id: item._id,
     title: item.title,
-    amount: item.amount,
-    baseAmount,
+    amount,
+    baseAmount: item.liveAmount ?? baseAmount,
     type: item.type,
     kind,
     dayOfMonth: item.dayOfMonth ?? null,
@@ -110,7 +120,36 @@ function mapItem(item: {
     isDue: item.active && isDueOnOrBefore(item.nextPaymentDate, today),
     paidThisMonth,
     createdAt: item.createdAt,
+    investmentId: item.investmentId ?? null,
+    assetQuantity: item.assetQuantity ?? null,
+    assetType: item.assetType ?? null,
+    scheduleFrequency: item.scheduleFrequency ?? "monthly",
+    endDate: item.endDate ?? "",
   };
+}
+
+async function resolveAssetLinkedAmount(item: {
+  amount: number;
+  assetQuantity?: number | null;
+  assetType?: string | null;
+}): Promise<number> {
+  const qty = item.assetQuantity;
+  const assetType = item.assetType;
+  if (qty == null || qty <= 0 || (assetType !== "gold" && assetType !== "usd")) {
+    return item.amount;
+  }
+
+  try {
+    const market = await getMarketPrices();
+    const unit =
+      assetType === "gold"
+        ? market.gold?.gram18kToman
+        : market.currency?.usdFreeToman;
+    if (unit == null || unit <= 0) return item.amount;
+    return Math.max(1, Math.round(qty * unit));
+  } catch {
+    return item.amount;
+  }
 }
 
 function belongsToMonthChecklist(
@@ -146,8 +185,9 @@ export const list = asyncHandler(async (req: Request, res: Response) => {
     .populate({ path: "categoryId", select: "name color type icon" });
 
   const today = todayJalali();
-  const toMapped = (item: (typeof allItems)[number]) =>
-    mapItem(
+  const toMapped = async (item: (typeof allItems)[number]) => {
+    const liveAmount = await resolveAssetLinkedAmount(item);
+    return mapItem(
       {
         _id: item._id,
         title: item.title,
@@ -166,11 +206,18 @@ export const list = asyncHandler(async (req: Request, res: Response) => {
         notes: item.notes,
         categoryId: item.categoryId,
         createdAt: (item as { createdAt?: Date }).createdAt,
+        investmentId: item.investmentId,
+        assetQuantity: item.assetQuantity,
+        assetType: item.assetType,
+        scheduleFrequency: item.scheduleFrequency,
+        endDate: item.endDate,
+        liveAmount,
       },
       today
     );
+  };
 
-  const mappedAll = allItems.map(toMapped);
+  const mappedAll = await Promise.all(allItems.map(toMapped));
   const mapped = activeOnly ? mappedAll.filter((i) => i.active) : mappedAll;
   const monthChecklist = mappedAll
     .filter((item) => belongsToMonthChecklist(item, today))
@@ -355,6 +402,12 @@ function advanceRecurringSchedule(recurring: {
   paymentsMade?: number | null;
   nextPaymentDate: string;
   active: boolean;
+  scheduleFrequency?: string | null;
+  endDate?: string | null;
+  assetQuantity?: number | null;
+  assetType?: string | null;
+  amount: number;
+  baseAmount?: number | null;
 }) {
   const kind = recurring.kind ?? "recurring";
   if (kind === "one_time") {
@@ -362,8 +415,7 @@ function advanceRecurringSchedule(recurring: {
     return;
   }
 
-  const dayOfMonth =
-    recurring.dayOfMonth ?? Number(recurring.nextPaymentDate.split("/")[2]);
+  const frequency = (recurring.scheduleFrequency as Frequency | undefined) ?? "monthly";
   const endMode = recurring.endMode ?? "forever";
   const paymentsMade = recurring.paymentsMade ?? 0;
   const reachedEnd =
@@ -371,8 +423,20 @@ function advanceRecurringSchedule(recurring: {
     recurring.endMonths != null &&
     paymentsMade >= recurring.endMonths;
 
-  recurring.nextPaymentDate = advanceMonthlyByDay(recurring.nextPaymentDate, dayOfMonth);
+  if (frequency === "monthly") {
+    const dayOfMonth =
+      recurring.dayOfMonth ?? Number(recurring.nextPaymentDate.split("/")[2]);
+    recurring.nextPaymentDate = advanceMonthlyByDay(recurring.nextPaymentDate, dayOfMonth);
+  } else {
+    recurring.nextPaymentDate = advanceJalaliDate(recurring.nextPaymentDate, frequency);
+  }
+
   if (reachedEnd) {
+    recurring.active = false;
+  }
+
+  const endDate = recurring.endDate ? normalizeJalaliDate(recurring.endDate) : "";
+  if (endDate && normalizeJalaliDate(recurring.nextPaymentDate) > endDate) {
     recurring.active = false;
   }
 }
@@ -394,6 +458,14 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
   const mode = parsed.data.mode;
   const kind = recurring.kind ?? "recurring";
   const kindLabel = kind === "one_time" ? "بدهی یک‌باره" : "قسط ماهانه";
+
+  // سود سرمایه‌گذاری: مبلغ را با قیمت روز طلا/دلار به‌روز کن
+  if (recurring.assetQuantity && recurring.assetType) {
+    const priced = await resolveAssetLinkedAmount(recurring);
+    recurring.amount = priced;
+    recurring.baseAmount = priced;
+  }
+
   const baseAmount = resolveBaseAmount(recurring);
   const dueAmount = recurring.amount;
   let createdTx = null;

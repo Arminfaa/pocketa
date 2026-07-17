@@ -1,7 +1,7 @@
 import jalaali from "jalaali-js";
 import { normalizeJalaliDate, toEnglishDigits } from "../utils/normalizeDigits";
 
-export type Frequency = "weekly" | "monthly" | "yearly";
+export type Frequency = "daily" | "weekly" | "monthly" | "yearly";
 
 function parseJalali(date: string): { jy: number; jm: number; jd: number } {
   const normalized = normalizeJalaliDate(toEnglishDigits(date));
@@ -63,6 +63,14 @@ export function advanceMonthlyByDay(date: string, dayOfMonth: number): string {
 /** Advance a Jalali date by frequency. */
 export function advanceJalaliDate(date: string, frequency: Frequency): string {
   const { jy, jm, jd } = parseJalali(date);
+
+  if (frequency === "daily") {
+    const g = jalaali.toGregorian(jy, jm, jd);
+    const dt = new Date(g.gy, g.gm - 1, g.gd);
+    dt.setDate(dt.getDate() + 1);
+    const j = jalaali.toJalaali(dt.getFullYear(), dt.getMonth() + 1, dt.getDate());
+    return formatJalali(j.jy, j.jm, j.jd);
+  }
 
   if (frequency === "weekly") {
     const g = jalaali.toGregorian(jy, jm, jd);
