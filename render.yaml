@@ -42,3 +42,5 @@ services:
         sync: false
       - key: GOLD_API_KEY
         sync: false
+      - key: NAVASAN_API_KEY
+        sync: false

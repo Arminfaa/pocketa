@@ -3,8 +3,7 @@ import { asyncHandler } from "../middleware/asyncHandler";
 import { sendSuccess } from "../utils/apiResponse";
 import { getMarketPrices } from "../services/market-prices.service";
 
-/** @deprecated Prefer GET /api/market-prices */
-export const getGoldPricesHandler = asyncHandler(async (_req: Request, res: Response) => {
+export const getMarketPricesHandler = asyncHandler(async (_req: Request, res: Response) => {
   const prices = await getMarketPrices();
   return sendSuccess(res, prices);
 });
