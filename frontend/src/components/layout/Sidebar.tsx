@@ -17,7 +17,6 @@ import {
   WalletOutlined,
   PieChartOutlined,
   SettingOutlined,
-  GoldOutlined,
 } from "@ant-design/icons";
 import { useUiStore } from "@/stores/ui.store";
 
@@ -32,7 +31,6 @@ const items = [
   { href: "/categories", label: "دسته‌بندی‌ها", icon: <TagsOutlined /> },
   { href: "/budgets", label: "بودجه‌بندی", icon: <WalletOutlined /> },
   { href: "/reports", label: "گزارش‌ها", icon: <PieChartOutlined /> },
-  { href: "/gold-calculator", label: "محاسبه‌گر طلا/دلار", icon: <GoldOutlined /> },
   { href: "/settings", label: "تنظیمات", icon: <SettingOutlined /> },
 ];
 
