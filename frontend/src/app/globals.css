@@ -42,28 +42,29 @@
     @apply bg-app-mesh bg-app;
   }
 
-  /* Skeleton pulse — visible on light/dark; CSS vars break Tailwind /opacity */
+  /* Skeleton pulse via background (not opacity) — avoids Framer Motion / iOS compositing fights */
   .sk-block {
     border-radius: 0.75rem;
-    background-color: color-mix(in srgb, var(--muted) 24%, transparent);
-    animation: sk-pulse 1.5s ease-in-out infinite;
-  }
-
-  @keyframes sk-pulse {
-    0%,
-    100% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.4;
-    }
+    background-color: color-mix(in srgb, var(--muted) 18%, var(--card));
+    animation: sk-pulse 1.4s ease-in-out infinite;
   }
 
   @media (prefers-reduced-motion: reduce) {
     .sk-block {
       animation: none;
-      opacity: 0.7;
+      background-color: color-mix(in srgb, var(--muted) 28%, var(--card));
     }
+  }
+}
+
+/* Keep keyframes outside @layer so they always emit */
+@keyframes sk-pulse {
+  0%,
+  100% {
+    background-color: color-mix(in srgb, var(--muted) 16%, var(--card));
+  }
+  50% {
+    background-color: color-mix(in srgb, var(--muted) 40%, var(--card));
   }
 }
 
