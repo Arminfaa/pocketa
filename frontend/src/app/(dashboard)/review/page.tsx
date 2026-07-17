@@ -55,6 +55,7 @@ type Draft = {
   linkToRecurring: boolean;
   settleRecurringId: string;
   settleMode: "full" | "partial";
+  remainderDueDate: string;
 };
 
 const AUTO_REVIEW_TITLE_INCOME = "واریز بررسی‌شده";
@@ -70,6 +71,7 @@ function defaultDraft(tx: Transaction): Draft {
     linkToRecurring: false,
     settleRecurringId: "",
     settleMode: "full",
+    remainderDueDate: "",
   };
 }
 
@@ -177,6 +179,9 @@ export default function ReviewPage() {
       if (draft.settleMode === "partial" && tx.amount >= item.amount) {
         throw new Error("برای مبلغ مساوی یا بیشتر، تسویه کامل را انتخاب کنید");
       }
+      if (draft.settleMode === "partial" && !draft.remainderDueDate.trim()) {
+        throw new Error(`برای «${title}» تاریخ تسویه مانده را وارد کنید`);
+      }
     }
 
     await updateTransaction(tx._id, {
@@ -190,6 +195,10 @@ export default function ReviewPage() {
         : undefined,
       settleRecurringId: draft.linkToRecurring ? draft.settleRecurringId : undefined,
       settleMode: draft.linkToRecurring ? draft.settleMode : undefined,
+      remainderDueDate:
+        draft.linkToRecurring && draft.settleMode === "partial"
+          ? normalizeJalaliDateInput(draft.remainderDueDate)
+          : undefined,
     });
   }
 
@@ -253,6 +262,16 @@ export default function ReviewPage() {
       );
       if (invalidSettle) {
         throw new Error("برای موارد متصل به سررسید، یک سررسید انتخاب کنید");
+      }
+
+      const invalidRemainder = selected.find(
+        (tx) =>
+          getDraft(tx).linkToRecurring &&
+          getDraft(tx).settleMode === "partial" &&
+          !getDraft(tx).remainderDueDate.trim()
+      );
+      if (invalidRemainder) {
+        throw new Error("برای پرداخت جزئی، تاریخ تسویه مانده را وارد کنید");
       }
 
       const anyLinked = selected.some(
@@ -553,6 +572,23 @@ export default function ReviewPage() {
                         مبلغ تراکنش باید دقیقاً برابر مبلغ سررسید باشد؛ در غیر این صورت ارور
                         می‌گیرید.
                       </Text>
+                    ) : null}
+                    {draft.settleMode === "partial" ? (
+                      <div>
+                        <Text type="secondary" className="mb-1 block text-xs">
+                          تاریخ تسویه مانده
+                        </Text>
+                        <JalaliDateInput
+                          value={draft.remainderDueDate}
+                          onChange={(remainderDueDate) =>
+                            setDraft(tx._id, { ...draft, remainderDueDate })
+                          }
+                          placeholder="1405/05/01"
+                        />
+                        <Text type="secondary" className="mt-1 block text-xs">
+                          مانده به‌صورت سررسید جدا با این تاریخ ثبت می‌شود.
+                        </Text>
+                      </div>
                     ) : null}
                   </div>
                 ) : null}

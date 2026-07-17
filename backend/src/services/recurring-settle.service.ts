@@ -57,6 +57,37 @@ function advanceRecurringSchedule(recurring: {
   }
 }
 
+async function createDeferredOneTimeDebt(
+  userId: string,
+  recurring: {
+    title: string;
+    type: "income" | "expense";
+    categoryId: import("mongoose").Types.ObjectId;
+    reminderHour?: number | null;
+    notes?: string | null;
+  },
+  amount: number,
+  dueDate: string
+) {
+  return RecurringTransactionModel.create({
+    userId,
+    title: `مانده — ${recurring.title}`,
+    amount,
+    baseAmount: amount,
+    type: recurring.type,
+    kind: "one_time",
+    categoryId: recurring.categoryId,
+    notes: recurring.notes
+      ? `${recurring.notes} (مانده پرداخت جزئی تا ${dueDate})`
+      : `مانده پرداخت جزئی تا ${dueDate}`,
+    active: true,
+    paymentsMade: 0,
+    reminderHour: recurring.reminderHour ?? 20,
+    reminderSentKeys: [],
+    nextPaymentDate: normalizeJalaliDate(dueDate),
+  });
+}
+
 /**
  * Apply an already-created bank/manual transaction as payment toward an active
  * recurring/due item — does NOT create another transaction.
@@ -68,6 +99,8 @@ export async function settleRecurringWithExistingTransaction(input: {
   transactionType: "income" | "expense";
   paidAmount: number;
   mode: "full" | "partial";
+  /** Required for partial — due date for the remaining amount */
+  remainderDueDate?: string | null;
 }) {
   const recurring = await RecurringTransactionModel.findOne({
     _id: input.recurringId,
@@ -107,6 +140,7 @@ export async function settleRecurringWithExistingTransaction(input: {
 
     return {
       recurring,
+      deferredDebt: null,
       settled: "full" as const,
       message:
         kind === "one_time" || !recurring.active
@@ -122,27 +156,32 @@ export async function settleRecurringWithExistingTransaction(input: {
   if (paid <= 0) {
     throw new AppError(400, "مبلغ پرداخت جزئی معتبر نیست");
   }
-
-  const remainder = dueAmount - paid;
-  recurring.paymentsMade = (recurring.paymentsMade ?? 0) + 1;
-  recurring.lastPaymentDate = todayJalali();
-
-  if (kind === "one_time") {
-    recurring.amount = remainder;
-    recurring.baseAmount = remainder;
-    recurring.active = true;
-  } else {
-    // Keep remainder on the current installment (don't auto-create deferred debt here)
-    recurring.amount = remainder;
-    recurring.baseAmount = baseAmount;
+  if (!input.remainderDueDate) {
+    throw new AppError(400, "تاریخ تسویه مانده را وارد کنید");
   }
 
+  const remainder = dueAmount - paid;
+  const remainderDate = normalizeJalaliDate(input.remainderDueDate);
+
+  const deferredDebt = await createDeferredOneTimeDebt(
+    input.userId,
+    recurring,
+    remainder,
+    remainderDate
+  );
+
+  recurring.paymentsMade = (recurring.paymentsMade ?? 0) + 1;
+  recurring.lastPaymentDate = todayJalali();
+  recurring.amount = baseAmount;
+  recurring.baseAmount = baseAmount;
+  advanceRecurringSchedule(recurring);
   await recurring.save();
 
   return {
     recurring,
+    deferredDebt,
     settled: "partial" as const,
     remainder,
-    message: `پرداخت جزئی ثبت شد؛ مانده سررسید ${Math.round(remainder).toLocaleString("en-US")} تومان`,
+    message: `پرداخت جزئی ثبت شد؛ مانده ${Math.round(remainder).toLocaleString("en-US")} تومان تا ${remainderDate} به‌صورت سررسید جدا ثبت شد`,
   };
 }

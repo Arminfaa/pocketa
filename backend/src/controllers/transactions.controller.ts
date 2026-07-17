@@ -106,6 +106,7 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
     debtDueDate,
     settleRecurringId,
     settleMode,
+    remainderDueDate,
   } = parsed.data;
 
   const [category, account] = await Promise.all([
@@ -187,6 +188,7 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
       transactionType: type,
       paidAmount: amount,
       mode: settleMode,
+      remainderDueDate,
     });
     message = settle.message;
   }
@@ -303,6 +305,7 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
       transactionType: updated.type as "income" | "expense",
       paidAmount: Number(updated.amount),
       mode: parsed.data.settleMode,
+      remainderDueDate: parsed.data.remainderDueDate,
     });
     message = settle.message;
   }
