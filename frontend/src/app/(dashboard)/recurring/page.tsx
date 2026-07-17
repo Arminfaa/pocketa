@@ -42,18 +42,23 @@ import { fetchCategories } from "@/services/categories";
 import type { Category } from "@/services/categories";
 import type { BankAccount } from "@/types/account";
 import { formatJalaliDate, formatToman, toPersianDigits } from "@/lib/format";
-import { normalizeJalaliDateInput, parseAmountInput } from "@/lib/amount";
+import { normalizeJalaliDateInput } from "@/lib/amount";
 import { getTodayJalali } from "@/lib/transaction-helpers";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { QueryError } from "@/components/ui/query-error";
-import { AmountInput } from "@/components/ui/amount-input";
 import { NumberInput } from "@/components/ui/number-input";
 import { JalaliDateInput } from "@/components/ui/jalali-date-input";
 import {
   FinanceTypeToggle,
   financeTypeTextClass,
 } from "@/components/ui/finance-type-toggle";
+import {
+  MarketUnitAmountInput,
+  resolveMarketUnitTomanAmount,
+  type AmountMarketUnit,
+} from "@/components/ui/market-unit-amount-input";
+import api from "@/services/api";
 import { cn } from "@/lib/cn";
 
 const { Title, Text } = Typography;
@@ -92,6 +97,7 @@ export default function RecurringPage() {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
+  const [amountUnit, setAmountUnit] = useState<AmountMarketUnit>("toman");
   const [type, setType] = useState<"income" | "expense">("expense");
   const [kind, setKind] = useState<DebtKind>("recurring");
   const [dayOfMonth, setDayOfMonth] = useState<number>(1);
@@ -113,10 +119,23 @@ export default function RecurringPage() {
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      const value = parseAmountInput(amount);
       if (title.trim().length < 2) throw new Error("عنوان را وارد کنید");
-      if (!Number.isFinite(value) || value <= 0) throw new Error("مبلغ معتبر نیست");
       if (!categoryId) throw new Error("دسته را انتخاب کنید");
+
+      let market: {
+        gold: { gram18kToman: number | null } | null;
+        currency: { usdFreeToman: number; usdtToman: number } | null;
+      } | null = null;
+      if (amountUnit !== "toman") {
+        market = await queryClient.fetchQuery({
+          queryKey: ["market-prices"],
+          queryFn: async () => (await api.get("/api/market-prices")).data.data,
+        });
+      }
+
+      const resolved = resolveMarketUnitTomanAmount(amount, amountUnit, market);
+      if ("error" in resolved) throw new Error(resolved.error);
+      const value = resolved.amount;
 
       if (kind === "recurring") {
         if (!dayOfMonth || dayOfMonth < 1 || dayOfMonth > 31) {
@@ -154,6 +173,7 @@ export default function RecurringPage() {
       message.success("بدهی/قسط ثبت شد");
       setTitle("");
       setAmount("");
+      setAmountUnit("toman");
       setCategoryId("");
       void queryClient.invalidateQueries({ queryKey: ["recurring"] });
     },
@@ -322,13 +342,14 @@ export default function RecurringPage() {
             </Col>
             <Col xs={24} md={12}>
               <Text type="secondary" className="mb-1 block text-xs">
-                مبلغ (تومان)
+                مبلغ
               </Text>
-              <AmountInput
-                placeholder="مبلغ تومان"
+              <MarketUnitAmountInput
                 value={amount}
                 onChange={setAmount}
-                className={cn(financeTypeTextClass(type))}
+                unit={amountUnit}
+                onUnitChange={setAmountUnit}
+                inputClassName={cn(financeTypeTextClass(type))}
               />
             </Col>
             <Col xs={24} md={12}>
