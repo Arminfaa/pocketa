@@ -62,6 +62,17 @@ export const TransactionUpdateSchema = z
     accountId: z.string().min(1).optional(),
     needsReview: z.boolean().optional(),
     tags: TagsSchema,
+    registerAsDebt: z.boolean().optional().default(false),
+    debtDueDate: JalaliDateSchema.optional().nullable(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.registerAsDebt && !data.debtDueDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "تاریخ پس دادن بدهی را وارد کنید",
+        path: ["debtDueDate"],
+      });
+    }
   });
 
 export const TransactionQuerySchema = z.object({

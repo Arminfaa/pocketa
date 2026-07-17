@@ -34,15 +34,33 @@ import {
   categoryName,
   accountName,
 } from "@/lib/transaction-helpers";
+import { normalizeJalaliDateInput } from "@/lib/amount";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TagsInput } from "@/components/ui/tags-input";
+import { JalaliDateInput } from "@/components/ui/jalali-date-input";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { cn } from "@/lib/cn";
 
 const { Title, Text } = Typography;
 
-type Draft = { title: string; categoryId: string; tags: string[] };
+type Draft = {
+  title: string;
+  categoryId: string;
+  tags: string[];
+  registerAsDebt: boolean;
+  debtDueDate: string;
+};
+
+function defaultDraft(tx: Transaction): Draft {
+  return {
+    title: tx.title.includes("بدون عنوان") ? "" : tx.title,
+    categoryId: categoryIdValue(tx.categoryId),
+    tags: tx.tags ?? [],
+    registerAsDebt: false,
+    debtDueDate: "",
+  };
+}
 
 export default function ReviewPage() {
   const screens = Grid.useBreakpoint();
@@ -75,13 +93,7 @@ export default function ReviewPage() {
   const someSelected = selectedIds.some((id) => pageIds.includes(id));
 
   function getDraft(tx: Transaction): Draft {
-    return (
-      drafts[tx._id] ?? {
-        title: tx.title.includes("بدون عنوان") ? "" : tx.title,
-        categoryId: categoryIdValue(tx.categoryId),
-        tags: tx.tags ?? [],
-      }
-    );
+    return drafts[tx._id] ?? defaultDraft(tx);
   }
 
   function setDraft(txId: string, draft: Draft) {
@@ -103,21 +115,32 @@ export default function ReviewPage() {
     if (draft.title.trim().length < 2) {
       throw new Error(`عنوان «${tx.title}» حداقل ۲ کاراکتر باشد`);
     }
+    if (draft.registerAsDebt && !draft.debtDueDate.trim()) {
+      throw new Error(`برای «${draft.title.trim() || tx.title}» تاریخ پس دادن بدهی را وارد کنید`);
+    }
+
     await updateTransaction(tx._id, {
       title: draft.title.trim(),
       categoryId: draft.categoryId || categoryIdValue(tx.categoryId),
       tags: draft.tags,
       needsReview: false,
+      registerAsDebt: draft.registerAsDebt,
+      debtDueDate: draft.registerAsDebt
+        ? normalizeJalaliDateInput(draft.debtDueDate)
+        : undefined,
     });
   }
 
   const saveMutation = useMutation({
     mutationFn: async (tx: Transaction) => {
+      const asDebt = getDraft(tx).registerAsDebt;
       await saveOne(tx);
-      return tx._id;
+      return { id: tx._id, asDebt };
     },
-    onSuccess: (id) => {
-      message.success("ذخیره شد و از بررسی خارج شد");
+    onSuccess: ({ id, asDebt }) => {
+      message.success(
+        asDebt ? "ذخیره شد، بدهی یک‌باره ثبت شد و از بررسی خارج شد" : "ذخیره شد و از بررسی خارج شد"
+      );
       setDrafts((d) => {
         const next = { ...d };
         delete next[id];
@@ -126,6 +149,9 @@ export default function ReviewPage() {
       setSelectedIds((ids) => ids.filter((x) => x !== id));
       void queryClient.invalidateQueries({ queryKey: ["transactions"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      if (asDebt) {
+        void queryClient.invalidateQueries({ queryKey: ["recurring"] });
+      }
     },
     onError: (err: unknown) => {
       const msg =
@@ -142,18 +168,26 @@ export default function ReviewPage() {
       const selected = items.filter((tx) => ids.includes(tx._id));
       if (selected.length === 0) throw new Error("موردی انتخاب نشده");
 
-      const invalid = selected.find((tx) => getDraft(tx).title.trim().length < 2);
-      if (invalid) {
+      const invalidTitle = selected.find((tx) => getDraft(tx).title.trim().length < 2);
+      if (invalidTitle) {
         throw new Error("برای همه موارد انتخاب‌شده عنوان حداقل ۲ کاراکتری وارد کنید");
       }
 
+      const invalidDebt = selected.find(
+        (tx) => getDraft(tx).registerAsDebt && !getDraft(tx).debtDueDate.trim()
+      );
+      if (invalidDebt) {
+        throw new Error("برای موارد بدهی‌دار، تاریخ پس دادن را وارد کنید");
+      }
+
+      const anyDebt = selected.some((tx) => getDraft(tx).registerAsDebt);
       const results = await Promise.allSettled(selected.map((tx) => saveOne(tx)));
       const failed = results.filter((r) => r.status === "rejected").length;
       const ok = results.length - failed;
       if (ok === 0) throw new Error("هیچ موردی ذخیره نشد");
-      return { ok, failed, ids: selected.map((t) => t._id) };
+      return { ok, failed, ids: selected.map((t) => t._id), anyDebt };
     },
-    onSuccess: ({ ok, failed, ids }) => {
+    onSuccess: ({ ok, failed, ids, anyDebt }) => {
       if (failed > 0) {
         message.warning(
           `${toPersianDigits(String(ok))} مورد ذخیره شد، ${toPersianDigits(String(failed))} مورد ناموفق`
@@ -171,6 +205,9 @@ export default function ReviewPage() {
       setSelectedIds([]);
       void queryClient.invalidateQueries({ queryKey: ["transactions"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      if (anyDebt) {
+        void queryClient.invalidateQueries({ queryKey: ["recurring"] });
+      }
     },
     onError: (err: unknown) => {
       const msg =
@@ -341,13 +378,46 @@ export default function ReviewPage() {
                   </Col>
                 </Row>
 
+                <Checkbox
+                  checked={draft.registerAsDebt}
+                  onChange={(e) =>
+                    setDraft(tx._id, {
+                      ...draft,
+                      registerAsDebt: e.target.checked,
+                      debtDueDate: e.target.checked ? draft.debtDueDate : "",
+                    })
+                  }
+                >
+                  ثبت به‌عنوان بدهی (سررسید بازپرداخت در جریان دوره‌ای)
+                </Checkbox>
+
+                {draft.registerAsDebt ? (
+                  <div>
+                    <Text type="secondary" className="mb-1 block text-xs">
+                      تاریخ پس دادن بدهی
+                    </Text>
+                    <JalaliDateInput
+                      value={draft.debtDueDate}
+                      onChange={(debtDueDate) =>
+                        setDraft(tx._id, { ...draft, debtDueDate })
+                      }
+                      placeholder="1405/05/01"
+                    />
+                    <Text type="secondary" className="mt-1 block text-xs">
+                      همان مبلغ در «جریان دوره‌ای / سررسید‌ها» به‌عنوان بدهی یک‌باره ثبت می‌شود.
+                    </Text>
+                  </div>
+                ) : null}
+
                 <Button
                   type="primary"
                   icon={<CheckOutlined />}
                   loading={saveMutation.isPending && saveMutation.variables?._id === tx._id}
                   onClick={() => saveMutation.mutate(tx)}
                 >
-                  ذخیره و خروج از بررسی
+                  {draft.registerAsDebt
+                    ? "ذخیره، ثبت بدهی و خروج از بررسی"
+                    : "ذخیره و خروج از بررسی"}
                 </Button>
               </Space>
             </Card>
