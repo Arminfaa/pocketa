@@ -2,13 +2,27 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { App, Button, Card, Col, Flex, Grid, Input, Popconfirm, Row, Space, Typography } from "antd";
+import {
+  App,
+  Button,
+  Card,
+  Col,
+  Flex,
+  Grid,
+  Input,
+  Modal,
+  Popconfirm,
+  Row,
+  Space,
+  Typography,
+} from "antd";
 import {
   BankOutlined,
   DeleteOutlined,
   EditOutlined,
   PlusOutlined,
   SyncOutlined,
+  WalletOutlined,
 } from "@ant-design/icons";
 import {
   createAccount,
@@ -56,6 +70,11 @@ export default function AccountsPage() {
     queryKey: ["accounts"],
     queryFn: fetchAccounts,
   });
+
+  const [balanceTarget, setBalanceTarget] = useState<{
+    account: BankAccount;
+    amount: string;
+  } | null>(null);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -115,6 +134,30 @@ export default function AccountsPage() {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         "همگام‌سازی ناموفق بود";
+      message.error(msg);
+    },
+  });
+
+  const setBalanceMutation = useMutation({
+    mutationFn: async () => {
+      if (!balanceTarget) throw new Error("حساب انتخاب نشده");
+      const amount = parseAmountInput(balanceTarget.amount);
+      if (!Number.isFinite(amount) || amount < 0) {
+        throw new Error("مبلغ موجودی معتبر نیست");
+      }
+      return syncAccountBalance(balanceTarget.account.id, amount);
+    },
+    onSuccess: (item) => {
+      message.success(`موجودی روی ${formatToman(item.balance)} تنظیم شد`);
+      setBalanceTarget(null);
+      void queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { message?: string }).message ||
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        "تنظیم موجودی ناموفق بود";
       message.error(msg);
     },
   });
@@ -247,6 +290,40 @@ export default function AccountsPage() {
         <QueryError message="خطا در دریافت حساب‌ها." onRetry={() => void q.refetch()} />
       ) : null}
 
+      <Modal
+        title={
+          balanceTarget
+            ? `تنظیم موجودی «${balanceTarget.account.name}»`
+            : "تنظیم موجودی"
+        }
+        open={Boolean(balanceTarget)}
+        onCancel={() => setBalanceTarget(null)}
+        onOk={() => setBalanceMutation.mutate()}
+        okText="اعمال موجودی"
+        cancelText="انصراف"
+        confirmLoading={setBalanceMutation.isPending}
+        destroyOnHidden
+      >
+        <Space orientation="vertical" size="middle" className="w-full">
+          <Text type="secondary">
+            اگر موجودی اپ با مانده واقعی کارت فرق دارد، عدد درست را وارد کنید. تراکنش‌ها عوض
+            نمی‌شوند؛ فقط مبنای موجودی طوری تنظیم می‌شود که مجموع با این عدد یکی شود.
+          </Text>
+          <div>
+            <Text type="secondary">موجودی واقعی (تومان)</Text>
+            <div className="mt-2">
+              <AmountInput
+                value={balanceTarget?.amount ?? ""}
+                onChange={(v) =>
+                  setBalanceTarget((s) => (s ? { ...s, amount: v } : s))
+                }
+                placeholder="۲٬۹۲۱٬۳۱۲"
+              />
+            </div>
+          </div>
+        </Space>
+      </Modal>
+
       {!q.isLoading && (q.data?.length ?? 0) === 0 ? (
         <EmptyState
           title="هنوز حسابی ثبت نشده است"
@@ -296,6 +373,18 @@ export default function AccountsPage() {
                       <Text strong>{formatToman(account.balance)}</Text>
                     </div>
                   </div>
+                  <Button
+                    type="default"
+                    icon={<WalletOutlined />}
+                    onClick={() =>
+                      setBalanceTarget({
+                        account,
+                        amount: String(Math.round(account.balance)),
+                      })
+                    }
+                    aria-label="تنظیم موجودی"
+                    title="تنظیم دستی موجودی"
+                  />
                   <Popconfirm
                     title="همگام‌سازی موجودی"
                     description={`موجودی «${account.name}» با آخرین مانده پیامک بانکی همگام شود؟ (موجودی اولیه طوری تنظیم می‌شود که مانده حساب با SMS یکی شود)`}
