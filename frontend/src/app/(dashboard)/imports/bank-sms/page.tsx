@@ -314,7 +314,7 @@ export default function BankSmsImportPage() {
           </Space>
 
           <Checkbox checked={syncBalance} onChange={(e) => setSyncBalance(e.target.checked)}>
-            همگام‌سازی موجودی حساب با آخرین «مانده» پیامک در این دسته
+            همگام‌سازی موجودی حساب با جدیدترین «مانده» پیامک این حساب (بر اساس تاریخ و ساعت)
           </Checkbox>
 
           <Button
