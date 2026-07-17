@@ -26,7 +26,7 @@ const items = [
   { href: "/transactions", label: "تراکنش‌ها", icon: <TransactionOutlined /> },
   { href: "/imports/bank-sms", label: "ایمپورت پیامک", icon: <ImportOutlined /> },
   { href: "/review", label: "نام‌گذاری", icon: <FormOutlined /> },
-  { href: "/recurring", label: "جریان دوره‌ای", icon: <AccountBookOutlined /> },
+  { href: "/recurring", label: "جریان دوره‌ای / سررسید‌ها", icon: <AccountBookOutlined /> },
   { href: "/investments", label: "سرمایه‌گذاری / پس‌انداز", icon: <FundOutlined /> },
   { href: "/goals", label: "اهداف پس‌انداز", icon: <AimOutlined /> },
   { href: "/accounts", label: "حساب‌های بانکی", icon: <BankOutlined /> },
