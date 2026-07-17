@@ -111,19 +111,24 @@ export default function TransactionsPage() {
     },
     onSuccess: (_data, variables) => {
       const asDebt = Boolean(variables.registerAsDebt);
+      const asSettle = Boolean(variables.settleRecurringId);
       message.success(
         editing
           ? "تراکنش به‌روزرسانی شد"
-          : asDebt
-            ? "تراکنش مثبت و بدهی یک‌باره ثبت شد"
-            : "تراکنش ثبت شد"
+          : asSettle
+            ? "تراکنش ثبت و سررسید تسویه شد"
+            : asDebt
+              ? variables.type === "income"
+                ? "تراکنش مثبت و بدهی یک‌باره ثبت شد"
+                : "تراکنش منفی و طلب یک‌باره ثبت شد"
+              : "تراکنش ثبت شد"
       );
       setModalOpen(false);
       setEditing(null);
       void queryClient.invalidateQueries({ queryKey: ["transactions"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       void queryClient.invalidateQueries({ queryKey: ["accounts"] });
-      if (asDebt) {
+      if (asDebt || asSettle) {
         void queryClient.invalidateQueries({ queryKey: ["recurring"] });
       }
     },

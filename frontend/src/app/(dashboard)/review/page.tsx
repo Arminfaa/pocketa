@@ -11,6 +11,7 @@ import {
   Flex,
   Grid,
   Input,
+  Radio,
   Row,
   Select,
   Space,
@@ -27,6 +28,7 @@ import {
   suggestCategory,
   updateTransaction,
 } from "@/services/transactions";
+import { fetchRecurring } from "@/services/recurring";
 import type { Transaction } from "@/types/transaction";
 import { formatJalaliDate, formatToman, toPersianDigits } from "@/lib/format";
 import {
@@ -50,6 +52,9 @@ type Draft = {
   tags: string[];
   registerAsDebt: boolean;
   debtDueDate: string;
+  linkToRecurring: boolean;
+  settleRecurringId: string;
+  settleMode: "full" | "partial";
 };
 
 const AUTO_REVIEW_TITLE_INCOME = "واریز بررسی‌شده";
@@ -62,7 +67,16 @@ function defaultDraft(tx: Transaction): Draft {
     tags: tx.tags ?? [],
     registerAsDebt: false,
     debtDueDate: "",
+    linkToRecurring: false,
+    settleRecurringId: "",
+    settleMode: "full",
   };
+}
+
+function obligationLabel(type: "income" | "expense") {
+  return type === "income"
+    ? "ثبت به‌عنوان بدهی (تراکنش مثبت + سررسید بازپرداخت)"
+    : "ثبت به‌عنوان طلب (تراکنش منفی + سررسید دریافت)";
 }
 
 /** عنوان نهایی برای ذخیره؛ در حالت گروهی اگر خالی باشد خودکار نام می‌گذارد. */
@@ -108,6 +122,7 @@ export default function ReviewPage() {
   });
 
   const categoriesQ = useQuery({ queryKey: ["categories"], queryFn: fetchCategories });
+  const recurringQ = useQuery({ queryKey: ["recurring"], queryFn: fetchRecurring });
 
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -138,8 +153,30 @@ export default function ReviewPage() {
   async function saveOne(tx: Transaction, opts?: { autoTitleIfEmpty?: boolean }) {
     const draft = getDraft(tx);
     const title = resolveSaveTitle(tx, draft, opts);
+
+    if (draft.registerAsDebt && draft.linkToRecurring) {
+      throw new Error(`برای «${title}» فقط یکی از بدهی/طلب جدید یا تسویه سررسید را انتخاب کنید`);
+    }
     if (draft.registerAsDebt && !draft.debtDueDate.trim()) {
-      throw new Error(`برای «${title}» تاریخ پس دادن بدهی را وارد کنید`);
+      throw new Error(`برای «${title}» تاریخ سررسید را وارد کنید`);
+    }
+    if (draft.linkToRecurring && !draft.settleRecurringId) {
+      throw new Error(`برای «${title}» سررسید را انتخاب کنید`);
+    }
+    if (draft.linkToRecurring && draft.settleRecurringId) {
+      const item = (recurringQ.data?.items ?? []).find((i) => i.id === draft.settleRecurringId);
+      if (!item) throw new Error("سررسید انتخاب‌شده یافت نشد");
+      if (item.type !== tx.type) {
+        throw new Error("نوع سررسید با نوع تراکنش همخوانی ندارد");
+      }
+      if (draft.settleMode === "full" && Math.round(tx.amount) !== Math.round(item.amount)) {
+        throw new Error(
+          `تسویه کامل نیست؛ مبلغ تراکنش (${formatToman(tx.amount)}) با مبلغ سررسید (${formatToman(item.amount)}) یکی نیست`
+        );
+      }
+      if (draft.settleMode === "partial" && tx.amount >= item.amount) {
+        throw new Error("برای مبلغ مساوی یا بیشتر، تسویه کامل را انتخاب کنید");
+      }
     }
 
     await updateTransaction(tx._id, {
@@ -151,18 +188,31 @@ export default function ReviewPage() {
       debtDueDate: draft.registerAsDebt
         ? normalizeJalaliDateInput(draft.debtDueDate)
         : undefined,
+      settleRecurringId: draft.linkToRecurring ? draft.settleRecurringId : undefined,
+      settleMode: draft.linkToRecurring ? draft.settleMode : undefined,
     });
   }
 
   const saveMutation = useMutation({
     mutationFn: async (tx: Transaction) => {
-      const asDebt = getDraft(tx).registerAsDebt;
+      const draft = getDraft(tx);
       await saveOne(tx);
-      return { id: tx._id, asDebt };
+      return {
+        id: tx._id,
+        asDebt: draft.registerAsDebt,
+        asSettle: draft.linkToRecurring,
+        txType: tx.type,
+      };
     },
-    onSuccess: ({ id, asDebt }) => {
+    onSuccess: ({ id, asDebt, asSettle, txType }) => {
       message.success(
-        asDebt ? "ذخیره شد، بدهی یک‌باره ثبت شد و از بررسی خارج شد" : "ذخیره شد و از بررسی خارج شد"
+        asSettle
+          ? "ذخیره شد، سررسید تسویه شد و از بررسی خارج شد"
+          : asDebt
+            ? txType === "income"
+              ? "ذخیره شد، بدهی یک‌باره ثبت شد و از بررسی خارج شد"
+              : "ذخیره شد، طلب یک‌باره ثبت شد و از بررسی خارج شد"
+            : "ذخیره شد و از بررسی خارج شد"
       );
       setDrafts((d) => {
         const next = { ...d };
@@ -172,7 +222,7 @@ export default function ReviewPage() {
       setSelectedIds((ids) => ids.filter((x) => x !== id));
       void queryClient.invalidateQueries({ queryKey: ["transactions"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      if (asDebt) {
+      if (asDebt || asSettle) {
         void queryClient.invalidateQueries({ queryKey: ["recurring"] });
       }
     },
@@ -195,19 +245,36 @@ export default function ReviewPage() {
         (tx) => getDraft(tx).registerAsDebt && !getDraft(tx).debtDueDate.trim()
       );
       if (invalidDebt) {
-        throw new Error("برای موارد بدهی‌دار، تاریخ پس دادن را وارد کنید");
+        throw new Error("برای موارد بدهی/طلب‌دار، تاریخ سررسید را وارد کنید");
       }
 
-      const anyDebt = selected.some((tx) => getDraft(tx).registerAsDebt);
+      const invalidSettle = selected.find(
+        (tx) => getDraft(tx).linkToRecurring && !getDraft(tx).settleRecurringId
+      );
+      if (invalidSettle) {
+        throw new Error("برای موارد متصل به سررسید، یک سررسید انتخاب کنید");
+      }
+
+      const anyLinked = selected.some(
+        (tx) => getDraft(tx).registerAsDebt || getDraft(tx).linkToRecurring
+      );
       const results = await Promise.allSettled(
         selected.map((tx) => saveOne(tx, { autoTitleIfEmpty: true }))
       );
       const failed = results.filter((r) => r.status === "rejected").length;
       const ok = results.length - failed;
-      if (ok === 0) throw new Error("هیچ موردی ذخیره نشد");
-      return { ok, failed, ids: selected.map((t) => t._id), anyDebt };
+      if (ok === 0) {
+        const firstErr = results.find((r) => r.status === "rejected") as
+          | PromiseRejectedResult
+          | undefined;
+        const reason = firstErr?.reason;
+        throw new Error(
+          reason instanceof Error ? reason.message : "هیچ موردی ذخیره نشد"
+        );
+      }
+      return { ok, failed, ids: selected.map((t) => t._id), anyLinked };
     },
-    onSuccess: ({ ok, failed, ids, anyDebt }) => {
+    onSuccess: ({ ok, failed, ids, anyLinked }) => {
       if (failed > 0) {
         message.warning(
           `${toPersianDigits(String(ok))} مورد ذخیره شد، ${toPersianDigits(String(failed))} مورد ناموفق`
@@ -225,7 +292,7 @@ export default function ReviewPage() {
       setSelectedIds([]);
       void queryClient.invalidateQueries({ queryKey: ["transactions"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      if (anyDebt) {
+      if (anyLinked) {
         void queryClient.invalidateQueries({ queryKey: ["recurring"] });
       }
     },
@@ -400,21 +467,24 @@ export default function ReviewPage() {
 
                 <Checkbox
                   checked={draft.registerAsDebt}
+                  disabled={draft.linkToRecurring}
                   onChange={(e) =>
                     setDraft(tx._id, {
                       ...draft,
                       registerAsDebt: e.target.checked,
                       debtDueDate: e.target.checked ? draft.debtDueDate : "",
+                      linkToRecurring: e.target.checked ? false : draft.linkToRecurring,
+                      settleRecurringId: e.target.checked ? "" : draft.settleRecurringId,
                     })
                   }
                 >
-                  ثبت به‌عنوان بدهی (سررسید بازپرداخت در جریان دوره‌ای)
+                  {obligationLabel(tx.type)}
                 </Checkbox>
 
                 {draft.registerAsDebt ? (
                   <div>
                     <Text type="secondary" className="mb-1 block text-xs">
-                      تاریخ پس دادن بدهی
+                      {tx.type === "income" ? "تاریخ پس دادن بدهی" : "تاریخ دریافت طلب"}
                     </Text>
                     <JalaliDateInput
                       value={draft.debtDueDate}
@@ -424,8 +494,66 @@ export default function ReviewPage() {
                       placeholder="1405/05/01"
                     />
                     <Text type="secondary" className="mt-1 block text-xs">
-                      همان مبلغ در «جریان دوره‌ای / سررسید‌ها» به‌عنوان بدهی یک‌باره ثبت می‌شود.
+                      {tx.type === "income"
+                        ? "همان مبلغ در جریان دوره‌ای به‌عنوان بدهی یک‌باره ثبت می‌شود."
+                        : "همان مبلغ در جریان دوره‌ای به‌عنوان طلب یک‌باره ثبت می‌شود."}
                     </Text>
+                  </div>
+                ) : null}
+
+                <Checkbox
+                  checked={draft.linkToRecurring}
+                  disabled={draft.registerAsDebt}
+                  onChange={(e) =>
+                    setDraft(tx._id, {
+                      ...draft,
+                      linkToRecurring: e.target.checked,
+                      settleRecurringId: e.target.checked ? draft.settleRecurringId : "",
+                      registerAsDebt: e.target.checked ? false : draft.registerAsDebt,
+                      debtDueDate: e.target.checked ? "" : draft.debtDueDate,
+                    })
+                  }
+                >
+                  اتصال به سررسید موجود (تسویه از جریان دوره‌ای)
+                </Checkbox>
+
+                {draft.linkToRecurring ? (
+                  <div className="flex flex-col gap-2">
+                    <Select
+                      showSearch
+                      optionFilterProp="label"
+                      className="w-full"
+                      placeholder="انتخاب سررسید"
+                      value={draft.settleRecurringId || undefined}
+                      onChange={(settleRecurringId) =>
+                        setDraft(tx._id, { ...draft, settleRecurringId })
+                      }
+                      options={(recurringQ.data?.items ?? [])
+                        .filter((i) => i.active && i.type === tx.type)
+                        .map((i) => ({
+                          value: i.id,
+                          label: `${i.title} · ${formatToman(i.amount)} · ${i.nextPaymentDate}`,
+                        }))}
+                      notFoundContent="سررسید فعالی با این نوع تراکنش نیست"
+                    />
+                    <Radio.Group
+                      value={draft.settleMode}
+                      onChange={(e) =>
+                        setDraft(tx._id, {
+                          ...draft,
+                          settleMode: e.target.value as "full" | "partial",
+                        })
+                      }
+                    >
+                      <Radio value="full">تسویه کامل</Radio>
+                      <Radio value="partial">پرداخت جزئی</Radio>
+                    </Radio.Group>
+                    {draft.settleMode === "full" && draft.settleRecurringId ? (
+                      <Text type="secondary" className="text-xs">
+                        مبلغ تراکنش باید دقیقاً برابر مبلغ سررسید باشد؛ در غیر این صورت ارور
+                        می‌گیرید.
+                      </Text>
+                    ) : null}
                   </div>
                 ) : null}
 
@@ -435,9 +563,13 @@ export default function ReviewPage() {
                   loading={saveMutation.isPending && saveMutation.variables?._id === tx._id}
                   onClick={() => saveMutation.mutate(tx)}
                 >
-                  {draft.registerAsDebt
-                    ? "ذخیره، ثبت بدهی و خروج از بررسی"
-                    : "ذخیره و خروج از بررسی"}
+                  {draft.linkToRecurring
+                    ? "ذخیره، تسویه سررسید و خروج از بررسی"
+                    : draft.registerAsDebt
+                      ? tx.type === "income"
+                        ? "ذخیره، ثبت بدهی و خروج از بررسی"
+                        : "ذخیره، ثبت طلب و خروج از بررسی"
+                      : "ذخیره و خروج از بررسی"}
                 </Button>
               </Space>
             </Card>
