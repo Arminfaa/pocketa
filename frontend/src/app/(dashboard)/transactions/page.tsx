@@ -109,13 +109,23 @@ export default function TransactionsPage() {
       if (editing) return updateTransaction(editing._id, payload);
       return createTransaction(payload);
     },
-    onSuccess: () => {
-      message.success(editing ? "تراکنش به‌روزرسانی شد" : "تراکنش ثبت شد");
+    onSuccess: (_data, variables) => {
+      const asDebt = Boolean(variables.registerAsDebt);
+      message.success(
+        editing
+          ? "تراکنش به‌روزرسانی شد"
+          : asDebt
+            ? "تراکنش مثبت و بدهی یک‌باره ثبت شد"
+            : "تراکنش ثبت شد"
+      );
       setModalOpen(false);
       setEditing(null);
       void queryClient.invalidateQueries({ queryKey: ["transactions"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       void queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      if (asDebt) {
+        void queryClient.invalidateQueries({ queryKey: ["recurring"] });
+      }
     },
     onError: (err: unknown) => {
       const msg =
