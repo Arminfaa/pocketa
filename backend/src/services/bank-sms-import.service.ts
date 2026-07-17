@@ -46,6 +46,7 @@ export async function findExistingHashes(userId: string, hashes: string[]): Prom
 }
 
 export function defaultTitle(item: ParsedBankSms): string {
+  if (item.suggestedTitle?.trim()) return item.suggestedTitle.trim();
   const kind = item.type === "income" ? "واریز" : "برداشت";
   const bank = item.bankName ? ` ${item.bankName}` : "";
   return `${kind}${bank} (بدون عنوان)`;
