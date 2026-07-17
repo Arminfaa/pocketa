@@ -222,7 +222,9 @@ export const syncBalance = asyncHandler(async (req: Request, res: Response) => {
           smsBalance: target,
         },
       },
-      "موجودی حساب با مانده پیامک همگام شد"
+      parsed.data.balanceAfter !== undefined
+        ? "موجودی حساب تنظیم شد"
+        : "موجودی حساب با مانده پیامک همگام شد"
     );
   } catch {
     throw new AppError(404, "حساب بانکی یافت نشد");

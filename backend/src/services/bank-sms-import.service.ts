@@ -45,6 +45,51 @@ export async function findExistingHashes(userId: string, hashes: string[]): Prom
   return new Set(existing.map((t) => String(t.importHash)));
 }
 
+/** Same account/date/amount/type — catches card-to-card vs bank SMS double imports. */
+export function nearDuplicateKey(parts: {
+  accountId: string;
+  type: string;
+  amount: number;
+  date: string;
+}): string {
+  return `${parts.accountId}|${parts.type}|${Math.round(parts.amount)}|${parts.date}`;
+}
+
+/**
+ * Mark items that already exist as a bank tx with same direction/amount/day
+ * (even when importHash differs — e.g. رسید کارت‌به‌کارت + پیامک همان انتقال).
+ */
+export async function findNearDuplicateImportKeys(
+  userId: string,
+  accountId: string,
+  items: Array<{ type: string; amount: number; date: string }>
+): Promise<Set<string>> {
+  if (items.length === 0) return new Set();
+
+  const amounts = [...new Set(items.map((i) => Math.round(i.amount)))];
+  const dates = [...new Set(items.map((i) => i.date))];
+
+  const existing = await TransactionModel.find({
+    userId,
+    accountId,
+    date: { $in: dates },
+    amount: { $in: amounts },
+  })
+    .select("type amount date")
+    .lean();
+
+  return new Set(
+    existing.map((t) =>
+      nearDuplicateKey({
+        accountId,
+        type: String(t.type),
+        amount: Number(t.amount),
+        date: String(t.date),
+      })
+    )
+  );
+}
+
 export function defaultTitle(item: ParsedBankSms): string {
   if (item.suggestedTitle?.trim()) return item.suggestedTitle.trim();
   const kind = item.type === "income" ? "واریز" : "برداشت";
