@@ -205,11 +205,11 @@ export default function RecurringPage() {
         <Title level={4} className="!m-0">
           <Space>
             <AccountBookOutlined />
-            بدهی / اقساط
+            جریان دوره‌ای
           </Space>
         </Title>
         <Text type="secondary">
-          اقساط ماهانه یا بدهی یک‌باره را ثبت کنید؛ حساب بانکی را موقع ثبت تراکنش انتخاب کنید.
+          درآمد، سود، اقساط و بدهی‌های زمان‌بندی‌شده — حساب بانکی را موقع ثبت تراکنش انتخاب کنید.
         </Text>
       </div>
 
