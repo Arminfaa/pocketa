@@ -50,6 +50,10 @@ export type TransactionInput = {
   date: string;
   needsReview?: boolean;
   tags?: string[];
+  /** ثبت هم‌زمان به‌عنوان بدهی یک‌باره */
+  registerAsDebt?: boolean;
+  /** تاریخ پس‌دادن بدهی (جلالی) */
+  debtDueDate?: string | null;
 };
 
 export type TransactionsListResponse = {

@@ -22,7 +22,7 @@ const TagsSchema = z
     return out;
   });
 
-export const TransactionCreateSchema = z.object({
+const TransactionBaseFields = {
   type: z.enum(["income", "expense"]),
   amount: z.coerce.number().positive(),
   categoryId: z.string().min(1),
@@ -31,15 +31,38 @@ export const TransactionCreateSchema = z.object({
   description: z.string().max(500).optional().nullable(),
   date: JalaliDateSchema,
   tags: TagsSchema,
-});
+};
 
-export const TransactionUpdateSchema = TransactionCreateSchema.partial().extend({
-  type: z.enum(["income", "expense"]).optional(),
-  categoryId: z.string().min(1).optional(),
-  accountId: z.string().min(1).optional(),
-  needsReview: z.boolean().optional(),
-  tags: TagsSchema,
-});
+export const TransactionCreateSchema = z
+  .object({
+    ...TransactionBaseFields,
+    /** ثبت هم‌زمان به‌عنوان بدهی یک‌باره در جریان دوره‌ای */
+    registerAsDebt: z.boolean().optional().default(false),
+    /** تاریخ پس‌دادن / سررسید بدهی (جلالی) */
+    debtDueDate: JalaliDateSchema.optional().nullable(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.registerAsDebt && !data.debtDueDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "تاریخ پس دادن بدهی را وارد کنید",
+        path: ["debtDueDate"],
+      });
+    }
+  });
+
+export const TransactionUpdateSchema = z
+  .object({
+    ...TransactionBaseFields,
+  })
+  .partial()
+  .extend({
+    type: z.enum(["income", "expense"]).optional(),
+    categoryId: z.string().min(1).optional(),
+    accountId: z.string().min(1).optional(),
+    needsReview: z.boolean().optional(),
+    tags: TagsSchema,
+  });
 
 export const TransactionQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
