@@ -41,6 +41,8 @@ const ObligationAndSettleFields = {
   /** تسویه یک سررسید موجود با این تراکنش */
   settleRecurringId: z.string().min(1).optional().nullable(),
   settleMode: z.enum(["full", "partial"]).optional().nullable(),
+  /** تاریخ تسویه مانده — الزامی وقتی settleMode=partial */
+  remainderDueDate: JalaliDateSchema.optional().nullable(),
 };
 
 function refineObligationAndSettle(
@@ -49,6 +51,7 @@ function refineObligationAndSettle(
     debtDueDate?: string | null;
     settleRecurringId?: string | null;
     settleMode?: "full" | "partial" | null;
+    remainderDueDate?: string | null;
   },
   ctx: z.RefinementCtx
 ) {
@@ -71,6 +74,13 @@ function refineObligationAndSettle(
       code: z.ZodIssueCode.custom,
       message: "نوع تسویه (کامل یا جزئی) را انتخاب کنید",
       path: ["settleMode"],
+    });
+  }
+  if (data.settleRecurringId && data.settleMode === "partial" && !data.remainderDueDate) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "تاریخ تسویه مانده را وارد کنید",
+      path: ["remainderDueDate"],
     });
   }
 }
