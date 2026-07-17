@@ -143,7 +143,7 @@ export default function InvestmentsPage() {
     onSuccess: () => {
       message.success(
         hasProfit
-          ? "سرمایه‌گذاری ثبت شد و درآمد سود در بدهی/اقساط اضافه شد"
+          ? "سرمایه‌گذاری ثبت شد و درآمد سود در جریان دوره‌ای اضافه شد"
           : "سرمایه‌گذاری ثبت شد"
       );
       resetForm();
@@ -361,7 +361,7 @@ export default function InvestmentsPage() {
                 {previewProfitQty != null ? (
                   <Text type="secondary" className="text-xs">
                     هر دوره ≈ {previewProfitQty.toLocaleString("fa-IR", { maximumFractionDigits: 3 })}{" "}
-                    {assetUnitLabel(assetType)} سود → در بدهی/اقساط به‌عنوان درآمد ثبت می‌شود و
+                    {assetUnitLabel(assetType)} سود → در جریان دوره‌ای به‌عنوان درآمد ثبت می‌شود و
                     مبلغ تومان با قیمت روز محاسبه می‌گردد.
                   </Text>
                 ) : null}

@@ -434,7 +434,7 @@ export default function RecurringPage() {
       {listQ.isLoading ? <Skeleton className="h-40 w-full" /> : null}
       {listQ.error ? (
         <QueryError
-          message="خطا در دریافت بدهی‌ها و اقساط."
+          message="خطا در دریافت جریان دوره‌ای."
           onRetry={() => void listQ.refetch()}
         />
       ) : null}
@@ -522,8 +522,8 @@ export default function RecurringPage() {
 
       {!listQ.isLoading && items.length === 0 ? (
         <EmptyState
-          title="هنوز بدهی یا قسطی ثبت نشده"
-          description="قسط ماهانه یا بدهی یک‌باره را اینجا تعریف کنید."
+          title="هنوز موردی ثبت نشده"
+          description="درآمد دوره‌ای، قسط یا بدهی یک‌باره را اینجا تعریف کنید."
         />
       ) : null}
 
