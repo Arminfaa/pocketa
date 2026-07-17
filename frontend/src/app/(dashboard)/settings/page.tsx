@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { App, Button, Card, Flex, Input, Space, Tag, Typography } from "antd";
 import { BellOutlined, LogoutOutlined } from "@ant-design/icons";
 import { SettingsSkeleton } from "@/components/skeletons";
+import { Sk } from "@/components/ui/skeleton";
 import {
   disablePushNotifications,
   enablePushNotifications,
@@ -133,11 +134,11 @@ export default function SettingsPage() {
               }
             >
               <div className="space-y-3" aria-busy="true">
-                <div className="h-3 w-full animate-pulse rounded-xl bg-app-muted/20" />
-                <div className="h-3 w-2/3 animate-pulse rounded-xl bg-app-muted/20" />
+                <Sk className="h-3 w-full" />
+                <Sk className="h-3 w-2/3" />
                 <div className="flex flex-wrap gap-2">
-                  <div className="h-6 w-28 animate-pulse rounded-full bg-app-muted/20" />
-                  <div className="h-9 w-40 animate-pulse rounded-lg bg-app-muted/20" />
+                  <Sk className="h-6 w-28 rounded-full" />
+                  <Sk className="h-9 w-40 rounded-lg" />
                 </div>
               </div>
             </Card>

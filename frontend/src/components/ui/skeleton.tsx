@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { cn } from "@/lib/cn";
 
 /** Single pulse block — building piece for page skeletons. */
@@ -8,19 +9,13 @@ export function Sk({
   style,
 }: {
   className?: string;
-  style?: React.CSSProperties;
+  style?: CSSProperties;
 }) {
-  return (
-    <div
-      className={cn("animate-pulse rounded-xl bg-app-muted/20", className)}
-      style={style}
-      aria-hidden
-    />
-  );
+  return <div className={cn("sk-block", className)} style={style} aria-hidden />;
 }
 
 /**
- * Legacy Ant Design skeleton (kept for rare one-off use).
+ * Legacy multi-row skeleton.
  * Prefer page skeletons + `Sk` for layout-faithful placeholders.
  */
 export function Skeleton({

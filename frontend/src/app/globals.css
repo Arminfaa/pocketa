@@ -41,6 +41,30 @@
   .bg-app-surface {
     @apply bg-app-mesh bg-app;
   }
+
+  /* Skeleton pulse — visible on light/dark; CSS vars break Tailwind /opacity */
+  .sk-block {
+    border-radius: 0.75rem;
+    background-color: color-mix(in srgb, var(--muted) 24%, transparent);
+    animation: sk-pulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes sk-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.4;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sk-block {
+      animation: none;
+      opacity: 0.7;
+    }
+  }
 }
 
 @layer components {
