@@ -6,7 +6,6 @@ export type AuthUser = {
   id: string;
   name: string;
   email: string;
-  avatar: string | null;
 };
 
 type AuthState = {
@@ -40,4 +39,3 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ user: null, hydrated: true, sessionChecked: true });
   },
 }));
-
