@@ -28,7 +28,7 @@ import { fetchAccounts } from "@/services/accounts";
 import { confirmBankSms, previewBankSms, type ParsedImportItem } from "@/services/imports";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { formatToman, formatJalaliDate } from "@/lib/format";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Sk } from "@/components/ui/skeleton";
 import { cn } from "@/lib/cn";
 
 const { Title, Text } = Typography;
@@ -157,7 +157,7 @@ export default function BankSmsImportPage() {
             <Col xs={24} md={16}>
               <Text type="secondary">حساب مقصد</Text>
               {accountsQ.isLoading ? (
-                <Skeleton className="h-11 w-full mt-2" rows={1} />
+                <Sk className="mt-2 h-11 w-full rounded-lg" />
               ) : (
                 <Select
                   className="w-full mt-2"

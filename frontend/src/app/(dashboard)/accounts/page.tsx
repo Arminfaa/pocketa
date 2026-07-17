@@ -20,7 +20,7 @@ import {
 import { formatToman } from "@/lib/format";
 import { parseAmountInput } from "@/lib/amount";
 import { AmountInput } from "@/components/ui/amount-input";
-import { Skeleton } from "@/components/ui/skeleton";
+import { AccountsListSkeleton } from "@/components/skeletons";
 import { QueryError } from "@/components/ui/query-error";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { BankAccount } from "@/types/account";
@@ -241,12 +241,7 @@ export default function AccountsPage() {
         </Space>
       </Card>
 
-      {q.isLoading ? (
-        <Space orientation="vertical" size="middle" className="w-full">
-          <Skeleton className="h-24 w-full" rows={2} />
-          <Skeleton className="h-24 w-full" rows={2} />
-        </Space>
-      ) : null}
+      {q.isLoading ? <AccountsListSkeleton /> : null}
 
       {q.error ? (
         <QueryError message="خطا در دریافت حساب‌ها." onRetry={() => void q.refetch()} />

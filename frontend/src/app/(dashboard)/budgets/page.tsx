@@ -26,7 +26,7 @@ import { formatToman } from "@/lib/format";
 import { parseAmountInput } from "@/lib/amount";
 import { getJalaliMonthYear, MONTH_LABELS } from "@/lib/finance-ui";
 import { AmountInput } from "@/components/ui/amount-input";
-import { Skeleton } from "@/components/ui/skeleton";
+import { BudgetsListSkeleton, KpiRowSkeleton } from "@/components/skeletons";
 import { QueryError } from "@/components/ui/query-error";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/cn";
@@ -130,7 +130,9 @@ export default function BudgetsPage() {
         </Col>
       </Row>
 
-      {summary ? (
+      {budgetsQ.isLoading ? (
+        <KpiRowSkeleton count={3} colProps={{ xs: 24, md: 8 }} />
+      ) : summary ? (
         <Row gutter={[12, 12]}>
           <Col xs={24} md={8}>
             <Card>
@@ -207,7 +209,7 @@ export default function BudgetsPage() {
         </Space>
       </Card>
 
-      {budgetsQ.isLoading ? <Skeleton className="h-40 w-full" /> : null}
+      {budgetsQ.isLoading ? <BudgetsListSkeleton /> : null}
       {budgetsQ.error ? (
         <QueryError message="خطا در دریافت بودجه‌ها." onRetry={() => void budgetsQ.refetch()} />
       ) : null}
