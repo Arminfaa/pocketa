@@ -42,7 +42,7 @@ import { formatJalaliDate, formatToman, toPersianDigits } from "@/lib/format";
 import { accountName, categoryName } from "@/lib/transaction-helpers";
 import { exportTransactionsCsv } from "@/lib/export-transactions-csv";
 import { useAppMessage } from "@/lib/antd-app";
-import { Skeleton } from "@/components/ui/skeleton";
+import { TransactionsListSkeleton } from "@/components/skeletons";
 import { QueryError } from "@/components/ui/query-error";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TransactionFormModal } from "@/features/transactions/TransactionFormModal";
@@ -484,7 +484,7 @@ export default function TransactionsPage() {
         </Space>
       </Card>
 
-      {listQ.isLoading ? <Skeleton className="h-64 w-full" /> : null}
+      {listQ.isLoading ? <TransactionsListSkeleton /> : null}
       {listQ.error ? (
         <QueryError message="خطا در دریافت تراکنش‌ها." onRetry={() => void listQ.refetch()} />
       ) : null}

@@ -2,7 +2,7 @@
 
 import { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Skeleton } from "@/components/ui/skeleton";
+import { TickerSkeleton } from "@/components/skeletons";
 import { cn } from "@/lib/cn";
 
 export type MarketTickerData = {
@@ -176,11 +176,7 @@ export function MarketPriceTicker({ market, loading, errorMessage, className }: 
   }
 
   if (loading) {
-    return (
-      <div className={cn("market-ticker", className)} aria-busy="true">
-        <Skeleton className="h-10 w-full" rows={1} />
-      </div>
-    );
+    return <TickerSkeleton className={className} />;
   }
 
   if (!items.length) {

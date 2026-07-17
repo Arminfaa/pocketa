@@ -39,7 +39,10 @@ import { formatJalaliDate, formatToman } from "@/lib/format";
 import { normalizeJalaliDateInput, parseAmountInput } from "@/lib/amount";
 import { AmountInput } from "@/components/ui/amount-input";
 import { JalaliDateInput } from "@/components/ui/jalali-date-input";
-import { Skeleton } from "@/components/ui/skeleton";
+import {
+  InvestmentsListSkeleton,
+  KpiRowSkeleton,
+} from "@/components/skeletons";
 import { EmptyState } from "@/components/ui/empty-state";
 import { QueryError } from "@/components/ui/query-error";
 import { AssetCalculator } from "@/components/investments/AssetCalculator";
@@ -312,15 +315,14 @@ export default function InvestmentsPage() {
       {tab === "calculator" ? <AssetCalculator /> : null}
 
       {tab === "investments" && q.isLoading ? (
-        <Row gutter={[16, 16]}>
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Col key={i} xs={24} sm={8}>
-              <Card>
-                <Skeleton className="h-16 w-full" rows={1} />
-              </Card>
-            </Col>
-          ))}
-        </Row>
+        <div className="space-y-4">
+          <KpiRowSkeleton
+            count={3}
+            colProps={{ xs: 24, sm: 8 }}
+            gutter={[16, 16]}
+          />
+          <InvestmentsListSkeleton />
+        </div>
       ) : null}
 
       {tab === "investments" && q.error ? (

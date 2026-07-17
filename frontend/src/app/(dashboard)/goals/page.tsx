@@ -25,7 +25,7 @@ import { normalizeJalaliDateInput, parseAmountInput } from "@/lib/amount";
 import { CATEGORY_COLORS } from "@/lib/finance-ui";
 import { AmountInput } from "@/components/ui/amount-input";
 import { JalaliDateInput } from "@/components/ui/jalali-date-input";
-import { Skeleton } from "@/components/ui/skeleton";
+import { GoalsListSkeleton, KpiRowSkeleton } from "@/components/skeletons";
 import { EmptyState } from "@/components/ui/empty-state";
 import { QueryError } from "@/components/ui/query-error";
 import { cn } from "@/lib/cn";
@@ -118,7 +118,9 @@ export default function GoalsPage() {
         <Text type="secondary">برای سفر، خرید یا اضطراری هدف بگذارید و پیشرفت را دنبال کنید.</Text>
       </div>
 
-      {summary ? (
+      {q.isLoading ? (
+        <KpiRowSkeleton count={3} colProps={{ xs: 24, md: 8 }} />
+      ) : summary ? (
         <Row gutter={[12, 12]}>
           <Col xs={24} md={8}>
             <Card>
@@ -208,7 +210,7 @@ export default function GoalsPage() {
         </Space>
       </Card>
 
-      {q.isLoading ? <Skeleton className="h-40 w-full" /> : null}
+      {q.isLoading ? <GoalsListSkeleton /> : null}
       {q.error ? (
         <QueryError message="خطا در دریافت اهداف." onRetry={() => void q.refetch()} />
       ) : null}

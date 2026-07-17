@@ -33,7 +33,7 @@ import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { fetchCategoryReport, fetchMonthlyReport } from "@/services/reports";
 import { formatJalaliDate, formatToman } from "@/lib/format";
 import { getJalaliMonthYear, MONTH_LABELS } from "@/lib/finance-ui";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Sk } from "@/components/ui/skeleton";
 import { QueryError } from "@/components/ui/query-error";
 
 const CARD_EXTRA_STACK =
@@ -240,7 +240,9 @@ export default function ReportsPage() {
               ]}
             />
           ) : null}
-          {monthlyQ.isLoading ? <Skeleton className="h-[280px] w-full" /> : null}
+          {monthlyQ.isLoading ? (
+            <Sk className="h-[300px] w-full rounded-2xl md:h-[280px]" />
+          ) : null}
           {monthlyQ.error ? (
             <QueryError
               message="خطا در دریافت گزارش ماهانه."
@@ -294,7 +296,9 @@ export default function ReportsPage() {
         </Card>
       ) : (
         <Card title={`درآمد و هزینه ${MONTH_LABELS[month - 1]} ${year}`}>
-          {categoriesQ.isLoading ? <Skeleton className="h-[280px] w-full" /> : null}
+          {categoriesQ.isLoading ? (
+            <Sk className="h-[300px] w-full rounded-2xl md:h-[280px]" />
+          ) : null}
           {categoriesQ.error ? (
             <QueryError
               message="خطا در دریافت گزارش ماهانه."
@@ -328,7 +332,9 @@ export default function ReportsPage() {
           <Row gutter={[16, 16]}>
             <Col xs={24} lg={12}>
               <Card title="هزینه به تفکیک دسته">
-                {categoriesQ.isLoading ? <Skeleton className="h-[260px] w-full" /> : null}
+                {categoriesQ.isLoading ? (
+                  <Sk className="h-[260px] w-full rounded-2xl" />
+                ) : null}
                 {categoriesQ.data && expensePie.length > 0 ? (
                   <ResponsiveContainer width="100%" height={260}>
                     <PieChart>
@@ -357,7 +363,9 @@ export default function ReportsPage() {
 
             <Col xs={24} lg={12}>
               <Card title="مقایسه دسته‌های هزینه">
-                {categoriesQ.isLoading ? <Skeleton className="h-[260px] w-full" /> : null}
+                {categoriesQ.isLoading ? (
+                  <Sk className="h-[260px] w-full rounded-2xl" />
+                ) : null}
                 {categoriesQ.data && (categoriesQ.data.expense?.length ?? 0) > 0 ? (
                   <ResponsiveContainer width="100%" height={260}>
                     <BarChart
@@ -388,7 +396,19 @@ export default function ReportsPage() {
           </Row>
 
           <Card title={`بیشترین هزینه‌های ${MONTH_LABELS[month - 1]} ${year}`}>
-            {categoriesQ.isLoading ? <Skeleton className="h-40 w-full" /> : null}
+            {categoriesQ.isLoading ? (
+              <div className="space-y-3 py-1" aria-busy="true">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Flex key={i} justify="space-between" align="center" gap="middle">
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <Sk className="h-4 w-36 max-w-full" />
+                      <Sk className="h-3 w-48 max-w-full" />
+                    </div>
+                    <Sk className="h-4 w-20 shrink-0" />
+                  </Flex>
+                ))}
+              </div>
+            ) : null}
             {!categoriesQ.isLoading && (categoriesQ.data?.topExpenses?.length ?? 0) === 0 ? (
               <Flex align="center" justify="center" className="py-8">
                 <Text type="secondary">هزینه‌ای برای نمایش وجود ندارد.</Text>

@@ -12,7 +12,7 @@ import {
   type Category,
 } from "@/services/categories";
 import { CATEGORY_COLORS, CATEGORY_ICONS } from "@/lib/finance-ui";
-import { Skeleton } from "@/components/ui/skeleton";
+import { CategoriesListSkeleton } from "@/components/skeletons";
 import { QueryError } from "@/components/ui/query-error";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FinanceTypeToggle } from "@/components/ui/finance-type-toggle";
@@ -194,7 +194,7 @@ export default function CategoriesPage() {
 
       <FinanceTypeToggle withAll value={filter} onChange={(e) => setFilter(e.target.value)} />
 
-      {q.isLoading ? <Skeleton className="h-40 w-full" /> : null}
+      {q.isLoading ? <CategoriesListSkeleton /> : null}
       {q.error ? (
         <QueryError message="خطا در دریافت دسته‌بندی‌ها." onRetry={() => void q.refetch()} />
       ) : null}

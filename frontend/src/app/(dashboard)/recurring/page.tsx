@@ -44,9 +44,9 @@ import type { BankAccount } from "@/types/account";
 import { formatJalaliDate, formatToman, toPersianDigits } from "@/lib/format";
 import { normalizeJalaliDateInput } from "@/lib/amount";
 import { getTodayJalali } from "@/lib/transaction-helpers";
-import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { QueryError } from "@/components/ui/query-error";
+import { RecurringListSkeleton } from "@/components/skeletons";
 import { NumberInput } from "@/components/ui/number-input";
 import { JalaliDateInput } from "@/components/ui/jalali-date-input";
 import {
@@ -452,7 +452,7 @@ export default function RecurringPage() {
         </Space>
       </Card>
 
-      {listQ.isLoading ? <Skeleton className="h-40 w-full" /> : null}
+      {listQ.isLoading ? <RecurringListSkeleton /> : null}
       {listQ.error ? (
         <QueryError
           message="خطا در دریافت جریان دوره‌ای / سررسید‌ها."

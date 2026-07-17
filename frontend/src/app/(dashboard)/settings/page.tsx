@@ -7,6 +7,7 @@ import api from "@/services/api";
 import { useRouter } from "next/navigation";
 import { App, Button, Card, Flex, Input, Space, Tag, Typography } from "antd";
 import { BellOutlined, LogoutOutlined } from "@ant-design/icons";
+import { SettingsSkeleton } from "@/components/skeletons";
 import {
   disablePushNotifications,
   enablePushNotifications,
@@ -92,76 +93,102 @@ export default function SettingsPage() {
         تنظیمات پروفایل
       </Title>
 
-      <Card>
-        <Space orientation="vertical" size="large" className="w-full">
-          <div>
-            <Text strong>{user?.name ?? "—"}</Text>
-            <div>
-              <Text type="secondary" className="break-words">
-                {user?.email ?? ""}
-              </Text>
-            </div>
-          </div>
+      {!user ? (
+        <SettingsSkeleton />
+      ) : (
+        <>
+          <Card>
+            <Space orientation="vertical" size="large" className="w-full">
+              <div>
+                <Text strong>{user.name ?? "—"}</Text>
+                <div>
+                  <Text type="secondary" className="break-words">
+                    {user.email ?? ""}
+                  </Text>
+                </div>
+              </div>
 
-          <div>
-            <Text type="secondary">نام نمایشی</Text>
-            <Input
-              className="mt-2"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
+              <div>
+                <Text type="secondary">نام نمایشی</Text>
+                <Input
+                  className="mt-2"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
 
-          <Button type="primary" loading={saving} onClick={onSaveProfile}>
-            {saving ? "در حال ذخیره..." : "ذخیره تغییرات"}
-          </Button>
-        </Space>
-      </Card>
+              <Button type="primary" loading={saving} onClick={onSaveProfile}>
+                {saving ? "در حال ذخیره..." : "ذخیره تغییرات"}
+              </Button>
+            </Space>
+          </Card>
 
-      <Card
-        title={
-          <Space>
-            <BellOutlined />
-            یادآوری پوش
-          </Space>
-        }
-      >
-        <Flex justify="space-between" align="center" gap="middle" wrap="wrap">
-          <div className="min-w-0">
-            <Text type="secondary" className="text-xs">
-              یادآوری بدهی/قسط از ۳ روز قبل موعد. روی هر دستگاه جداگانه فعال می‌شود.
-            </Text>
-            <div className="mt-2">
-              {pushActive ? (
-                <Tag color="success">فعال روی این دستگاه</Tag>
-              ) : (
-                <Tag>غیرفعال روی این دستگاه</Tag>
-              )}
-            </div>
-          </div>
-          {pushActive ? (
-            <Button
-              loading={pushDisableMutation.isPending}
-              onClick={() => pushDisableMutation.mutate()}
+          {pushStatusQ.isLoading ? (
+            <Card
+              title={
+                <Space>
+                  <BellOutlined />
+                  یادآوری پوش
+                </Space>
+              }
             >
-              خاموش کردن
-            </Button>
+              <div className="space-y-3" aria-busy="true">
+                <div className="h-3 w-full animate-pulse rounded-xl bg-app-muted/20" />
+                <div className="h-3 w-2/3 animate-pulse rounded-xl bg-app-muted/20" />
+                <div className="flex flex-wrap gap-2">
+                  <div className="h-6 w-28 animate-pulse rounded-full bg-app-muted/20" />
+                  <div className="h-9 w-40 animate-pulse rounded-lg bg-app-muted/20" />
+                </div>
+              </div>
+            </Card>
           ) : (
-            <Button
-              icon={<BellOutlined />}
-              loading={pushEnableMutation.isPending}
-              onClick={() => pushEnableMutation.mutate()}
-              disabled={!pushConfigured || !pushSupported}
+            <Card
+              title={
+                <Space>
+                  <BellOutlined />
+                  یادآوری پوش
+                </Space>
+              }
             >
-              فعال‌سازی روی این دستگاه
-            </Button>
+              <Flex justify="space-between" align="center" gap="middle" wrap="wrap">
+                <div className="min-w-0">
+                  <Text type="secondary" className="text-xs">
+                    یادآوری بدهی/قسط از ۳ روز قبل موعد. روی هر دستگاه جداگانه فعال می‌شود.
+                  </Text>
+                  <div className="mt-2">
+                    {pushActive ? (
+                      <Tag color="success">فعال روی این دستگاه</Tag>
+                    ) : (
+                      <Tag>غیرفعال روی این دستگاه</Tag>
+                    )}
+                  </div>
+                </div>
+                {pushActive ? (
+                  <Button
+                    loading={pushDisableMutation.isPending}
+                    onClick={() => pushDisableMutation.mutate()}
+                  >
+                    خاموش کردن
+                  </Button>
+                ) : (
+                  <Button
+                    icon={<BellOutlined />}
+                    loading={pushEnableMutation.isPending}
+                    onClick={() => pushEnableMutation.mutate()}
+                    disabled={!pushConfigured || !pushSupported}
+                  >
+                    فعال‌سازی روی این دستگاه
+                  </Button>
+                )}
+              </Flex>
+            </Card>
           )}
-        </Flex>
-      </Card>
 
-      <Button icon={<LogoutOutlined />} onClick={onLogout}>
-        خروج از حساب
-      </Button>
+          <Button icon={<LogoutOutlined />} onClick={onLogout}>
+            خروج از حساب
+          </Button>
+        </>
+      )}
     </Space>
   );
 }
