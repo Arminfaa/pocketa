@@ -42,6 +42,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { QueryError } from "@/components/ui/query-error";
 import { AssetCalculator } from "@/components/investments/AssetCalculator";
+import { cn } from "@/lib/cn";
+import type { ReactNode } from "react";
 
 const { Title, Text } = Typography;
 
@@ -62,6 +64,27 @@ const frequencyOptions = [
   { value: "daily" as const, label: "روزانه" },
   { value: "yearly" as const, label: "سالانه" },
 ];
+
+function DetailRow({
+  label,
+  value,
+  valueClassName,
+}: {
+  label: string;
+  value: ReactNode;
+  valueClassName?: string;
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 border-b border-app-border/60 py-2 last:border-b-0">
+      <Text type="secondary" className="shrink-0 text-xs">
+        {label}
+      </Text>
+      <Text strong className={cn("min-w-0 text-end text-sm tabular-nums", valueClassName)}>
+        {value}
+      </Text>
+    </div>
+  );
+}
 
 function assetUnitLabel(type: InvestmentAssetType): string {
   return type === "gold" ? "گرم" : "دلار";
@@ -455,55 +478,60 @@ export default function InvestmentsPage() {
                     </Popconfirm>
                   }
                 >
-                  <Row gutter={[16, 16]}>
-                    <Col xs={12} sm={6}>
-                      <Statistic
-                        title="مقدار"
-                        value={`${item.quantity.toLocaleString("fa-IR")} ${assetUnitLabel(item.assetType)}`}
-                      />
-                    </Col>
-                    <Col xs={12} sm={6}>
-                      <Statistic
-                        title="قیمت خرید"
-                        value={formatToman(item.purchasePricePerUnit)}
-                      />
-                    </Col>
-                    <Col xs={12} sm={6}>
-                      <Statistic
-                        title="ارزش فعلی"
-                        value={item.currentValue != null ? formatToman(item.currentValue) : "—"}
-                      />
-                    </Col>
-                    <Col xs={12} sm={6}>
-                      <Statistic
-                        title="سود/زیان"
-                        value={
-                          item.unrealizedPnl != null ? formatToman(item.unrealizedPnl) : "—"
-                        }
-                        className={
-                          item.unrealizedPnl != null && item.unrealizedPnl >= 0
-                            ? "[&_.ant-statistic-content-value]:text-emerald-500"
-                            : item.unrealizedPnl != null
-                              ? "[&_.ant-statistic-content-value]:text-red-500"
-                              : undefined
-                        }
-                      />
-                    </Col>
-                  </Row>
-
-                  <div className="mt-3">
-                    <Text type="secondary" className="text-xs">
-                      خرید: {formatJalaliDate(item.purchaseDate)}
-                      {item.hasProfit
-                        ? ` · سود هر دوره: ${item.profitAssetQuantity.toLocaleString("fa-IR", {
+                  <div className="flex flex-col">
+                    <DetailRow
+                      label="مقدار"
+                      value={`${item.quantity.toLocaleString("fa-IR", {
+                        maximumFractionDigits: 3,
+                      })} ${assetUnitLabel(item.assetType)}`}
+                    />
+                    <DetailRow
+                      label="قیمت خرید"
+                      value={formatToman(item.purchasePricePerUnit)}
+                    />
+                    <DetailRow
+                      label="ارزش فعلی"
+                      value={item.currentValue != null ? formatToman(item.currentValue) : "—"}
+                    />
+                    <DetailRow
+                      label="سود / زیان"
+                      value={
+                        item.unrealizedPnl != null ? formatToman(item.unrealizedPnl) : "—"
+                      }
+                      valueClassName={
+                        item.unrealizedPnl != null && item.unrealizedPnl >= 0
+                          ? "text-emerald-500"
+                          : item.unrealizedPnl != null
+                            ? "text-red-500"
+                            : undefined
+                      }
+                    />
+                    <DetailRow
+                      label="تاریخ خرید"
+                      value={formatJalaliDate(item.purchaseDate)}
+                    />
+                    {item.hasProfit ? (
+                      <>
+                        <DetailRow
+                          label="سود هر دوره"
+                          value={`${item.profitAssetQuantity.toLocaleString("fa-IR", {
                             maximumFractionDigits: 3,
                           })} ${assetUnitLabel(item.assetType)}${
                             item.profitTomanPerPeriod != null
                               ? ` ≈ ${formatToman(item.profitTomanPerPeriod)}`
                               : ""
-                          } · موعد: ${item.profitNextDate ? formatJalaliDate(item.profitNextDate) : "—"}`
-                        : ""}
-                    </Text>
+                          }`}
+                        />
+                        <DetailRow
+                          label="موعد سود"
+                          value={
+                            item.profitNextDate
+                              ? formatJalaliDate(item.profitNextDate)
+                              : "—"
+                          }
+                        />
+                      </>
+                    ) : null}
                   </div>
                 </Card>
               ))}
