@@ -53,3 +53,44 @@ if (r2.items.length !== 0) {
   throw new Error(`EXPECTED 0 items for reversed pair only, got ${r2.items.length}`);
 }
 console.log("OK: pair-only cancelled to empty");
+
+const cardSample = `رسید کارت به کارت
+ وضعیت تراکنش: موفق
+ کارت مقصد: 8541 - ∗∗∗∗ - ∗∗99 - 6037
+ نام مقصد: لیلا پویانژاد
+ مبلغ: 1,000,000تومان 
+شماره پیگیری: 268395
+شماره ارجاع: 72233131689
+کارت مبدا: 8281 - ∗∗∗∗ - ∗∗29 - 5022
+نام مبدا: آرمین فاتحی
+تاریخ و ساعت: 00:11:54 1405/04/27`;
+
+const cardFail = `رسید کارت به کارت
+ وضعیت تراکنش: ناموفق
+ نام مقصد: لیلا پویانژاد
+ مبلغ: 1,000,000تومان 
+نام مبدا: آرمین فاتحی
+تاریخ و ساعت: 00:11:54 1405/04/27`;
+
+const r3 = parseBankSmsText(cardSample, 1405, "acc1", { userName: "آرمین فاتحی" });
+if (r3.items.length !== 1) throw new Error(`card: expected 1, got ${r3.items.length}`);
+const c = r3.items[0]!;
+if (c.type !== "expense") throw new Error(`card: expected expense, got ${c.type}`);
+if (c.amount !== 1_000_000) throw new Error(`card: expected 1e6 toman, got ${c.amount}`);
+if (c.date !== "1405/04/27" || c.time !== "00:11") throw new Error(`card: bad date/time ${c.date} ${c.time}`);
+if (!c.skipReview) throw new Error("card: skipReview expected");
+if (c.suggestedTitle !== "واریز به لیلا پویانژاد") {
+  throw new Error(`card: bad title ${c.suggestedTitle}`);
+}
+console.log("OK: card-to-card expense titled and skipReview");
+
+const r4 = parseBankSmsText(cardSample, 1405, "acc1", { userName: "لیلا پویانژاد" });
+if (r4.items[0]?.type !== "income") throw new Error("card reverse: expected income");
+if (r4.items[0]?.suggestedTitle !== "واریز از آرمین فاتحی") {
+  throw new Error(`card reverse: bad title ${r4.items[0]?.suggestedTitle}`);
+}
+console.log("OK: card-to-card income when user is destination");
+
+const r5 = parseBankSmsText(cardFail, 1405, "acc1", { userName: "آرمین فاتحی" });
+if (r5.items.length !== 0) throw new Error(`failed status should skip, got ${r5.items.length}`);
+console.log("OK: unsuccessful card transfer skipped");

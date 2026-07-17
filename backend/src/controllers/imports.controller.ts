@@ -5,6 +5,7 @@ import { sendSuccess } from "../utils/apiResponse";
 import { BankAccountModel } from "../models/BankAccount";
 import { BankImportModel } from "../models/BankImport";
 import { TransactionModel } from "../models/Transaction";
+import { UserModel } from "../models/User";
 import { BankSmsConfirmSchema, BankSmsPreviewSchema } from "../validations/imports";
 import { parseBankSmsText } from "../services/bank-sms-parser";
 import {
@@ -15,6 +16,11 @@ import {
 } from "../services/bank-sms-import.service";
 import { syncInitialBalanceToTarget } from "../services/account.service";
 import { suggestCategoryForTitle } from "../services/category-suggest.service";
+
+async function loadUserName(userId: string): Promise<string> {
+  const user = await UserModel.findById(userId).select("name").lean();
+  return user?.name?.trim() ?? "";
+}
 
 export const preview = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user?.userId;
@@ -29,7 +35,10 @@ export const preview = asyncHandler(async (req: Request, res: Response) => {
   const account = await BankAccountModel.findOne({ _id: accountId, userId, isActive: true });
   if (!account) throw new AppError(404, "حساب بانکی یافت نشد");
 
-  const { items, failedBlocks } = parseBankSmsText(rawText, jalaliYear, accountId);
+  const userName = await loadUserName(userId);
+  const { items, failedBlocks } = parseBankSmsText(rawText, jalaliYear, accountId, {
+    userName,
+  });
   const existing = await findExistingHashes(
     userId,
     items.map((i) => i.importHash)
@@ -39,6 +48,7 @@ export const preview = asyncHandler(async (req: Request, res: Response) => {
     ...item,
     isDuplicate: existing.has(item.importHash),
     suggestedTitle: defaultTitle(item),
+    skipReview: Boolean(item.skipReview),
   }));
 
   const bankHint =
@@ -71,7 +81,8 @@ export const confirm = asyncHandler(async (req: Request, res: Response) => {
   const account = await BankAccountModel.findOne({ _id: accountId, userId, isActive: true });
   if (!account) throw new AppError(404, "حساب بانکی یافت نشد");
 
-  const { items } = parseBankSmsText(rawText, jalaliYear, accountId);
+  const userName = await loadUserName(userId);
+  const { items } = parseBankSmsText(rawText, jalaliYear, accountId, { userName });
   const selected =
     selectedHashes && selectedHashes.length > 0
       ? items.filter((i) => selectedHashes.includes(i.importHash))
@@ -107,7 +118,7 @@ export const confirm = asyncHandler(async (req: Request, res: Response) => {
         description: item.rawSnippet,
         date: item.date,
         source: "bank_sms" as const,
-        needsReview: true,
+        needsReview: item.skipReview ? false : true,
         tags: [] as string[],
         importHash: item.importHash,
         bankMeta: {

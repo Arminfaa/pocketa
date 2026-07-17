@@ -145,9 +145,9 @@ export default function BankSmsImportPage() {
           </Space>
         </Title>
         <Text type="secondary">
-          پیامک‌های بانک (پاسارگاد / ملی و ...) را Paste کنید. مبالغ به{" "}
-          <Text strong>ریال</Text> هستند و خودکار به <Text strong>تومان</Text> تبدیل می‌شوند
-          (÷۱۰). فرمت‌های ملی مثل انتقال، اصلاحیه، کارت و واریز پشتیبانی می‌شوند.
+          پیامک بانکی (پاسارگاد / ملی — مبالغ ریال → تومان) یا{" "}
+          <Text strong>رسید کارت‌به‌کارت</Text> را Paste کنید. رسیدهای موفق با عنوان خودکار
+          (مثل «واریز به …») وارد می‌شوند و نیاز به نام‌گذاری ندارند.
         </Text>
       </div>
 
@@ -188,7 +188,7 @@ export default function BankSmsImportPage() {
               className="mt-2 font-mono"
               dir="ltr"
               rows={10}
-              placeholder={`مثال:\n777.888.12322409.1\n-9,500,000\n04/23_21:47\nمانده: 20,929,124`}
+              placeholder={`پیامک بانکی یا رسید کارت‌به‌کارت…\n\nمثال رسید:\nرسید کارت به کارت\nوضعیت تراکنش: موفق\nنام مقصد: …\nمبلغ: 1,000,000تومان\nنام مبدا: …\nتاریخ و ساعت: 00:11:54 1405/04/27`}
               value={rawText}
               onChange={(e) => setRawText(e.target.value)}
             />
@@ -276,6 +276,11 @@ export default function BankSmsImportPage() {
                         {formatToman(item.amount)}
                       </Text>
                     </Flex>
+                    {item.suggestedTitle ? (
+                      <Text strong className="mt-1 block">
+                        {item.suggestedTitle}
+                      </Text>
+                    ) : null}
                     <Text type="secondary" className="text-sm">
                       {formatJalaliDate(item.date)}
                       {item.time ? ` · ${item.time}` : ""}
@@ -287,6 +292,12 @@ export default function BankSmsImportPage() {
                       <div className="mt-1">
                         <Tag icon={<WarningOutlined />} color="warning">
                           قبلاً ایمپورت شده — رد می‌شود
+                        </Tag>
+                      </div>
+                    ) : item.skipReview ? (
+                      <div className="mt-1">
+                        <Tag icon={<CheckCircleOutlined />} color="success">
+                          آماده ورود · بدون نیاز به نام‌گذاری
                         </Tag>
                       </div>
                     ) : (

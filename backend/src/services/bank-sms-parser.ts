@@ -12,11 +12,17 @@ export type ParsedBankSms = {
   accountHint?: string;
   rawSnippet: string;
   importHash: string;
-  parser: "pasargad" | "melli" | "generic";
+  parser: "pasargad" | "melli" | "generic" | "card_transfer";
   /** true when +/- was missing and type was inferred */
   typeInferred?: boolean;
   /** Melli «اصلاحيه» — reverses a prior same-amount opposite tx */
   isCorrection?: boolean;
+  /** Ready-made title (e.g. card-to-card) — skip generic default */
+  suggestedTitle?: string;
+  /** When true, confirm import sets needsReview=false */
+  skipReview?: boolean;
+  /** Extra uniqueness for hash (e.g. tracking number) */
+  hashExtra?: string;
 };
 
 /** بانک‌ها مبلغ را به ریال می‌فرستند؛ واحد اپ تومان است. */
@@ -46,6 +52,7 @@ export function buildImportHash(parts: {
   date: string;
   time?: string;
   balanceAfter?: number;
+  extra?: string;
 }): string {
   const base = [
     parts.accountId,
@@ -54,6 +61,7 @@ export function buildImportHash(parts: {
     parts.date,
     parts.time ?? "",
     parts.balanceAfter ?? "",
+    parts.extra ?? "",
   ].join("|");
   return crypto.createHash("sha256").update(base).digest("hex");
 }
@@ -68,8 +76,21 @@ function withHash(item: ParsedBankSms, accountId: string): ParsedBankSms {
       date: item.date,
       time: item.time,
       balanceAfter: item.balanceAfter,
+      extra: item.hashExtra,
     }),
   };
+}
+
+/** Collapse spaces / ZWNJ for comparing Persian person names. */
+export function normalizePersonName(name: string): string {
+  return normalizeSmsText(name).replace(/\s+/g, "");
+}
+
+export function personNameMatches(a: string, b: string): boolean {
+  const na = normalizePersonName(a);
+  const nb = normalizePersonName(b);
+  if (!na || !nb) return false;
+  return na === nb || na.includes(nb) || nb.includes(na);
 }
 
 function sortKey(item: ParsedBankSms): string {
@@ -364,9 +385,122 @@ function extractPasargadSafe(text: string, jalaliYear: number): ParsedBankSms[] 
   return extractPasargadFromText(text, jalaliYear);
 }
 
-export function parseBankSmsBlock(block: string, jalaliYear: number): ParsedBankSms | null {
+/** Digits + cleanup, keep Persian ی/ک/آ for display names. */
+function softNormalizeSms(raw: string): string {
+  return toEnglishDigits(raw)
+    .replace(/\r\n/g, "\n")
+    .replace(/[\u200c\u200e\u200f\u0640]/g, "")
+    .trim();
+}
+
+/**
+ * رسید کارت به کارت — مبلغ به تومان است (نه ریال).
+ * فقط وضعیت «موفق»؛ جهت از تطبیق نام مبدا/مقصد با نام کاربر.
+ */
+export function parseCardTransferBlock(
+  block: string,
+  userName: string
+): ParsedBankSms | null {
+  const b = normalizeSmsText(block);
+  if (!b || !/رسيد\s*كارت\s*به\s*كارت/.test(b)) return null;
+
+  const statusMatch = b.match(/وضعيت\s*تراكنش\s*:\s*(\S+)/);
+  const status = statusMatch?.[1] ?? "";
+  if (status !== "موفق") return null;
+
+  const amountMatch = b.match(/مبلغ\s*:\s*([\d,]+)\s*تومان/);
+  if (!amountMatch) return null;
+  const amountToman = parseAmountNumber(amountMatch[1]!);
+  if (!Number.isFinite(amountToman) || amountToman <= 0) return null;
+
+  // Names from soft text (keep آ); map Arabic ي/ك → Persian for titles
+  const soft = softNormalizeSms(block);
+  const toFaName = (s: string) => s.replace(/ي/g, "ی").replace(/ك/g, "ک");
+  const destNameRaw = soft.match(/نام\s*مقصد\s*:\s*(.+)/)?.[1]?.trim().split("\n")[0]?.trim();
+  const sourceNameRaw = soft.match(/نام\s*مبدا\s*:\s*(.+)/)?.[1]?.trim().split("\n")[0]?.trim();
+  if (!destNameRaw || !sourceNameRaw) return null;
+  const destName = toFaName(destNameRaw);
+  const sourceName = toFaName(sourceNameRaw);
+
+  const dateTimeMatch = b.match(
+    /تاريخ\s*و\s*ساعت\s*:\s*(\d{1,2}):(\d{2})(?::(\d{2}))?\s+(\d{4})\/(\d{1,2})\/(\d{1,2})/
+  );
+  if (!dateTimeMatch) return null;
+
+  const date = `${dateTimeMatch[4]}/${dateTimeMatch[5]!.padStart(2, "0")}/${dateTimeMatch[6]!.padStart(2, "0")}`;
+  const time = `${dateTimeMatch[1]!.padStart(2, "0")}:${dateTimeMatch[2]}`;
+
+  const tracking =
+    b.match(/شماره\s*پيگيري\s*:\s*(\d+)/)?.[1] ??
+    b.match(/شماره\s*ارجاع\s*:\s*(\d+)/)?.[1] ??
+    "";
+
+  const sourceIsUser = personNameMatches(sourceNameRaw, userName);
+  const destIsUser = personNameMatches(destNameRaw, userName);
+
+  // مبدا = من → برداشت؛ مقصد = من → دریافت
+  let type: "income" | "expense";
+  let suggestedTitle: string;
+  if (sourceIsUser && !destIsUser) {
+    type = "expense";
+    suggestedTitle = `واریز به ${destName}`;
+  } else if (destIsUser && !sourceIsUser) {
+    type = "income";
+    suggestedTitle = `واریز از ${sourceName}`;
+  } else {
+    return null;
+  }
+
+  return {
+    type,
+    amount: amountToman,
+    date,
+    time,
+    bankName: "کارت به کارت",
+    accountHint: tracking || undefined,
+    rawSnippet: softNormalizeSms(block).slice(0, 500),
+    importHash: "",
+    parser: "card_transfer",
+    suggestedTitle,
+    skipReview: true,
+    hashExtra: tracking || `${sourceName}|${destName}`,
+  };
+}
+
+export function extractCardTransfersFromText(
+  text: string,
+  userName: string
+): ParsedBankSms[] {
+  // Split on soft text so آ/ی فارسی در نام‌ها حفظ شود
+  const soft = softNormalizeSms(text);
+  const headerRe = /رس[یي]د\s*[کك]ارت\s*به\s*[کك]ارت/;
+  if (!headerRe.test(soft)) return [];
+
+  const blocks = soft
+    .split(/(?=رس[یي]د\s*[کك]ارت\s*به\s*[کك]ارت)/)
+    .map((x) => x.trim())
+    .filter((x) => x.length > 0 && headerRe.test(x));
+
+  const items: ParsedBankSms[] = [];
+  for (const block of blocks) {
+    const parsed = parseCardTransferBlock(block, userName);
+    if (parsed) items.push(parsed);
+  }
+  return items;
+}
+
+export function parseBankSmsBlock(
+  block: string,
+  jalaliYear: number,
+  userName = ""
+): ParsedBankSms | null {
   const normalized = normalizeSmsText(block);
   if (!normalized) return null;
+
+  if (/رسيد\s*كارت\s*به\s*كارت/.test(normalized)) {
+    const card = parseCardTransferBlock(normalized, userName);
+    if (card) return card;
+  }
 
   if (/بانك\s*ملي|انتقال\s*:|واريز|اصلاحيه/.test(normalized)) {
     const melli = parseMelliBlock(normalized, jalaliYear);
@@ -379,17 +513,26 @@ export function parseBankSmsBlock(block: string, jalaliYear: number): ParsedBank
   return null;
 }
 
+export type ParseBankSmsOptions = {
+  /** Profile display name — required to resolve card-to-card direction */
+  userName?: string;
+};
+
 export function parseBankSmsText(
   rawText: string,
   jalaliYear: number,
-  accountId: string
+  accountId: string,
+  options: ParseBankSmsOptions = {}
 ): { items: ParsedBankSms[]; failedBlocks: string[] } {
   const text = normalizeSmsText(rawText);
   const failedBlocks: string[] = [];
+  const userName = options.userName?.trim() ?? "";
 
+  // Pass original text so card-to-card keeps آ/ی in person names
+  const cardItems = userName ? extractCardTransfersFromText(rawText, userName) : [];
   const melliItems = extractMelliFromText(text, jalaliYear);
   const pasargadItems = extractPasargadSafe(text, jalaliYear);
-  const extracted = [...pasargadItems, ...melliItems];
+  const extracted = [...cardItems, ...pasargadItems, ...melliItems];
 
   if (extracted.length > 0) {
     extracted.sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
@@ -403,7 +546,7 @@ export function parseBankSmsText(
   const items: ParsedBankSms[] = [];
 
   for (const block of blocks) {
-    const parsed = parseBankSmsBlock(block, jalaliYear);
+    const parsed = parseBankSmsBlock(block, jalaliYear, userName);
     if (!parsed) {
       failedBlocks.push(block.slice(0, 200));
       continue;
