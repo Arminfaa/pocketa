@@ -394,7 +394,7 @@ function softNormalizeSms(raw: string): string {
 }
 
 /**
- * رسید کارت به کارت — مبلغ به تومان است (نه ریال).
+ * رسید کارت به کارت — مبلغ ممکن است تومان یا ریال باشد (واحد در متن آمده).
  * فقط وضعیت «موفق»؛ جهت از تطبیق نام مبدا/مقصد با نام کاربر.
  */
 export function parseCardTransferBlock(
@@ -408,10 +408,13 @@ export function parseCardTransferBlock(
   const status = statusMatch?.[1] ?? "";
   if (status !== "موفق") return null;
 
-  const amountMatch = b.match(/مبلغ\s*:\s*([\d,]+)\s*تومان/);
+  const amountMatch = b.match(/مبلغ\s*:\s*([\d,]+)\s*(تومان|ريال)/);
   if (!amountMatch) return null;
-  const amountToman = parseAmountNumber(amountMatch[1]!);
-  if (!Number.isFinite(amountToman) || amountToman <= 0) return null;
+  const amountRaw = parseAmountNumber(amountMatch[1]!);
+  if (!Number.isFinite(amountRaw) || amountRaw <= 0) return null;
+  const unit = amountMatch[2]!;
+  const amountToman = unit === "ريال" ? rialToToman(amountRaw) : Math.round(amountRaw);
+  const amountRial = unit === "ريال" ? amountRaw : undefined;
 
   // Names from soft text (keep آ); map Arabic ي/ك → Persian for titles
   const soft = softNormalizeSms(block);
@@ -454,6 +457,7 @@ export function parseCardTransferBlock(
   return {
     type,
     amount: amountToman,
+    amountRial,
     date,
     time,
     bankName: "کارت به کارت",
