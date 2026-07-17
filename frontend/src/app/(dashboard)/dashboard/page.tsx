@@ -1,10 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import api from "@/services/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatToman } from "@/lib/format";
+import { fetchGoldPrices } from "@/services/gold-prices";
+import { GoldPriceSummary } from "@/components/gold/GoldPriceSummary";
 import { App, Button, Card, Col, Flex, Grid, Row, Statistic, Typography } from "antd";
-import { BellOutlined } from "@ant-design/icons";
+import { BellOutlined, RightOutlined } from "@ant-design/icons";
 import { Skeleton } from "@/components/ui/skeleton";
 import { QueryError } from "@/components/ui/query-error";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from "recharts";
@@ -49,6 +52,14 @@ export default function DashboardPage() {
   });
 
   const pushStatusQ = useQuery({ queryKey: ["push-status"], queryFn: fetchPushStatus });
+
+  const goldQ = useQuery({
+    queryKey: ["gold-prices"],
+    queryFn: fetchGoldPrices,
+    refetchInterval: 60_000,
+    staleTime: 60_000,
+    retry: 1,
+  });
 
   const pushMutation = useMutation({
     mutationFn: enablePushNotifications,
@@ -116,6 +127,19 @@ export default function DashboardPage() {
             </Button>
           </Flex>
         </Card>
+      ) : null}
+
+      {goldQ.data ? (
+        <div>
+          <GoldPriceSummary prices={goldQ.data} compact />
+          <Flex justify="flex-end" className="mt-2">
+            <Link href="/gold-calculator">
+              <Button type="link" size="small" icon={<RightOutlined />} iconPlacement="end">
+                محاسبه‌گر طلا / دلار
+              </Button>
+            </Link>
+          </Flex>
+        </div>
       ) : null}
 
       <Row gutter={[16, 16]}>
