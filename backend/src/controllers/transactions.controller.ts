@@ -13,7 +13,11 @@ import {
 } from "../validations/transactions";
 import { normalizeJalaliDate, toEnglishDigits } from "../utils/normalizeDigits";
 import { ensureDefaultAccount } from "../services/account.service";
-import { ensureDebtExpenseCategory } from "../services/debt-category.service";
+import {
+  ensureDebtExpenseCategory,
+  ensureReceivableIncomeCategory,
+} from "../services/debt-category.service";
+import { settleRecurringWithExistingTransaction } from "../services/recurring-settle.service";
 import { RecurringTransactionModel } from "../models/RecurringTransaction";
 import mongoose from "mongoose";
 
@@ -90,6 +94,7 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
   if (!parsed.success) throw new AppError(400, "خطا در اعتبارسنجی داده‌ها", parsed.error.flatten());
 
   const {
+    type,
     amount,
     categoryId,
     accountId,
@@ -99,10 +104,9 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
     tags,
     registerAsDebt,
     debtDueDate,
+    settleRecurringId,
+    settleMode,
   } = parsed.data;
-
-  // بدهی یک‌باره: تراکنش مثبت (درآمد) + سررسید بازپرداخت در جریان دوره‌ای
-  const type = registerAsDebt ? "income" : parsed.data.type;
 
   const [category, account] = await Promise.all([
     CategoryModel.findOne({ _id: categoryId, userId }),
@@ -132,32 +136,62 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
   });
 
   let debt = null;
+  let settle = null;
+  let message = "تراکنش ایجاد شد";
+
   if (registerAsDebt && debtDueDate) {
-    const debtCategory = await ensureDebtExpenseCategory(userId);
     const dueDate = normalizeJalaliDate(debtDueDate);
-    debt = await RecurringTransactionModel.create({
+    if (type === "income") {
+      // بدهی: پول آمده → سررسید بازپرداخت (هزینه)
+      const debtCategory = await ensureDebtExpenseCategory(userId);
+      debt = await RecurringTransactionModel.create({
+        userId,
+        title,
+        amount,
+        baseAmount: amount,
+        type: "expense",
+        kind: "one_time",
+        categoryId: debtCategory._id,
+        notes: `ثبت از تراکنش مثبت (${normalizedDate})`,
+        active: true,
+        paymentsMade: 0,
+        reminderHour: 20,
+        reminderSentKeys: [],
+        nextPaymentDate: dueDate,
+      });
+      message = "تراکنش مثبت و بدهی یک‌باره ثبت شد";
+    } else {
+      // طلب: پول رفته → سررسید دریافت (درآمد)
+      const creditCategory = await ensureReceivableIncomeCategory(userId);
+      debt = await RecurringTransactionModel.create({
+        userId,
+        title,
+        amount,
+        baseAmount: amount,
+        type: "income",
+        kind: "one_time",
+        categoryId: creditCategory._id,
+        notes: `ثبت از تراکنش منفی (${normalizedDate})`,
+        active: true,
+        paymentsMade: 0,
+        reminderHour: 20,
+        reminderSentKeys: [],
+        nextPaymentDate: dueDate,
+      });
+      message = "تراکنش منفی و طلب یک‌باره ثبت شد";
+    }
+  } else if (settleRecurringId && settleMode) {
+    settle = await settleRecurringWithExistingTransaction({
       userId,
-      title,
-      amount,
-      baseAmount: amount,
-      type: "expense",
-      kind: "one_time",
-      categoryId: debtCategory._id,
-      notes: `ثبت از تراکنش مثبت (${normalizedDate})`,
-      active: true,
-      paymentsMade: 0,
-      reminderHour: 20,
-      reminderSentKeys: [],
-      nextPaymentDate: dueDate,
+      recurringId: settleRecurringId,
+      transactionType: type,
+      paidAmount: amount,
+      mode: settleMode,
     });
+    message = settle.message;
   }
 
-  return sendSuccess(
-    res,
-    { item: tx, debt },
-    debt ? "تراکنش مثبت و بدهی یک‌باره ثبت شد" : "تراکنش ایجاد شد",
-    201
-  );
+  return sendSuccess(res, { item: tx, debt, settle }, message, 201);
 });
 
 export const update = asyncHandler(async (req: Request, res: Response) => {
@@ -216,33 +250,64 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
   if (!updated) throw new AppError(404, "تراکنش یافت نشد");
 
   let debt = null;
+  let settle = null;
+  let message: string | undefined;
+
   if (parsed.data.registerAsDebt && parsed.data.debtDueDate) {
-    const debtCategory = await ensureDebtExpenseCategory(userId);
     const dueDate = normalizeJalaliDate(parsed.data.debtDueDate);
     const debtTitle = String(updated.title);
     const debtAmount = Number(updated.amount);
-    debt = await RecurringTransactionModel.create({
+    const txType = updated.type as "income" | "expense";
+
+    if (txType === "income") {
+      const debtCategory = await ensureDebtExpenseCategory(userId);
+      debt = await RecurringTransactionModel.create({
+        userId,
+        title: debtTitle,
+        amount: debtAmount,
+        baseAmount: debtAmount,
+        type: "expense",
+        kind: "one_time",
+        categoryId: debtCategory._id,
+        notes: `ثبت از تراکنش مثبت (${normalizeJalaliDate(updated.date)})`,
+        active: true,
+        paymentsMade: 0,
+        reminderHour: 20,
+        reminderSentKeys: [],
+        nextPaymentDate: dueDate,
+      });
+      message = "تراکنش ذخیره و بدهی یک‌باره ثبت شد";
+    } else {
+      const creditCategory = await ensureReceivableIncomeCategory(userId);
+      debt = await RecurringTransactionModel.create({
+        userId,
+        title: debtTitle,
+        amount: debtAmount,
+        baseAmount: debtAmount,
+        type: "income",
+        kind: "one_time",
+        categoryId: creditCategory._id,
+        notes: `ثبت از تراکنش منفی (${normalizeJalaliDate(updated.date)})`,
+        active: true,
+        paymentsMade: 0,
+        reminderHour: 20,
+        reminderSentKeys: [],
+        nextPaymentDate: dueDate,
+      });
+      message = "تراکنش ذخیره و طلب یک‌باره ثبت شد";
+    }
+  } else if (parsed.data.settleRecurringId && parsed.data.settleMode) {
+    settle = await settleRecurringWithExistingTransaction({
       userId,
-      title: debtTitle,
-      amount: debtAmount,
-      baseAmount: debtAmount,
-      type: "expense",
-      kind: "one_time",
-      categoryId: debtCategory._id,
-      notes: `ثبت از تراکنش (${normalizeJalaliDate(updated.date)})`,
-      active: true,
-      paymentsMade: 0,
-      reminderHour: 20,
-      reminderSentKeys: [],
-      nextPaymentDate: dueDate,
+      recurringId: parsed.data.settleRecurringId,
+      transactionType: updated.type as "income" | "expense",
+      paidAmount: Number(updated.amount),
+      mode: parsed.data.settleMode,
     });
+    message = settle.message;
   }
 
-  return sendSuccess(
-    res,
-    { item: updated, debt },
-    debt ? "تراکنش ذخیره و بدهی یک‌باره ثبت شد" : undefined
-  );
+  return sendSuccess(res, { item: updated, debt, settle }, message);
 });
 
 export const remove = asyncHandler(async (req: Request, res: Response) => {

@@ -9,15 +9,18 @@ import {
   Form,
   Grid,
   Input,
+  Radio,
   Row,
   Select,
   Typography,
 } from "antd";
 import { BulbOutlined } from "@ant-design/icons";
+import { useQuery } from "@tanstack/react-query";
 import type { Transaction } from "@/types/transaction";
 import type { BankAccount } from "@/types/account";
 import { getTodayJalali, accountIdValue, categoryIdValue } from "@/lib/transaction-helpers";
 import { suggestCategory } from "@/services/transactions";
+import { fetchRecurring } from "@/services/recurring";
 import { TagsInput } from "@/components/ui/tags-input";
 import { AmountInput } from "@/components/ui/amount-input";
 import { JalaliDateInput } from "@/components/ui/jalali-date-input";
@@ -31,6 +34,7 @@ import {
   normalizeJalaliDateInput,
   parseAmountInput,
 } from "@/lib/amount";
+import { formatToman } from "@/lib/format";
 import { cn } from "@/lib/cn";
 
 export type TransactionFormValues = {
@@ -43,32 +47,55 @@ export type TransactionFormValues = {
   date: string;
   registerAsDebt?: boolean;
   debtDueDate?: string;
+  linkToRecurring?: boolean;
+  settleRecurringId?: string;
+  settleMode?: "full" | "partial";
 };
 
 type Category = { _id: string; name: string; type: "income" | "expense"; color?: string };
 
+type SubmitValues = {
+  type: "income" | "expense";
+  amount: number;
+  categoryId: string;
+  accountId: string;
+  title: string;
+  description?: string | null;
+  date: string;
+  needsReview?: boolean;
+  tags?: string[];
+  registerAsDebt?: boolean;
+  debtDueDate?: string | null;
+  settleRecurringId?: string | null;
+  settleMode?: "full" | "partial" | null;
+};
+
 type Props = {
   open: boolean;
   onClose: () => void;
-  onSubmit: (values: {
-    type: "income" | "expense";
-    amount: number;
-    categoryId: string;
-    accountId: string;
-    title: string;
-    description?: string | null;
-    date: string;
-    needsReview?: boolean;
-    tags?: string[];
-    registerAsDebt?: boolean;
-    debtDueDate?: string | null;
-  }) => Promise<void>;
+  onSubmit: (values: SubmitValues) => Promise<void>;
   accounts: BankAccount[];
   categories: Category[];
   initial?: Transaction | null;
   defaultAccountId?: string | null;
   submitting?: boolean;
 };
+
+function obligationLabel(type: "income" | "expense") {
+  return type === "income"
+    ? "ثبت به‌عنوان بدهی (تراکنش مثبت + سررسید بازپرداخت)"
+    : "ثبت به‌عنوان طلب (تراکنش منفی + سررسید دریافت)";
+}
+
+function obligationHint(type: "income" | "expense") {
+  return type === "income"
+    ? "مبلغ به‌صورت درآمد می‌ماند و همان مبلغ در جریان دوره‌ای به‌عنوان بدهی یک‌باره با تاریخ بازپرداخت ذخیره می‌شود."
+    : "مبلغ به‌صورت هزینه می‌ماند و همان مبلغ در جریان دوره‌ای به‌عنوان طلب یک‌باره با تاریخ دریافت ذخیره می‌شود.";
+}
+
+function dueDateLabel(type: "income" | "expense") {
+  return type === "income" ? "تاریخ پس دادن بدهی" : "تاریخ دریافت طلب";
+}
 
 export function TransactionFormModal({
   open,
@@ -92,11 +119,34 @@ export function TransactionFormModal({
   const type = Form.useWatch("type", form) ?? "expense";
   const title = Form.useWatch("title", form) ?? "";
   const registerAsDebt = Form.useWatch("registerAsDebt", form) ?? false;
+  const linkToRecurring = Form.useWatch("linkToRecurring", form) ?? false;
+  const settleRecurringId = Form.useWatch("settleRecurringId", form);
+  const settleMode = Form.useWatch("settleMode", form) ?? "full";
+  const amountWatch = Form.useWatch("amount", form) ?? "";
+
+  const recurringQ = useQuery({
+    queryKey: ["recurring"],
+    queryFn: fetchRecurring,
+    enabled: open && isCreate && linkToRecurring,
+  });
 
   const filteredCategories = useMemo(
     () => categories.filter((c) => c.type === type),
     [categories, type]
   );
+
+  const recurringOptions = useMemo(() => {
+    const items = (recurringQ.data?.items ?? []).filter(
+      (i) => i.active && i.type === type
+    );
+    return items.map((i) => ({
+      value: i.id,
+      label: `${i.title} · ${formatToman(i.amount)} · ${i.nextPaymentDate}`,
+      amount: i.amount,
+    }));
+  }, [recurringQ.data, type]);
+
+  const selectedRecurring = recurringOptions.find((o) => o.value === settleRecurringId);
 
   useEffect(() => {
     if (!open) return;
@@ -111,6 +161,9 @@ export function TransactionFormModal({
         date: initial.date,
         registerAsDebt: false,
         debtDueDate: undefined,
+        linkToRecurring: false,
+        settleRecurringId: undefined,
+        settleMode: "full",
       });
       setTags(initial.tags ?? []);
     } else {
@@ -124,6 +177,9 @@ export function TransactionFormModal({
         date: getTodayJalali(),
         registerAsDebt: false,
         debtDueDate: "",
+        linkToRecurring: false,
+        settleRecurringId: undefined,
+        settleMode: "full",
       });
       setTags([]);
     }
@@ -138,12 +194,28 @@ export function TransactionFormModal({
   }, [type, filteredCategories, form]);
 
   useEffect(() => {
-    if (!isCreate || !registerAsDebt) return;
-    if (type !== "income") {
-      form.setFieldValue("type", "income");
-      form.setFieldValue("categoryId", "");
+    if (!isCreate) return;
+    if (registerAsDebt) {
+      form.setFieldValue("linkToRecurring", false);
+      form.setFieldValue("settleRecurringId", undefined);
     }
-  }, [registerAsDebt, isCreate, type, form]);
+  }, [registerAsDebt, isCreate, form]);
+
+  useEffect(() => {
+    if (!isCreate) return;
+    if (linkToRecurring) {
+      form.setFieldValue("registerAsDebt", false);
+      form.setFieldValue("debtDueDate", "");
+      form.setFieldValue("settleRecurringId", undefined);
+    }
+  }, [linkToRecurring, isCreate, form]);
+
+  useEffect(() => {
+    // Clear selected سررسید when type changes (list is type-filtered)
+    if (linkToRecurring) {
+      form.setFieldValue("settleRecurringId", undefined);
+    }
+  }, [type, linkToRecurring, form]);
 
   async function applySuggestion() {
     const t = title.trim();
@@ -169,12 +241,43 @@ export function TransactionFormModal({
       return;
     }
     const asDebt = Boolean(isCreate && values.registerAsDebt);
+    const asSettle = Boolean(isCreate && values.linkToRecurring && values.settleRecurringId);
+
     if (asDebt && !values.debtDueDate?.trim()) {
-      form.setFields([{ name: "debtDueDate", errors: ["تاریخ پس دادن را وارد کنید"] }]);
+      form.setFields([{ name: "debtDueDate", errors: ["تاریخ سررسید را وارد کنید"] }]);
       return;
     }
+    if (values.linkToRecurring && !values.settleRecurringId) {
+      form.setFields([{ name: "settleRecurringId", errors: ["سررسید را انتخاب کنید"] }]);
+      return;
+    }
+    if (asSettle && values.settleMode === "full" && selectedRecurring) {
+      if (Math.round(amount) !== Math.round(selectedRecurring.amount)) {
+        form.setFields([
+          {
+            name: "amount",
+            errors: [
+              `تسویه کامل نیست؛ مبلغ باید ${formatToman(selectedRecurring.amount)} باشد`,
+            ],
+          },
+        ]);
+        return;
+      }
+    }
+    if (asSettle && values.settleMode === "partial" && selectedRecurring) {
+      if (amount >= selectedRecurring.amount) {
+        form.setFields([
+          {
+            name: "amount",
+            errors: ["برای مبلغ مساوی یا بیشتر از سررسید، تسویه کامل را انتخاب کنید"],
+          },
+        ]);
+        return;
+      }
+    }
+
     await onSubmit({
-      type: asDebt ? "income" : values.type,
+      type: values.type,
       amount,
       categoryId: values.categoryId,
       accountId: values.accountId,
@@ -185,8 +288,20 @@ export function TransactionFormModal({
       tags,
       registerAsDebt: asDebt,
       debtDueDate: asDebt ? normalizeJalaliDateInput(values.debtDueDate!) : undefined,
+      settleRecurringId: asSettle ? values.settleRecurringId : undefined,
+      settleMode: asSettle ? values.settleMode ?? "full" : undefined,
     });
   }
+
+  const submitLabel = (() => {
+    if (submitting) return "در حال ذخیره...";
+    if (initial) return "ذخیره تغییرات";
+    if (registerAsDebt) {
+      return type === "income" ? "ثبت درآمد و بدهی" : "ثبت هزینه و طلب";
+    }
+    if (linkToRecurring) return "ثبت و تسویه سررسید";
+    return "ثبت تراکنش";
+  })();
 
   return (
     <AppModal
@@ -206,35 +321,34 @@ export function TransactionFormModal({
             onClick={() => form.submit()}
             className="min-w-[120px]"
           >
-            {submitting
-              ? "در حال ذخیره..."
-              : initial
-                ? "ذخیره تغییرات"
-                : registerAsDebt
-                  ? "ثبت درآمد و بدهی"
-                  : "ثبت تراکنش"}
+            {submitLabel}
           </Button>
         </Flex>
       }
     >
       <Form form={form} layout="vertical" onFinish={handleFinish} requiredMark={false}>
         <Form.Item name="type" rules={[{ required: true, message: "نوع را انتخاب کنید" }]}>
-          <FinanceTypeToggle disabled={registerAsDebt} />
+          <FinanceTypeToggle />
         </Form.Item>
 
         {isCreate ? (
-          <Form.Item name="registerAsDebt" valuePropName="checked" className="!mb-3">
-            <Checkbox>
-              ثبت به‌عنوان بدهی (تراکنش مثبت + سررسید بازپرداخت)
-            </Checkbox>
-          </Form.Item>
-        ) : null}
+          <>
+            <Form.Item name="registerAsDebt" valuePropName="checked" className="!mb-2">
+              <Checkbox disabled={linkToRecurring}>{obligationLabel(type)}</Checkbox>
+            </Form.Item>
 
-        {isCreate && registerAsDebt ? (
-          <Typography.Paragraph type="secondary" className="!mt-0 !mb-4 text-xs">
-            مبلغ به‌صورت درآمد ثبت می‌شود و همان مبلغ در «جریان دوره‌ای / سررسید‌ها» به‌عنوان بدهی
-            یک‌باره با تاریخ پس دادن ذخیره می‌شود.
-          </Typography.Paragraph>
+            {registerAsDebt ? (
+              <Typography.Paragraph type="secondary" className="!mt-0 !mb-3 text-xs">
+                {obligationHint(type)}
+              </Typography.Paragraph>
+            ) : null}
+
+            <Form.Item name="linkToRecurring" valuePropName="checked" className="!mb-2">
+              <Checkbox disabled={registerAsDebt}>
+                اتصال به سررسید موجود (تسویه از جریان دوره‌ای)
+              </Checkbox>
+            </Form.Item>
+          </>
         ) : null}
 
         <Form.Item
@@ -278,9 +392,9 @@ export function TransactionFormModal({
         {isCreate && registerAsDebt ? (
           <Form.Item
             name="debtDueDate"
-            label="تاریخ پس دادن بدهی"
+            label={dueDateLabel(type)}
             rules={[
-              { required: true, message: "تاریخ پس دادن را وارد کنید" },
+              { required: true, message: "تاریخ سررسید را وارد کنید" },
               {
                 pattern: /^\d{4}\/\d{1,2}\/\d{1,2}$/,
                 message: "تاریخ باید به صورت 1405/01/01 باشد",
@@ -289,6 +403,47 @@ export function TransactionFormModal({
           >
             <JalaliDateInput placeholder="1405/05/01" />
           </Form.Item>
+        ) : null}
+
+        {isCreate && linkToRecurring ? (
+          <>
+            <Form.Item
+              name="settleRecurringId"
+              label="انتخاب سررسید"
+              rules={[{ required: true, message: "سررسید را انتخاب کنید" }]}
+            >
+              <Select
+                showSearch
+                optionFilterProp="label"
+                placeholder={
+                  recurringQ.isLoading ? "در حال بارگذاری..." : "از لیست سررسیدها انتخاب کنید"
+                }
+                options={recurringOptions}
+                notFoundContent={
+                  recurringQ.isLoading ? "..." : "سررسید فعالی با این نوع تراکنش نیست"
+                }
+              />
+            </Form.Item>
+
+            <Form.Item name="settleMode" label="نوع تسویه" initialValue="full">
+              <Radio.Group>
+                <Radio value="full">تسویه کامل</Radio>
+                <Radio value="partial">پرداخت جزئی</Radio>
+              </Radio.Group>
+            </Form.Item>
+
+            {selectedRecurring && settleMode === "full" ? (
+              <Typography.Paragraph type="secondary" className="!mt-0 !mb-3 text-xs">
+                مبلغ سررسید: {formatToman(selectedRecurring.amount)} — برای تسویه کامل باید مبلغ
+                تراکنش دقیقاً همین باشد.
+                {amountWatch &&
+                Math.round(parseAmountInput(amountWatch) || 0) !==
+                  Math.round(selectedRecurring.amount)
+                  ? " مبلغ فعلی یکی نیست."
+                  : ""}
+              </Typography.Paragraph>
+            ) : null}
+          </>
         ) : null}
 
         <Row gutter={[12, 0]}>

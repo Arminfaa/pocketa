@@ -50,10 +50,13 @@ export type TransactionInput = {
   date: string;
   needsReview?: boolean;
   tags?: string[];
-  /** ثبت هم‌زمان به‌عنوان بدهی یک‌باره */
+  /** ثبت هم‌زمان به‌عنوان بدهی (درآمد) یا طلب (هزینه) */
   registerAsDebt?: boolean;
-  /** تاریخ پس‌دادن بدهی (جلالی) */
+  /** تاریخ سررسید بدهی/طلب (جلالی) */
   debtDueDate?: string | null;
+  /** تسویه سررسید موجود */
+  settleRecurringId?: string | null;
+  settleMode?: "full" | "partial" | null;
 };
 
 export type TransactionsListResponse = {

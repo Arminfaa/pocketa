@@ -33,23 +33,54 @@ const TransactionBaseFields = {
   tags: TagsSchema,
 };
 
+const ObligationAndSettleFields = {
+  /** ثبت هم‌زمان به‌عنوان بدهی (درآمد) یا طلب (هزینه) در جریان دوره‌ای */
+  registerAsDebt: z.boolean().optional().default(false),
+  /** تاریخ سررسید بدهی/طلب (جلالی) */
+  debtDueDate: JalaliDateSchema.optional().nullable(),
+  /** تسویه یک سررسید موجود با این تراکنش */
+  settleRecurringId: z.string().min(1).optional().nullable(),
+  settleMode: z.enum(["full", "partial"]).optional().nullable(),
+};
+
+function refineObligationAndSettle(
+  data: {
+    registerAsDebt?: boolean;
+    debtDueDate?: string | null;
+    settleRecurringId?: string | null;
+    settleMode?: "full" | "partial" | null;
+  },
+  ctx: z.RefinementCtx
+) {
+  if (data.registerAsDebt && data.settleRecurringId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "نمی‌توان هم‌زمان بدهی/طلب جدید و تسویه سررسید موجود را انتخاب کرد",
+      path: ["settleRecurringId"],
+    });
+  }
+  if (data.registerAsDebt && !data.debtDueDate) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "تاریخ سررسید را وارد کنید",
+      path: ["debtDueDate"],
+    });
+  }
+  if (data.settleRecurringId && !data.settleMode) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "نوع تسویه (کامل یا جزئی) را انتخاب کنید",
+      path: ["settleMode"],
+    });
+  }
+}
+
 export const TransactionCreateSchema = z
   .object({
     ...TransactionBaseFields,
-    /** ثبت هم‌زمان به‌عنوان بدهی یک‌باره در جریان دوره‌ای */
-    registerAsDebt: z.boolean().optional().default(false),
-    /** تاریخ پس‌دادن / سررسید بدهی (جلالی) */
-    debtDueDate: JalaliDateSchema.optional().nullable(),
+    ...ObligationAndSettleFields,
   })
-  .superRefine((data, ctx) => {
-    if (data.registerAsDebt && !data.debtDueDate) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "تاریخ پس دادن بدهی را وارد کنید",
-        path: ["debtDueDate"],
-      });
-    }
-  });
+  .superRefine(refineObligationAndSettle);
 
 export const TransactionUpdateSchema = z
   .object({
@@ -62,18 +93,9 @@ export const TransactionUpdateSchema = z
     accountId: z.string().min(1).optional(),
     needsReview: z.boolean().optional(),
     tags: TagsSchema,
-    registerAsDebt: z.boolean().optional().default(false),
-    debtDueDate: JalaliDateSchema.optional().nullable(),
+    ...ObligationAndSettleFields,
   })
-  .superRefine((data, ctx) => {
-    if (data.registerAsDebt && !data.debtDueDate) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "تاریخ پس دادن بدهی را وارد کنید",
-        path: ["debtDueDate"],
-      });
-    }
-  });
+  .superRefine(refineObligationAndSettle);
 
 export const TransactionQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
