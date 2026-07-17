@@ -15,6 +15,8 @@ export type ParsedImportItem = {
   parser: string;
   isDuplicate: boolean;
   suggestedTitle: string;
+  /** Card-to-card etc. — already titled, no review queue */
+  skipReview?: boolean;
 };
 
 export type BankSmsPreviewResponse = {
