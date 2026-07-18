@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { App, Button, Col, Flex, Input, Popconfirm, Row, Segmented, Space, Tag, Typography } from "antd";
+import { App, Button, Flex, Input, Popconfirm, Segmented, Space, Tag, Typography } from "antd";
 import { AppstoreOutlined, DeleteOutlined, EditOutlined, PlusOutlined } from "@ant-design/icons";
 import {
   createCategory,
