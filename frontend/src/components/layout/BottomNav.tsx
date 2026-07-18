@@ -25,7 +25,7 @@ export function BottomNav({ onMore, moreOpen }: BottomNavProps) {
       aria-label="ناوبری اصلی"
     >
       <div className="mx-auto max-w-lg px-3 pb-2 pt-1">
-        <div className="flex items-stretch justify-between gap-0.5 rounded-[1.75rem] border border-white/70 bg-white/95 px-1.5 py-1.5 shadow-[0_10px_40px_rgba(37,99,235,0.12)] backdrop-blur-xl dark:border-slate-700/80 dark:bg-slate-900/95">
+        <div className="flex items-stretch justify-between gap-0.5 rounded-[1.75rem] border border-app-border/80 bg-app-card/95 px-1.5 py-1.5 shadow-soft backdrop-blur-xl">
           {BOTTOM_NAV_ITEMS.map((item) => {
             const active = isItemActive(pathname, item, moreOpen);
             const className = [
