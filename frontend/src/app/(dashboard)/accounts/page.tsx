@@ -8,7 +8,6 @@ import {
   Col,
   Flex,
   Input,
-  Modal,
   Popconfirm,
   Row,
   Space,
@@ -33,7 +32,7 @@ import { parseAmountInput } from "@/lib/amount";
 import { AmountInput } from "@/components/ui/amount-input";
 import { AmountText } from "@/components/ui/amount-text";
 import { KpiCard } from "@/components/ui/kpi-card";
-import { SectionCard } from "@/components/ui/section-card";
+import { AppModal } from "@/components/ui/modal";
 import { AccountsListSkeleton } from "@/components/skeletons";
 import { QueryError } from "@/components/ui/query-error";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -182,17 +181,6 @@ export default function AccountsPage() {
     setFormOpen(false);
   }
 
-  function toggleForm() {
-    if (formOpen && !editingId) {
-      setFormOpen(false);
-      setForm(emptyForm);
-      return;
-    }
-    setEditingId(null);
-    setForm(emptyForm);
-    setFormOpen(true);
-  }
-
   return (
     <PageShell width="form">
       <PageHeader
@@ -203,8 +191,12 @@ export default function AccountsPage() {
           <Button
             type="primary"
             icon={<PlusOutlined />}
-            onClick={toggleForm}
-            aria-label={formOpen && !editingId ? "بستن فرم" : "افزودن حساب"}
+            onClick={() => {
+              setEditingId(null);
+              setForm(emptyForm);
+              setFormOpen(true);
+            }}
+            aria-label="افزودن حساب"
           />
         }
       />
@@ -230,82 +222,83 @@ export default function AccountsPage() {
         </Row>
       ) : null}
 
-      {formOpen || editingId ? (
-        <SectionCard
-          title={editingId ? "ویرایش حساب" : "افزودن حساب جدید"}
-          description="نام، بانک و رنگ را مشخص کنید."
-        >
-          <Space orientation="vertical" size="middle" className="w-full">
-            <Row gutter={[12, 12]}>
+      <AppModal
+        open={formOpen || Boolean(editingId)}
+        onClose={cancelEdit}
+        title={editingId ? "ویرایش حساب" : "افزودن حساب جدید"}
+        subtitle="نام، بانک و رنگ را مشخص کنید."
+        footer={
+          <Flex gap="small" justify="end" wrap="wrap">
+            <Button onClick={cancelEdit}>انصراف</Button>
+            <Button
+              type="primary"
+              loading={saveMutation.isPending}
+              disabled={form.name.trim().length < 2}
+              onClick={() => saveMutation.mutate()}
+            >
+              ذخیره
+            </Button>
+          </Flex>
+        }
+      >
+        <Space orientation="vertical" size="middle" className="w-full">
+          <Row gutter={[12, 12]}>
+            <Col xs={24} md={12}>
+              <Text type="secondary">نام حساب</Text>
+              <Input
+                className="mt-2"
+                value={form.name}
+                onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
+                placeholder="مثلاً کارت پاسارگاد"
+              />
+            </Col>
+            <Col xs={24} md={12}>
+              <Text type="secondary">نام بانک (اختیاری)</Text>
+              <Input
+                className="mt-2"
+                value={form.bankName}
+                onChange={(e) => setForm((s) => ({ ...s, bankName: e.target.value }))}
+                placeholder="پاسارگاد / ملی / ..."
+              />
+            </Col>
+            {!editingId ? (
               <Col xs={24} md={12}>
-                <Text type="secondary">نام حساب</Text>
-                <Input
-                  className="mt-2"
-                  value={form.name}
-                  onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
-                  placeholder="مثلاً کارت پاسارگاد"
-                />
+                <Text type="secondary">موجودی اولیه (تومان)</Text>
+                <div className="mt-2">
+                  <AmountInput
+                    value={form.initialBalance}
+                    onChange={(v) => setForm((s) => ({ ...s, initialBalance: v }))}
+                    placeholder="۱۰٬۰۰۰٬۰۰۰"
+                  />
+                </div>
+                <Text type="secondary" className="mt-1 block text-xs">
+                  به‌صورت تراکنش درآمد «موجودی اولیه» ثبت می‌شود تا موجودی = درآمد − هزینه بماند.
+                </Text>
               </Col>
-              <Col xs={24} md={12}>
-                <Text type="secondary">نام بانک (اختیاری)</Text>
-                <Input
-                  className="mt-2"
-                  value={form.bankName}
-                  onChange={(e) => setForm((s) => ({ ...s, bankName: e.target.value }))}
-                  placeholder="پاسارگاد / ملی / ..."
-                />
-              </Col>
-              {!editingId ? (
-                <Col xs={24} md={12}>
-                  <Text type="secondary">موجودی اولیه (تومان)</Text>
-                  <div className="mt-2">
-                    <AmountInput
-                      value={form.initialBalance}
-                      onChange={(v) => setForm((s) => ({ ...s, initialBalance: v }))}
-                      placeholder="۱۰٬۰۰۰٬۰۰۰"
-                    />
-                  </div>
-                  <Text type="secondary" className="mt-1 block text-xs">
-                    به‌صورت تراکنش درآمد «موجودی اولیه» ثبت می‌شود تا موجودی = درآمد − هزینه بماند.
-                  </Text>
-                </Col>
-              ) : null}
-              <Col xs={24} md={12}>
-                <Text type="secondary">رنگ</Text>
-                <Flex gap={8} wrap="wrap" className="mt-2">
-                  {COLORS.map((c) => (
-                    <Button
-                      key={c}
-                      type="text"
-                      aria-label={c}
-                      onClick={() => setForm((s) => ({ ...s, color: c }))}
-                      className={cn(
-                        "w-8 h-8 min-w-8 p-0 rounded-xl",
-                        form.color === c
-                          ? "border-2 border-white ring-2 ring-brand-500"
-                          : "border border-slate-400/20"
-                      )}
-                      style={{ background: c }}
-                    />
-                  ))}
-                </Flex>
-              </Col>
-            </Row>
-
-            <Space>
-              <Button
-                type="primary"
-                loading={saveMutation.isPending}
-                disabled={form.name.trim().length < 2}
-                onClick={() => saveMutation.mutate()}
-              >
-                {editingId ? "ذخیره تغییرات" : "افزودن حساب"}
-              </Button>
-              {editingId ? <Button onClick={cancelEdit}>انصراف</Button> : null}
-            </Space>
-          </Space>
-        </SectionCard>
-      ) : null}
+            ) : null}
+            <Col xs={24} md={12}>
+              <Text type="secondary">رنگ</Text>
+              <Flex gap={8} wrap="wrap" className="mt-2">
+                {COLORS.map((c) => (
+                  <Button
+                    key={c}
+                    type="text"
+                    aria-label={c}
+                    onClick={() => setForm((s) => ({ ...s, color: c }))}
+                    className={cn(
+                      "w-8 h-8 min-w-8 p-0 rounded-xl",
+                      form.color === c
+                        ? "border-2 border-white ring-2 ring-brand-500"
+                        : "border border-slate-400/20"
+                    )}
+                    style={{ background: c }}
+                  />
+                ))}
+              </Flex>
+            </Col>
+          </Row>
+        </Space>
+      </AppModal>
 
       {q.isLoading ? <AccountsListSkeleton /> : null}
 
@@ -313,19 +306,26 @@ export default function AccountsPage() {
         <QueryError message="خطا در دریافت حساب‌ها." onRetry={() => void q.refetch()} />
       ) : null}
 
-      <Modal
+      <AppModal
+        open={Boolean(balanceTarget)}
+        onClose={() => setBalanceTarget(null)}
         title={
           balanceTarget
             ? `تنظیم موجودی «${balanceTarget.account.name}»`
             : "تنظیم موجودی"
         }
-        open={Boolean(balanceTarget)}
-        onCancel={() => setBalanceTarget(null)}
-        onOk={() => setBalanceMutation.mutate()}
-        okText="اعمال موجودی"
-        cancelText="انصراف"
-        confirmLoading={setBalanceMutation.isPending}
-        destroyOnHidden
+        footer={
+          <Flex gap="small" justify="end" wrap="wrap">
+            <Button onClick={() => setBalanceTarget(null)}>انصراف</Button>
+            <Button
+              type="primary"
+              loading={setBalanceMutation.isPending}
+              onClick={() => setBalanceMutation.mutate()}
+            >
+              اعمال موجودی
+            </Button>
+          </Flex>
+        }
       >
         <Space orientation="vertical" size="middle" className="w-full">
           <Text type="secondary">
@@ -351,7 +351,7 @@ export default function AccountsPage() {
             </div>
           </div>
         </Space>
-      </Modal>
+      </AppModal>
 
       {!q.isLoading && accounts.length === 0 ? (
         <EmptyState

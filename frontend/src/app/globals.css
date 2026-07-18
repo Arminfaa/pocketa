@@ -114,19 +114,31 @@
   .ant-select-selector,
   .ant-picker,
   .ant-input-number,
-  .ant-input-number-affix-wrapper {
-    @apply !rounded-2xl !border-0;
-    background: color-mix(in srgb, var(--muted) 8%, var(--card)) !important;
+  .ant-input-number-affix-wrapper,
+  .ant-input-textarea textarea {
+    @apply !rounded-2xl;
+    border: 1px solid color-mix(in srgb, var(--muted) 22%, transparent) !important;
+    background: color-mix(in srgb, var(--muted) 6%, var(--card)) !important;
     box-shadow: none !important;
   }
 
+  .ant-input:hover,
+  .ant-input-affix-wrapper:hover,
+  .ant-select:not(.ant-select-disabled):hover .ant-select-selector,
+  .ant-picker:hover,
+  .ant-input-number:hover {
+    border-color: color-mix(in srgb, var(--accent) 45%, transparent) !important;
+  }
+
   .ant-input:focus,
+  .ant-input-focused,
   .ant-input-affix-wrapper-focused,
   .ant-select-focused .ant-select-selector,
   .ant-picker-focused,
   .ant-input-number-focused {
-    background: color-mix(in srgb, var(--accent) 8%, var(--card)) !important;
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent) !important;
+    border-color: color-mix(in srgb, var(--accent) 70%, transparent) !important;
+    background: var(--card) !important;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent) !important;
   }
 
   .ant-btn-default {
@@ -176,33 +188,53 @@
   /* Ant Design 6 uses .ant-modal-container as the panel shell */
   .app-modal-root .ant-modal-container,
   .app-modal-root .ant-modal-content {
-    @apply flex flex-col overflow-hidden border-0 bg-app-card shadow-soft !rounded-3xl !p-0;
+    @apply flex flex-col overflow-hidden border-0 shadow-soft !rounded-3xl !p-0;
+    background: var(--card) !important;
+    color: var(--text) !important;
     max-height: min(90dvh, 720px);
   }
 
+  .dark .app-modal-root .ant-modal-container,
+  .dark .app-modal-root .ant-modal-content {
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55) !important;
+  }
+
   .app-modal-root .ant-modal-header {
-    @apply shrink-0 !mb-0 !border-0 bg-app-card !px-5 !pt-5 !pb-2;
+    @apply shrink-0 !mb-0 !border-0 !px-5 !pt-5 !pb-2;
+    background: var(--card) !important;
   }
 
   .app-modal-root .ant-modal-title {
-    @apply !text-app-fg;
+    color: var(--text) !important;
   }
 
   .app-modal-root .ant-modal-close {
-    @apply !text-app-muted !rounded-xl;
+    @apply !rounded-xl;
+    color: var(--muted) !important;
   }
 
   .app-modal-root .ant-modal-close:hover {
-    @apply !text-brand-500;
-    background-color: color-mix(in srgb, var(--accent) 10%, transparent) !important;
+    color: var(--accent) !important;
+    background-color: color-mix(in srgb, var(--accent) 12%, transparent) !important;
   }
 
   .app-modal-root .ant-modal-body {
-    @apply min-h-0 flex-1 overflow-y-auto overscroll-contain !px-5 !py-4 text-app-fg;
+    @apply min-h-0 flex-1 overflow-y-auto overscroll-contain !px-5 !py-4;
+    background: var(--card) !important;
+    color: var(--text) !important;
   }
 
   .app-modal-root .ant-modal-footer {
-    @apply shrink-0 !mt-0 !border-0 bg-app-card !px-5 !pb-5 !pt-2;
+    @apply shrink-0 !mt-0 !border-0 !px-5 !pb-5 !pt-2;
+    background: var(--card) !important;
+  }
+
+  .app-modal-root .ant-modal-mask {
+    background: rgba(15, 23, 42, 0.45) !important;
+  }
+
+  .dark .app-modal-root .ant-modal-mask {
+    background: rgba(0, 0, 0, 0.65) !important;
   }
 
   @media (max-width: 639px) {

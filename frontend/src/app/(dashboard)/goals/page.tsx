@@ -33,7 +33,7 @@ import { AmountInput } from "@/components/ui/amount-input";
 import { AmountText } from "@/components/ui/amount-text";
 import { JalaliDateInput } from "@/components/ui/jalali-date-input";
 import { KpiCard } from "@/components/ui/kpi-card";
-import { SectionCard } from "@/components/ui/section-card";
+import { AppModal } from "@/components/ui/modal";
 import { GoalsListSkeleton, KpiRowSkeleton } from "@/components/skeletons";
 import { EmptyState } from "@/components/ui/empty-state";
 import { QueryError } from "@/components/ui/query-error";
@@ -132,6 +132,14 @@ export default function GoalsPage() {
   const items = q.data?.items ?? [];
   const summary = q.data?.summary;
 
+  function cancelEdit() {
+    setTitle("");
+    setTargetAmount("");
+    setDeadline("");
+    setColor(CATEGORY_COLORS[0]!);
+    setFormOpen(false);
+  }
+
   return (
     <PageShell width="form">
       <PageHeader
@@ -142,7 +150,7 @@ export default function GoalsPage() {
           <Button
             type="primary"
             icon={<PlusOutlined />}
-            onClick={() => setFormOpen((o) => !o)}
+            onClick={() => setFormOpen(true)}
           >
             افزودن
           </Button>
@@ -179,62 +187,67 @@ export default function GoalsPage() {
         </Row>
       ) : null}
 
-      {formOpen ? (
-        <SectionCard
-          title="هدف جدید"
-          description="پیشرفت هدف فقط با «افزودن» از حساب بانکی ثبت می‌شود تا موجودی نقد دوبار شمرده نشود."
-        >
-          <Space orientation="vertical" size="middle" className="w-full">
-            <Input
-              placeholder="مثلاً سفر شمال"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-            <Row gutter={[12, 12]}>
-              <Col xs={24} sm={12}>
-                <AmountInput
-                  placeholder="مبلغ هدف (تومان)"
-                  value={targetAmount}
-                  onChange={setTargetAmount}
-                />
-              </Col>
-              <Col xs={24} sm={12}>
-                <JalaliDateInput
-                  placeholder="مهلت YYYY/MM/DD"
-                  value={deadline}
-                  onChange={setDeadline}
-                />
-              </Col>
-              <Col xs={24}>
-                <Flex gap={8} wrap="wrap" align="center">
-                  {CATEGORY_COLORS.slice(0, 6).map((c) => (
-                    <Button
-                      key={c}
-                      type="text"
-                      aria-label={c}
-                      onClick={() => setColor(c)}
-                      className={cn(
-                        "w-8 h-8 min-w-8 p-0 rounded-xl",
-                        color === c
-                          ? "border-2 border-white ring-2 ring-brand-500"
-                          : "border border-slate-400/20"
-                      )}
-                      style={{ background: c }}
-                    />
-                  ))}
-                </Flex>
-              </Col>
-            </Row>
+      <AppModal
+        open={formOpen}
+        onClose={cancelEdit}
+        title="افزودن هدف"
+        subtitle="پیشرفت هدف فقط با «افزودن» از حساب بانکی ثبت می‌شود تا موجودی نقد دوبار شمرده نشود."
+        footer={
+          <Flex gap="small" justify="end" wrap="wrap">
+            <Button onClick={cancelEdit}>انصراف</Button>
             <Button
               type="primary"
               loading={createMutation.isPending}
               onClick={() => createMutation.mutate()}
             >
-              {createMutation.isPending ? "در حال ذخیره..." : "ایجاد هدف"}
+              ذخیره
             </Button>
-          </Space>
-        </SectionCard>
-      ) : null}
+          </Flex>
+        }
+      >
+        <Space orientation="vertical" size="middle" className="w-full">
+          <Input
+            placeholder="مثلاً سفر شمال"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+          <Row gutter={[12, 12]}>
+            <Col xs={24} sm={12}>
+              <AmountInput
+                placeholder="مبلغ هدف (تومان)"
+                value={targetAmount}
+                onChange={setTargetAmount}
+              />
+            </Col>
+            <Col xs={24} sm={12}>
+              <JalaliDateInput
+                placeholder="مهلت YYYY/MM/DD"
+                value={deadline}
+                onChange={setDeadline}
+              />
+            </Col>
+            <Col xs={24}>
+              <Flex gap={8} wrap="wrap" align="center">
+                {CATEGORY_COLORS.slice(0, 6).map((c) => (
+                  <Button
+                    key={c}
+                    type="text"
+                    aria-label={c}
+                    onClick={() => setColor(c)}
+                    className={cn(
+                      "w-8 h-8 min-w-8 p-0 rounded-xl",
+                      color === c
+                        ? "border-2 border-white ring-2 ring-brand-500"
+                        : "border border-slate-400/20"
+                    )}
+                    style={{ background: c }}
+                  />
+                ))}
+              </Flex>
+            </Col>
+          </Row>
+        </Space>
+      </AppModal>
 
       {q.isLoading ? <GoalsListSkeleton /> : null}
       {q.error ? (

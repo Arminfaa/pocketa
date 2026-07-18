@@ -17,7 +17,7 @@ import { CategoriesListSkeleton } from "@/components/skeletons";
 import { QueryError } from "@/components/ui/query-error";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FinanceTypeToggle } from "@/components/ui/finance-type-toggle";
-import { SectionCard } from "@/components/ui/section-card";
+import { AppModal } from "@/components/ui/modal";
 import { PageShell } from "@/components/ui/page-shell";
 import { PageHeader } from "@/components/ui/page-header";
 import { SoftAvatar, SoftList, SoftListItem, SoftListRow } from "@/components/ui/soft-list";
@@ -114,17 +114,6 @@ export default function CategoriesPage() {
     setFormOpen(false);
   }
 
-  function toggleForm() {
-    if (formOpen && !editingId) {
-      setFormOpen(false);
-      setForm(emptyForm);
-      return;
-    }
-    setEditingId(null);
-    setForm(emptyForm);
-    setFormOpen(true);
-  }
-
   return (
     <PageShell width="form">
       <PageHeader
@@ -135,8 +124,12 @@ export default function CategoriesPage() {
           <Button
             type="primary"
             icon={<PlusOutlined />}
-            onClick={toggleForm}
-            aria-label={formOpen && !editingId ? "بستن فرم" : "افزودن دسته"}
+            onClick={() => {
+              setEditingId(null);
+              setForm(emptyForm);
+              setFormOpen(true);
+            }}
+            aria-label="افزودن دسته"
           />
         }
         extra={
@@ -153,84 +146,85 @@ export default function CategoriesPage() {
         }
       />
 
-      {formOpen || editingId ? (
-        <SectionCard
-          title={editingId ? "ویرایش دسته" : "افزودن دسته جدید"}
-          description="نام، نوع، رنگ و آیکون را انتخاب کنید."
-        >
-          <Space orientation="vertical" size="middle" className="w-full">
-            <Row gutter={[12, 12]}>
-              <Col xs={24} md={14}>
-                <Text type="secondary">نام</Text>
-                <Input
-                  className="mt-2"
-                  value={form.name}
-                  onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
-                  placeholder="مثلاً خوراک"
+      <AppModal
+        open={formOpen || Boolean(editingId)}
+        onClose={cancelEdit}
+        title={editingId ? "ویرایش دسته" : "افزودن دسته جدید"}
+        subtitle="نام، نوع، رنگ و آیکون را انتخاب کنید."
+        footer={
+          <Flex gap="small" justify="end" wrap="wrap">
+            <Button onClick={cancelEdit}>انصراف</Button>
+            <Button
+              type="primary"
+              loading={saveMutation.isPending}
+              disabled={form.name.trim().length < 2}
+              onClick={() => saveMutation.mutate()}
+            >
+              ذخیره
+            </Button>
+          </Flex>
+        }
+      >
+        <Space orientation="vertical" size="middle" className="w-full">
+          <Row gutter={[12, 12]}>
+            <Col xs={24} md={14}>
+              <Text type="secondary">نام</Text>
+              <Input
+                className="mt-2"
+                value={form.name}
+                onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
+                placeholder="مثلاً خوراک"
+              />
+            </Col>
+            <Col xs={24} md={10}>
+              <Text type="secondary">نوع</Text>
+              <FinanceTypeToggle
+                className="mt-2"
+                value={form.type}
+                onChange={(e) => setForm((s) => ({ ...s, type: e.target.value }))}
+              />
+            </Col>
+          </Row>
+
+          <div>
+            <Text type="secondary">رنگ</Text>
+            <Flex gap={8} wrap="wrap" className="mt-2">
+              {CATEGORY_COLORS.map((c) => (
+                <Button
+                  key={c}
+                  type="text"
+                  aria-label={c}
+                  onClick={() => setForm((s) => ({ ...s, color: c }))}
+                  className={cn(
+                    "w-8 h-8 min-w-8 p-0 rounded-xl",
+                    form.color === c
+                      ? "border-2 border-white ring-2 ring-brand-500"
+                      : "border border-slate-400/20"
+                  )}
+                  style={{ background: c }}
                 />
-              </Col>
-              <Col xs={24} md={10}>
-                <Text type="secondary">نوع</Text>
-                <FinanceTypeToggle
-                  className="mt-2"
-                  value={form.type}
-                  onChange={(e) => setForm((s) => ({ ...s, type: e.target.value }))}
-                />
-              </Col>
-            </Row>
+              ))}
+            </Flex>
+          </div>
 
-            <div>
-              <Text type="secondary">رنگ</Text>
-              <Flex gap={8} wrap="wrap" className="mt-2">
-                {CATEGORY_COLORS.map((c) => (
-                  <Button
-                    key={c}
-                    type="text"
-                    aria-label={c}
-                    onClick={() => setForm((s) => ({ ...s, color: c }))}
-                    className={cn(
-                      "w-8 h-8 min-w-8 p-0 rounded-xl",
-                      form.color === c
-                        ? "border-2 border-white ring-2 ring-brand-500"
-                        : "border border-slate-400/20"
-                    )}
-                    style={{ background: c }}
-                  />
-                ))}
-              </Flex>
-            </div>
-
-            <div>
-              <Text type="secondary">آیکون</Text>
-              <Flex gap={8} wrap="wrap" className="mt-2">
-                {CATEGORY_ICONS.map((icon) => (
-                  <Button
-                    key={icon}
-                    size="small"
-                    className="!rounded-xl"
-                    type={form.icon === icon ? "primary" : "default"}
-                    onClick={() => setForm((s) => ({ ...s, icon }))}
-                  >
-                    {icon}
-                  </Button>
-                ))}
-              </Flex>
-            </div>
-
-            <Space>
-              <Button
-                type="primary"
-                loading={saveMutation.isPending}
-                disabled={form.name.trim().length < 2}
-                onClick={() => saveMutation.mutate()}
-              >
-                {saveMutation.isPending ? "در حال ذخیره..." : editingId ? "ذخیره تغییرات" : "افزودن"}
-              </Button>
-              {editingId ? <Button onClick={cancelEdit}>انصراف</Button> : null}
-            </Space>
-          </Space>
-        </SectionCard>
-      ) : null}
+          <div>
+            <Text type="secondary">آیکون</Text>
+            <Flex gap={8} wrap="wrap" className="mt-2">
+              {CATEGORY_ICONS.map((icon) => (
+                <Button
+                  key={icon}
+                  size="small"
+                  className="!rounded-xl"
+                  type={form.icon === icon ? "primary" : "default"}
+                  onClick={() => setForm((s) => ({ ...s, icon }))}
+                >
+                  {icon}
+                </Button>
+              ))}
+            </Flex>
+          </div>
+        </Space>
+      </AppModal>
 
       {q.isLoading ? <CategoriesListSkeleton /> : null}
       {q.error ? (

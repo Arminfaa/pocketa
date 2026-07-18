@@ -29,8 +29,9 @@ export function AntdProvider({ children }: { children: React.ReactNode }) {
             colorBgLayout: isDark ? "#0b1220" : "#f8fafc",
             colorText: isDark ? "#e5e7eb" : "#0f172a",
             colorTextSecondary: isDark ? "#93a4b8" : "#475569",
-            colorBorder: "transparent",
+            colorBorder: isDark ? "rgba(148, 163, 184, 0.28)" : "rgba(15, 23, 42, 0.12)",
             colorBorderSecondary: "transparent",
+            colorBgElevated: isDark ? "#0f1a2e" : "#ffffff",
           },
           components: {
             Layout: {
@@ -61,10 +62,14 @@ export function AntdProvider({ children }: { children: React.ReactNode }) {
             Input: {
               controlHeight: 42,
               borderRadius: 16,
+              colorBorder: isDark ? "rgba(148, 163, 184, 0.28)" : "rgba(15, 23, 42, 0.12)",
+              hoverBorderColor: isDark ? "rgba(34, 211, 238, 0.45)" : "rgba(6, 182, 212, 0.45)",
+              activeBorderColor: isDark ? "#22d3ee" : "#06b6d4",
             },
             Select: {
               controlHeight: 42,
               borderRadius: 16,
+              colorBorder: isDark ? "rgba(148, 163, 184, 0.28)" : "rgba(15, 23, 42, 0.12)",
             },
             DatePicker: {
               controlHeight: 42,
@@ -80,6 +85,9 @@ export function AntdProvider({ children }: { children: React.ReactNode }) {
             },
             Modal: {
               borderRadiusLG: 24,
+              contentBg: isDark ? "#0f1a2e" : "#ffffff",
+              headerBg: isDark ? "#0f1a2e" : "#ffffff",
+              footerBg: isDark ? "#0f1a2e" : "#ffffff",
             },
           },
         }}
