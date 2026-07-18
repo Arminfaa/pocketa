@@ -6,7 +6,12 @@ import { useAuthStore } from "@/stores/auth.store";
 import api from "@/services/api";
 import { useRouter } from "next/navigation";
 import { App, Button, Flex, Input, Space, Tag, Typography } from "antd";
-import { BellOutlined, LogoutOutlined, SettingOutlined } from "@ant-design/icons";
+import {
+  BellOutlined,
+  KeyOutlined,
+  LogoutOutlined,
+  SettingOutlined,
+} from "@ant-design/icons";
 import { SettingsSkeleton } from "@/components/skeletons";
 import { Sk } from "@/components/ui/skeleton";
 import { SectionCard } from "@/components/ui/section-card";
@@ -30,6 +35,10 @@ export default function SettingsPage() {
   const [name, setName] = useState(user?.name ?? "");
   const [saving, setSaving] = useState(false);
 
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
   const pushStatusQ = useQuery({ queryKey: ["push-status"], queryFn: fetchPushStatus });
 
   const pushEnableMutation = useMutation({
@@ -51,6 +60,36 @@ export default function SettingsPage() {
     },
     onError: (err: unknown) => {
       message.error(err instanceof Error ? err.message : "خاموش کردن پوش ناموفق بود");
+    },
+  });
+
+  const changePasswordMutation = useMutation({
+    mutationFn: async () => {
+      if (currentPassword.length < 1) throw new Error("رمز فعلی را وارد کنید");
+      if (newPassword.length < 8) throw new Error("رمز جدید باید حداقل ۸ کاراکتر باشد");
+      if (newPassword !== confirmPassword) throw new Error("تکرار رمز جدید یکسان نیست");
+      if (newPassword === currentPassword) {
+        throw new Error("رمز جدید باید با رمز فعلی فرق داشته باشد");
+      }
+      await api.post("/api/auth/change-password", {
+        currentPassword,
+        newPassword,
+        confirmPassword,
+      });
+    },
+    onSuccess: () => {
+      message.success("رمز عبور تغییر کرد");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    },
+    onError: (err: unknown) => {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : ((err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+            "خطا در تغییر رمز");
+      message.error(msg);
     },
   });
 
@@ -96,7 +135,7 @@ export default function SettingsPage() {
       <PageHeader
         icon={<SettingOutlined />}
         title="تنظیمات پروفایل"
-        description="نام نمایشی، یادآوری پوش و خروج از حساب."
+        description="نام نمایشی، تغییر رمز، یادآوری پوش و خروج از حساب."
       />
 
       {!user ? (
@@ -125,6 +164,53 @@ export default function SettingsPage() {
 
               <Button type="primary" loading={saving} onClick={onSaveProfile}>
                 {saving ? "در حال ذخیره..." : "ذخیره تغییرات"}
+              </Button>
+            </Space>
+          </SectionCard>
+
+          <SectionCard
+            title={
+              <Space>
+                <KeyOutlined className="text-brand-500" />
+                تغییر رمز عبور
+              </Space>
+            }
+            description="رمز فعلی را وارد کنید و رمز جدید بگذارید (حداقل ۸ کاراکتر)."
+          >
+            <Space orientation="vertical" size="middle" className="w-full">
+              <div>
+                <Text type="secondary">رمز فعلی</Text>
+                <Input.Password
+                  className="mt-2"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  autoComplete="current-password"
+                />
+              </div>
+              <div>
+                <Text type="secondary">رمز جدید</Text>
+                <Input.Password
+                  className="mt-2"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  autoComplete="new-password"
+                />
+              </div>
+              <div>
+                <Text type="secondary">تکرار رمز جدید</Text>
+                <Input.Password
+                  className="mt-2"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  autoComplete="new-password"
+                />
+              </div>
+              <Button
+                type="primary"
+                loading={changePasswordMutation.isPending}
+                onClick={() => changePasswordMutation.mutate()}
+              >
+                تغییر رمز
               </Button>
             </Space>
           </SectionCard>

@@ -6,7 +6,7 @@ import { asyncHandler } from "../middleware/asyncHandler";
 import { env } from "../config/env";
 import { sendSuccess } from "../utils/apiResponse";
 import { AppError } from "../utils/AppError";
-import { RegisterSchema, LoginSchema } from "../validations/auth";
+import { RegisterSchema, LoginSchema, ChangePasswordSchema } from "../validations/auth";
 import { UserModel } from "../models/User";
 import { CategoryModel } from "../models/Category";
 import { RefreshTokenModel } from "../models/RefreshToken";
@@ -218,6 +218,46 @@ export const me = asyncHandler(async (req: Request, res: Response) => {
   return sendSuccess(res, {
     user: { id: user._id, name: user.name, email: user.email },
   });
+});
+
+export const changePassword = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) throw new AppError(401, "عدم دسترسی");
+
+  const parsed = ChangePasswordSchema.safeParse(req.body);
+  if (!parsed.success) throw new AppError(400, "خطا در اعتبارسنجی داده‌ها", parsed.error.flatten());
+
+  const { currentPassword, newPassword } = parsed.data;
+  const user = await UserModel.findById(userId).select("+password");
+  if (!user) throw new AppError(404, "کاربر یافت نشد");
+
+  const ok = await bcrypt.compare(currentPassword, user.password);
+  if (!ok) throw new AppError(400, "رمز فعلی نادرست است");
+
+  user.password = await bcrypt.hash(newPassword, 12);
+  await user.save();
+
+  // Invalidate other refresh sessions; keep current cookies so this device stays logged in
+  await RefreshTokenModel.updateMany(
+    { userId: user._id, revokedAt: null },
+    { $set: { revokedAt: new Date() } }
+  );
+
+  const accessToken = signAccessToken(String(user._id));
+  const refreshToken = signRefreshToken(String(user._id));
+  const refreshTokenHash = sha256(refreshToken);
+  const expiresAt = tokenExpiryToDate(env.JWT_REFRESH_EXPIRES_IN);
+
+  await RefreshTokenModel.create({
+    userId: user._id,
+    tokenHash: refreshTokenHash,
+    expiresAt,
+    revokedAt: null,
+  });
+
+  setAuthCookies(res, accessToken, refreshToken, expiresAt);
+
+  return sendSuccess(res, {}, "رمز عبور با موفقیت تغییر کرد");
 });
 
 export const refresh = asyncHandler(async (req: Request, res: Response) => {

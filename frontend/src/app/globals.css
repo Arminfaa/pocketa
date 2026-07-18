@@ -141,6 +141,48 @@
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent) !important;
   }
 
+  /* Dark: borderless inputs — darker fill only */
+  .dark .ant-input,
+  .dark .ant-input-affix-wrapper,
+  .dark .ant-select-selector,
+  .dark .ant-picker,
+  .dark .ant-input-number,
+  .dark .ant-input-number-affix-wrapper,
+  .dark .ant-input-textarea textarea,
+  .dark textarea.ant-input {
+    border: none !important;
+    border-color: transparent !important;
+    background: color-mix(in srgb, #000 28%, var(--card)) !important;
+    box-shadow: none !important;
+  }
+
+  .dark .ant-input:hover,
+  .dark .ant-input-affix-wrapper:hover,
+  .dark .ant-select:not(.ant-select-disabled):hover .ant-select-selector,
+  .dark .ant-picker:hover,
+  .dark .ant-input-number:hover,
+  .dark .ant-input-number-affix-wrapper:hover {
+    border: none !important;
+    border-color: transparent !important;
+    background: color-mix(in srgb, #000 36%, var(--card)) !important;
+    box-shadow: none !important;
+  }
+
+  .dark .ant-input:focus,
+  .dark .ant-input-focused,
+  .dark .ant-input-affix-wrapper-focused,
+  .dark .ant-select-focused .ant-select-selector,
+  .dark .ant-picker-focused,
+  .dark .ant-input-number-focused,
+  .dark .ant-input-number-affix-wrapper-focused,
+  .dark .ant-input-textarea-focused textarea,
+  .dark textarea.ant-input:focus {
+    border: none !important;
+    border-color: transparent !important;
+    background: color-mix(in srgb, #000 40%, var(--card)) !important;
+    box-shadow: none !important;
+  }
+
   .ant-btn-default {
     @apply !border-0;
     background: color-mix(in srgb, var(--muted) 8%, var(--card)) !important;
