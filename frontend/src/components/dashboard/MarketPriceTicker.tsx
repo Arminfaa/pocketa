@@ -17,11 +17,19 @@ export type MarketTickerData = {
     mesghal18kToman: number | null;
     mesghal24kToman: number | null;
     quarterCoinToman?: number | null;
+    fetchDate?: string;
   } | null;
   currency: {
     usdFreeToman: number;
     usdtToman: number;
+    fetchDate?: string;
   } | null;
+  asOfDate?: string;
+  stale?: boolean;
+  errors?: {
+    gold?: string;
+    currency?: string;
+  };
 };
 
 type TickerItem = {
@@ -114,8 +122,19 @@ type Props = {
   className?: string;
 };
 
+function staleHint(market?: MarketTickerData): string | null {
+  if (!market?.stale) return null;
+  const dates = [market.gold?.fetchDate, market.currency?.fetchDate].filter(Boolean) as string[];
+  const oldest = dates.sort()[0];
+  if (oldest) {
+    return `قیمت ذخیره‌شده مربوط به ${oldest} است — به‌روزرسانی امروز هنوز انجام نشده`;
+  }
+  return "قیمت‌ها مربوط به امروز نیست — در حال تلاش برای به‌روزرسانی";
+}
+
 export function MarketPriceTicker({ market, loading, errorMessage, className }: Props) {
   const items = buildItems(market);
+  const staleMessage = staleHint(market);
   const rootRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -183,13 +202,14 @@ export function MarketPriceTicker({ market, loading, errorMessage, className }: 
     return (
       <div className={cn("market-ticker market-ticker--empty", className)}>
         <span className="text-xs text-app-muted">
-          {errorMessage || "قیمت‌ها در دسترس نیست"}
+          {errorMessage || staleMessage || "قیمت‌ها در دسترس نیست"}
         </span>
       </div>
     );
   }
 
   const loop = [...items, ...items];
+  const statusNote = staleMessage || errorMessage || null;
 
   const dropdown =
     mounted && menuOpen && menuBox
@@ -207,6 +227,13 @@ export function MarketPriceTicker({ market, loading, errorMessage, className }: 
             onMouseEnter={openMenu}
             onMouseLeave={scheduleClose}
           >
+            {statusNote ? (
+              <div className="market-ticker-dropdown-row !items-start">
+                <span className="text-xs text-amber-600 dark:text-amber-300 leading-relaxed">
+                  {statusNote}
+                </span>
+              </div>
+            ) : null}
             {items.map((item) => (
               <div key={item.id} className="market-ticker-dropdown-row" role="listitem">
                 <span className="market-ticker-label">{item.label}</span>
@@ -222,28 +249,35 @@ export function MarketPriceTicker({ market, loading, errorMessage, className }: 
       : null;
 
   return (
-    <div
-      ref={rootRef}
-      className={cn("market-ticker", menuOpen && "market-ticker--menu-open", className)}
-      aria-label="قیمت طلا و ارز"
-      aria-expanded={menuOpen}
-      onMouseEnter={openMenu}
-      onMouseLeave={scheduleClose}
-    >
-      <div className="market-ticker-strip">
-        <div className="market-ticker-fade market-ticker-fade--start" aria-hidden />
-        <div className="market-ticker-fade market-ticker-fade--end" aria-hidden />
+    <div className={cn("w-full", className)}>
+      <div
+        ref={rootRef}
+        className={cn("market-ticker", menuOpen && "market-ticker--menu-open")}
+        aria-label="قیمت طلا و ارز"
+        aria-expanded={menuOpen}
+        onMouseEnter={openMenu}
+        onMouseLeave={scheduleClose}
+      >
+        <div className="market-ticker-strip">
+          <div className="market-ticker-fade market-ticker-fade--start" aria-hidden />
+          <div className="market-ticker-fade market-ticker-fade--end" aria-hidden />
 
-        <div className="market-ticker-viewport">
-          <div className="market-ticker-track" dir="ltr">
-            {loop.map((item, i) => (
-              <TickerChip key={`${item.id}-${i}`} item={item} />
-            ))}
+          <div className="market-ticker-viewport">
+            <div className="market-ticker-track" dir="ltr">
+              {loop.map((item, i) => (
+                <TickerChip key={`${item.id}-${i}`} item={item} />
+              ))}
+            </div>
           </div>
         </div>
-      </div>
 
-      {dropdown}
+        {dropdown}
+      </div>
+      {statusNote ? (
+        <p className="mt-1.5 px-1 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300/90">
+          {statusNote}
+        </p>
+      ) : null}
     </div>
   );
 }

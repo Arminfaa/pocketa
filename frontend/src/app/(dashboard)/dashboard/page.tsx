@@ -67,6 +67,8 @@ type MarketPrices = {
     fetchDate: string;
     fetchedAt: string;
   } | null;
+  asOfDate?: string;
+  stale?: boolean;
   errors?: {
     gold?: string;
     currency?: string;
@@ -99,7 +101,9 @@ export default function DashboardPage() {
         throw new Error(msg || (err instanceof Error ? err.message : "خطا در دریافت قیمت‌ها"));
       }
     },
-    staleTime: 5 * 60_000,
+    // When today's fetch failed, poll so we don't sit on yesterday all day
+    staleTime: 60_000,
+    refetchInterval: (q) => (q.state.data?.stale ? 2 * 60_000 : false),
     retry: 1,
   });
 
