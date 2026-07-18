@@ -51,7 +51,12 @@ export function PageHeader({
         </div>
 
         {(meta || actions) && (
-          <Flex align="center" gap="small" wrap="wrap" className="shrink-0 ms-auto">
+          <Flex
+            align="center"
+            gap="small"
+            wrap="wrap"
+            className="min-w-0 w-full max-w-full sm:w-auto sm:shrink-0 sm:ms-auto"
+          >
             {meta ? (
               <div className="rounded-2xl bg-app-card/90 px-3 py-2 shadow-soft backdrop-blur-sm">
                 {meta}
