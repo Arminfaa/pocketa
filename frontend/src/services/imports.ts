@@ -34,11 +34,6 @@ export type BankSmsConfirmResponse = {
   importedCount: number;
   skippedDuplicateCount: number;
   parsedCount: number;
-  balanceSync?: {
-    previousBalance: number;
-    balance: number;
-    smsBalance: number;
-  } | null;
 };
 
 export async function previewBankSms(payload: {
@@ -55,7 +50,6 @@ export async function confirmBankSms(payload: {
   accountId: string;
   jalaliYear?: number;
   selectedHashes?: string[];
-  syncBalance?: boolean;
 }): Promise<BankSmsConfirmResponse> {
   const res = await api.post("/api/imports/bank-sms/confirm", payload);
   return res.data.data as BankSmsConfirmResponse;
