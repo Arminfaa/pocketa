@@ -173,6 +173,7 @@ export const confirm = asyncHandler(async (req: Request, res: Response) => {
           rawSnippet: item.rawSnippet,
           feeAmount: item.feeAmount,
           transferAmount: item.transferAmount,
+          needsFee: Boolean(item.needsFee),
         },
       };
     })
