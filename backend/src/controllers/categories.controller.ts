@@ -3,9 +3,11 @@ import { AppError } from "../utils/AppError";
 import { asyncHandler } from "../middleware/asyncHandler";
 import { sendSuccess } from "../utils/apiResponse";
 import { CategoryModel } from "../models/Category";
+import { TransactionModel } from "../models/Transaction";
 import { CategoryCreateSchema, CategoryUpdateSchema } from "../validations/categories";
 import { CategorySuggestSchema } from "../validations/transactions";
 import { suggestCategoryForTitle } from "../services/category-suggest.service";
+import { NON_OPERATING_CATEGORY_NAMES } from "../services/accounting.service";
 
 export const list = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user?.userId;

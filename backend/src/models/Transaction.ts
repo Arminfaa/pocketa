@@ -17,7 +17,7 @@ const TransactionSchema = new Schema(
 
     source: {
       type: String,
-      enum: ["manual", "bank_sms", "balance_adjustment"],
+      enum: ["manual", "bank_sms", "balance_adjustment", "transfer", "investment", "goal"],
       default: "manual",
     },
     needsReview: { type: Boolean, default: false, index: true },
@@ -32,6 +32,34 @@ const TransactionSchema = new Schema(
       time: { type: String },
       rawSnippet: { type: String },
     },
+
+    /** Links the two legs of an inter-account transfer */
+    transferGroupId: { type: Schema.Types.ObjectId, required: false, index: true },
+    linkedTransactionId: { type: Schema.Types.ObjectId, ref: "Transaction", required: false },
+
+    /** Settle / debt reverse metadata */
+    settledRecurringId: {
+      type: Schema.Types.ObjectId,
+      ref: "RecurringTransaction",
+      required: false,
+      index: true,
+    },
+    settleMode: { type: String, enum: ["full", "partial"], required: false },
+    /** Snapshot of recurring state before settle — used to unwind on delete */
+    settleSnapshot: { type: Schema.Types.Mixed, required: false },
+    createdDebtId: {
+      type: Schema.Types.ObjectId,
+      ref: "RecurringTransaction",
+      required: false,
+    },
+    deferredDebtId: {
+      type: Schema.Types.ObjectId,
+      ref: "RecurringTransaction",
+      required: false,
+    },
+
+    investmentId: { type: Schema.Types.ObjectId, ref: "Investment", required: false },
+    goalId: { type: Schema.Types.ObjectId, ref: "SavingsGoal", required: false },
   },
   { timestamps: true }
 );
@@ -39,8 +67,6 @@ const TransactionSchema = new Schema(
 TransactionSchema.index({ userId: 1, accountId: 1, date: -1 });
 TransactionSchema.index({ userId: 1, type: 1, date: -1 });
 TransactionSchema.index({ userId: 1, tags: 1 });
-// Compound sparse unique indexes still include docs when userId exists,
-// so null importHash values collide. Partial filter indexes only real hashes.
 TransactionSchema.index(
   { userId: 1, importHash: 1 },
   {

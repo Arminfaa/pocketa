@@ -73,7 +73,8 @@ export function RecurringPayModal({
 
   const postponePreview = useMemo(() => {
     if (!item || mode !== "postpone") return null;
-    return dueAmount + baseAmount;
+    // Deferred one-time = dueAmount; next installment stays at baseAmount
+    return { deferred: dueAmount, nextInstallment: baseAmount };
   }, [item, mode, dueAmount, baseAmount]);
 
   function handleSubmit() {
@@ -215,8 +216,10 @@ export function RecurringPayModal({
             {item.kind === "recurring" ? (
               <Text type="secondary" className="text-sm">
                 قسط این ماه پرداخت نمی‌شود. یک بدهی یک‌باره به مبلغ{" "}
-                {formatToman(baseAmount)} ثبت می‌شود و قسط ماه بعد{" "}
-                {postponePreview ? formatToman(postponePreview) : "—"} خواهد بود.
+                {postponePreview ? formatToman(postponePreview.deferred) : "—"} ثبت
+                می‌شود و قسط ماه بعد{" "}
+                {postponePreview ? formatToman(postponePreview.nextInstallment) : "—"}{" "}
+                خواهد بود.
               </Text>
             ) : (
               <Text type="secondary" className="text-sm">

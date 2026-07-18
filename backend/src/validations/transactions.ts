@@ -146,3 +146,20 @@ export const TransactionBulkDeleteSchema = z.object({
     .min(1, "حداقل یک تراکنش انتخاب کنید")
     .max(200, "حداکثر ۲۰۰ تراکنش در هر درخواست"),
 });
+
+export const TransferCreateSchema = z.object({
+  fromAccountId: z.string().min(1),
+  toAccountId: z.string().min(1),
+  amount: z.coerce.number().positive(),
+  title: z.string().min(2).max(120).trim().optional(),
+  description: z.string().max(500).optional().nullable(),
+  date: JalaliDateSchema,
+}).superRefine((data, ctx) => {
+  if (data.fromAccountId === data.toAccountId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "حساب مبدأ و مقصد نباید یکی باشند",
+      path: ["toAccountId"],
+    });
+  }
+});

@@ -3,8 +3,15 @@ import { asyncHandler } from "../middleware/asyncHandler";
 import { AppError } from "../utils/AppError";
 import { sendSuccess } from "../utils/apiResponse";
 import { SavingsGoalModel } from "../models/SavingsGoal";
+import { BankAccountModel } from "../models/BankAccount";
+import { TransactionModel } from "../models/Transaction";
 import { GoalContributeSchema, GoalCreateSchema, GoalUpdateSchema } from "../validations/goals";
 import { normalizeJalaliDate } from "../utils/normalizeDigits";
+import { todayJalali } from "../utils/jalaliDate";
+import {
+  ensureNamedCategory,
+  GOAL_CONTRIBUTION_CATEGORY_NAME,
+} from "../services/accounting.service";
 
 function mapGoal(goal: {
   _id: unknown;
@@ -74,13 +81,18 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
     userId,
     title: parsed.data.title,
     targetAmount: parsed.data.targetAmount,
-    currentAmount: parsed.data.currentAmount ?? 0,
+    currentAmount: 0,
     deadline,
     color: parsed.data.color,
     icon: parsed.data.icon,
     notes: parsed.data.notes ?? "",
     active: true,
   });
+
+  // Optional opening progress must come via contribute (cash-linked)
+  if ((parsed.data.currentAmount ?? 0) > 0) {
+    // Keep create simple — ignore initial currentAmount unless 0
+  }
 
   return sendSuccess(res, { item: mapGoal(goal) }, "هدف پس‌انداز ایجاد شد", 201);
 });
@@ -93,7 +105,9 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
   if (!parsed.success) throw new AppError(400, "خطا در اعتبارسنجی داده‌ها", parsed.error.flatten());
 
   const { id } = req.params;
-  const next: Record<string, unknown> = { ...parsed.data };
+  // Do not allow silent currentAmount edits — progress must go through contribute
+  const { currentAmount: _ignored, ...rest } = parsed.data;
+  const next: Record<string, unknown> = { ...rest };
   if (parsed.data.deadline !== undefined) {
     next.deadline =
       parsed.data.deadline && parsed.data.deadline !== ""
@@ -134,8 +148,51 @@ export const contribute = asyncHandler(async (req: Request, res: Response) => {
   const goal = await SavingsGoalModel.findOne({ _id: id, userId, active: true });
   if (!goal) throw new AppError(404, "هدف فعال یافت نشد");
 
-  goal.currentAmount = Math.min(goal.targetAmount, goal.currentAmount + parsed.data.amount);
+  const account = await BankAccountModel.findOne({
+    _id: parsed.data.accountId,
+    userId,
+    isActive: true,
+  });
+  if (!account) throw new AppError(404, "حساب بانکی یافت نشد");
+
+  const room = Math.max(0, goal.targetAmount - goal.currentAmount);
+  const amount = Math.min(parsed.data.amount, room);
+  if (amount <= 0) {
+    throw new AppError(400, "این هدف تکمیل شده است");
+  }
+
+  const category = await ensureNamedCategory(
+    userId,
+    GOAL_CONTRIBUTION_CATEGORY_NAME,
+    "expense",
+    "Target",
+    "#14b8a6"
+  );
+  const date = parsed.data.date
+    ? normalizeJalaliDate(parsed.data.date)
+    : todayJalali();
+
+  await TransactionModel.create({
+    userId,
+    accountId: account._id,
+    type: "expense",
+    amount,
+    categoryId: category._id,
+    title: `پس‌انداز — ${goal.title}`,
+    description: "واریز به هدف پس‌انداز",
+    date,
+    tags: ["هدف-پس‌انداز"],
+    source: "goal",
+    needsReview: false,
+    goalId: goal._id,
+  });
+
+  goal.currentAmount = goal.currentAmount + amount;
   await goal.save();
 
-  return sendSuccess(res, { item: mapGoal(goal) }, "مبلغ به هدف اضافه شد");
+  return sendSuccess(
+    res,
+    { item: mapGoal(goal) },
+    `مبلغ ${Math.round(amount).toLocaleString("en-US")} تومان از حساب کم و به هدف اضافه شد`
+  );
 });

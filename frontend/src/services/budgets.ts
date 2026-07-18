@@ -38,10 +38,12 @@ export type BudgetsResponse = {
 export async function fetchBudgets(params?: {
   month?: number;
   year?: number;
+  accountId?: string | null;
 }): Promise<BudgetsResponse> {
   const qs = new URLSearchParams({ limit: "50" });
   if (params?.month) qs.set("month", String(params.month));
   if (params?.year) qs.set("year", String(params.year));
+  if (params?.accountId) qs.set("accountId", params.accountId);
   const res = await api.get(`/api/budgets?${qs.toString()}`);
   return res.data.data as BudgetsResponse;
 }

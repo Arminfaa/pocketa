@@ -19,5 +19,6 @@ export const BudgetQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
   month: z.coerce.number().int().min(1).max(12).optional().nullable(),
   year: z.coerce.number().int().min(1300).max(2000).optional().nullable(),
+  accountId: z.string().min(1).optional().nullable(),
 });
 

@@ -55,6 +55,9 @@ export async function deleteGoal(id: string): Promise<void> {
   await api.delete(`/api/goals/${id}`);
 }
 
-export async function contributeGoal(id: string, amount: number): Promise<void> {
-  await api.post(`/api/goals/${id}/contribute`, { amount });
+export async function contributeGoal(
+  id: string,
+  payload: { amount: number; accountId: string; date?: string }
+): Promise<void> {
+  await api.post(`/api/goals/${id}/contribute`, payload);
 }

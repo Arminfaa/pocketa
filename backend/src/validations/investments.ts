@@ -21,6 +21,8 @@ export const InvestmentCreateSchema = z
     profitNextDate: JalaliDateSchema.optional().nullable(),
     profitEndDate: JalaliDateSchema.optional().nullable(),
     notes: z.string().max(500).optional().nullable(),
+    /** Bank account to debit for the purchase (cash outlay) */
+    accountId: z.string().min(1, "حساب بانکی خرید را انتخاب کنید"),
   })
   .superRefine((data, ctx) => {
     if (data.assetType === "gold" && !data.goldKind) {
