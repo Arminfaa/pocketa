@@ -82,15 +82,29 @@ export const InvestmentCreateSchema = z
     }
   });
 
-export const InvestmentUpdateSchema = z.object({
-  title: z.string().min(2).max(120).trim().optional(),
-  quantity: z.coerce.number().positive().optional(),
-  purchasePricePerUnit: z.coerce.number().positive().optional(),
-  purchaseDate: JalaliDateSchema.optional(),
-  notes: z.string().max(500).optional().nullable(),
-  active: z.boolean().optional(),
-  profitEndDate: JalaliDateSchema.optional().nullable(),
-});
+export const InvestmentUpdateSchema = z
+  .object({
+    title: z.string().min(2).max(120).trim().optional(),
+    quantity: z.coerce.number().positive().optional(),
+    purchasePricePerUnit: z.coerce.number().positive().optional(),
+    purchaseDate: JalaliDateSchema.optional(),
+    notes: z.string().max(500).optional().nullable(),
+    active: z.boolean().optional(),
+    profitEndDate: JalaliDateSchema.optional().nullable(),
+    profitNextDate: JalaliDateSchema.optional().nullable(),
+  })
+  .superRefine((data, ctx) => {
+    if (
+      data.quantity != null &&
+      (!Number.isFinite(data.quantity) || data.quantity <= 0)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "مقدار معتبر نیست",
+        path: ["quantity"],
+      });
+    }
+  });
 
 export const InvestmentSellSchema = z
   .object({

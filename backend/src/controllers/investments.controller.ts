@@ -298,6 +298,16 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
   const existing = await InvestmentModel.findOne({ _id: id, userId });
   if (!existing) throw new AppError(404, "سرمایه‌گذاری یافت نشد");
 
+  const goldKind = resolveGoldKind(existing.assetType, existing.goldKind);
+  if (
+    parsed.data.quantity != null &&
+    existing.assetType === "gold" &&
+    goldKind === "quarter_coin" &&
+    (!Number.isInteger(parsed.data.quantity) || parsed.data.quantity < 1)
+  ) {
+    throw new AppError(400, "تعداد ربع سکه باید عدد صحیح باشد");
+  }
+
   const next: Record<string, unknown> = { ...parsed.data };
   if (parsed.data.purchaseDate) next.purchaseDate = normalizeJalaliDate(parsed.data.purchaseDate);
   if (parsed.data.profitEndDate !== undefined) {
@@ -306,11 +316,26 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
         ? normalizeJalaliDate(parsed.data.profitEndDate)
         : "";
   }
+  if (parsed.data.profitNextDate !== undefined) {
+    next.profitNextDate =
+      parsed.data.profitNextDate && parsed.data.profitNextDate !== ""
+        ? normalizeJalaliDate(parsed.data.profitNextDate)
+        : "";
+  }
   if (parsed.data.notes !== undefined) next.notes = parsed.data.notes ?? "";
+  if (existing.assetType === "rial" && parsed.data.purchasePricePerUnit != null) {
+    next.purchasePricePerUnit = 1;
+  }
 
-  if (parsed.data.quantity != null && existing.hasProfit && existing.profitMode === "percent") {
+  const nextQty = parsed.data.quantity ?? existing.quantity;
+  const nextPrice =
+    existing.assetType === "rial"
+      ? 1
+      : (parsed.data.purchasePricePerUnit ?? existing.purchasePricePerUnit);
+
+  if (existing.hasProfit && existing.profitMode === "percent") {
     next.profitAssetQuantity = computeProfitAssetQuantity({
-      quantity: parsed.data.quantity,
+      quantity: nextQty,
       hasProfit: true,
       profitMode: "percent",
       profitValue: existing.profitValue,
@@ -324,20 +349,54 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
   );
   if (!investment) throw new AppError(404, "سرمایه‌گذاری یافت نشد");
 
+  // Keep the original purchase cash outlay in sync with edited qty/price/date/title
+  const costBasis = Math.round(nextQty * nextPrice);
+  if (costBasis > 0) {
+    const purchasePatch: Record<string, unknown> = {
+      amount: costBasis,
+      title: `خرید ${investment.title}`,
+      description: `خروج نقد برای خرید سرمایه‌گذاری (${assetTypeLabel(
+        investment.assetType,
+        goldKind
+      )})`,
+    };
+    if (parsed.data.purchaseDate) {
+      purchasePatch.date = investment.purchaseDate;
+    }
+    await TransactionModel.updateOne(
+      {
+        userId,
+        investmentId: investment._id,
+        source: "investment",
+        type: "expense",
+        title: { $regex: /^خرید\s/ },
+      },
+      { $set: purchasePatch }
+    );
+  }
+
   if (investment.recurringId) {
     const patch: Record<string, unknown> = {};
     if (typeof next.profitAssetQuantity === "number") {
       patch.assetQuantity = next.profitAssetQuantity;
+      patch.title = `سود ${formatAssetQuantity(
+        next.profitAssetQuantity as number,
+        investment.assetType,
+        goldKind
+      )} — ${investment.title}`;
+    } else if (parsed.data.title) {
+      const qty = investment.profitAssetQuantity ?? 0;
+      patch.title = `سود ${formatAssetQuantity(qty, investment.assetType, goldKind)} — ${investment.title}`;
     }
     if (parsed.data.profitEndDate !== undefined) {
       patch.endDate = investment.profitEndDate || "";
     }
+    if (parsed.data.profitNextDate !== undefined && investment.profitNextDate) {
+      patch.nextPaymentDate = investment.profitNextDate;
+      patch.dayOfMonth = dayOfMonthFromJalali(investment.profitNextDate);
+    }
     if (parsed.data.active === false) {
       patch.active = false;
-    }
-    if (parsed.data.title) {
-      const qty = investment.profitAssetQuantity ?? 0;
-      patch.title = `سود ${formatAssetQuantity(qty, investment.assetType, investment.goldKind)} — ${investment.title}`;
     }
     if (Object.keys(patch).length) {
       await RecurringTransactionModel.updateOne(
@@ -354,7 +413,7 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
     market = null;
   }
 
-  return sendSuccess(res, { item: await mapInvestment(investment, market) });
+  return sendSuccess(res, { item: await mapInvestment(investment, market) }, "به‌روزرسانی شد");
 });
 
 export const remove = asyncHandler(async (req: Request, res: Response) => {
