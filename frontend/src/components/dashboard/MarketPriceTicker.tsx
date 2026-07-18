@@ -3,6 +3,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { TickerSkeleton } from "@/components/skeletons";
+import { toPersianDigits } from "@/lib/format";
 import { cn } from "@/lib/cn";
 
 export type MarketTickerData = {
@@ -18,13 +19,18 @@ export type MarketTickerData = {
     mesghal24kToman: number | null;
     quarterCoinToman?: number | null;
     fetchDate?: string;
+    fetchedAt?: string;
+    sourceUpdatedAt?: string;
   } | null;
   currency: {
     usdFreeToman: number;
     usdtToman: number;
     fetchDate?: string;
+    fetchedAt?: string;
+    sourceUpdatedAt?: string;
   } | null;
   asOfDate?: string;
+  lastUpdatedAt?: string;
   stale?: boolean;
   errors?: {
     gold?: string;
@@ -48,6 +54,47 @@ function formatAmountUsd(amount: number): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount);
+}
+
+/** ISO → «۱۴۰۵/۰۴/۲۷ · ۲۱:۱۰» in Asia/Tehran */
+function formatTehranDateTime(iso?: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+
+  const jalali = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
+    timeZone: "Asia/Tehran",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+  const timeParts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Tehran",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(d);
+  const hour = timeParts.find((p) => p.type === "hour")?.value ?? "00";
+  const minute = timeParts.find((p) => p.type === "minute")?.value ?? "00";
+  const jalaliNorm = jalali.replace(/[^\d۰-۹/]/g, "/").replace(/\/+/g, "/");
+  return `${jalaliNorm} · ${toPersianDigits(`${hour}:${minute}`)}`;
+}
+
+function resolveLastUpdated(market?: MarketTickerData): string | null {
+  if (!market) return null;
+  const candidates = [
+    market.lastUpdatedAt,
+    market.gold?.fetchedAt,
+    market.currency?.fetchedAt,
+    market.gold?.sourceUpdatedAt,
+    market.currency?.sourceUpdatedAt,
+  ].filter(Boolean) as string[];
+  if (candidates.length === 0) return null;
+  const latest = candidates
+    .map((iso) => ({ iso, t: new Date(iso).getTime() }))
+    .filter((x) => Number.isFinite(x.t))
+    .sort((a, b) => b.t - a.t)[0];
+  return latest ? formatTehranDateTime(latest.iso) : null;
 }
 
 function tomanItem(
@@ -127,7 +174,7 @@ function staleHint(market?: MarketTickerData): string | null {
   const dates = [market.gold?.fetchDate, market.currency?.fetchDate].filter(Boolean) as string[];
   const oldest = dates.sort()[0];
   if (oldest) {
-    return `قیمت ذخیره‌شده مربوط به ${oldest} است — به‌روزرسانی امروز هنوز انجام نشده`;
+    return `قیمت ذخیره‌شده مربوط به ${toPersianDigits(oldest)} است — به‌روزرسانی امروز هنوز انجام نشده`;
   }
   return "قیمت‌ها مربوط به امروز نیست — در حال تلاش برای به‌روزرسانی";
 }
@@ -135,6 +182,7 @@ function staleHint(market?: MarketTickerData): string | null {
 export function MarketPriceTicker({ market, loading, errorMessage, className }: Props) {
   const items = buildItems(market);
   const staleMessage = staleHint(market);
+  const updatedLabel = resolveLastUpdated(market);
   const rootRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -162,18 +210,28 @@ export function MarketPriceTicker({ market, loading, errorMessage, className }: 
       setMenuBox({
         top: rect.bottom + 6,
         left: rect.left,
-        width: Math.max(rect.width, 220),
+        width: Math.max(rect.width, 240),
       });
     }
 
     updateBox();
     window.addEventListener("resize", updateBox);
-    // capture scroll from nested overflow containers (dashboard Content)
     window.addEventListener("scroll", updateBox, true);
     return () => {
       window.removeEventListener("resize", updateBox);
       window.removeEventListener("scroll", updateBox, true);
     };
+  }, [menuOpen]);
+
+  useLayoutEffect(() => {
+    if (!menuOpen) return;
+    function onDocPointerDown(e: PointerEvent) {
+      const t = e.target as Node;
+      if (rootRef.current?.contains(t) || menuRef.current?.contains(t)) return;
+      setMenuOpen(false);
+    }
+    document.addEventListener("pointerdown", onDocPointerDown);
+    return () => document.removeEventListener("pointerdown", onDocPointerDown);
   }, [menuOpen]);
 
   function clearCloseTimer() {
@@ -188,9 +246,13 @@ export function MarketPriceTicker({ market, loading, errorMessage, className }: 
     setMenuOpen(true);
   }
 
+  function toggleMenu() {
+    clearCloseTimer();
+    setMenuOpen((v) => !v);
+  }
+
   function scheduleClose() {
     clearCloseTimer();
-    // small delay so pointer can move from strip → portaled menu
     closeTimerRef.current = setTimeout(() => setMenuOpen(false), 120);
   }
 
@@ -227,6 +289,16 @@ export function MarketPriceTicker({ market, loading, errorMessage, className }: 
             onMouseEnter={openMenu}
             onMouseLeave={scheduleClose}
           >
+            {updatedLabel ? (
+              <div className="market-ticker-dropdown-row !items-start border-b border-app-border/70">
+                <div className="w-full space-y-0.5">
+                  <div className="text-[11px] text-app-muted">آخرین به‌روزرسانی</div>
+                  <div className="text-xs font-semibold text-app-fg tabular-nums">
+                    {updatedLabel}
+                  </div>
+                </div>
+              </div>
+            ) : null}
             {statusNote ? (
               <div className="market-ticker-dropdown-row !items-start">
                 <span className="text-xs text-amber-600 dark:text-amber-300 leading-relaxed">
@@ -255,8 +327,17 @@ export function MarketPriceTicker({ market, loading, errorMessage, className }: 
         className={cn("market-ticker", menuOpen && "market-ticker--menu-open")}
         aria-label="قیمت طلا و ارز"
         aria-expanded={menuOpen}
+        role="button"
+        tabIndex={0}
         onMouseEnter={openMenu}
         onMouseLeave={scheduleClose}
+        onClick={toggleMenu}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            toggleMenu();
+          }
+        }}
       >
         <div className="market-ticker-strip">
           <div className="market-ticker-fade market-ticker-fade--start" aria-hidden />
