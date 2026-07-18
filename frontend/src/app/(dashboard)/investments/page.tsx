@@ -22,6 +22,7 @@ import {
   CalculatorOutlined,
   DeleteOutlined,
   DollarOutlined,
+  EditOutlined,
   FundOutlined,
   LineChartOutlined,
   PlusOutlined,
@@ -33,6 +34,7 @@ import {
   deleteInvestment,
   fetchInvestments,
   sellInvestment,
+  updateInvestment,
   type GoldKind,
   type Investment,
   type InvestmentAssetType,
@@ -164,6 +166,7 @@ export default function InvestmentsPage() {
   const [profitEndDate, setProfitEndDate] = useState("");
   const [notes, setNotes] = useState("");
   const [formOpen, setFormOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const [sellTarget, setSellTarget] = useState<Investment | null>(null);
   const [sellQty, setSellQty] = useState("");
@@ -232,12 +235,39 @@ export default function InvestmentsPage() {
     setProfitNextDate("");
     setProfitEndDate("");
     setNotes("");
+    setEditingId(null);
   };
 
   function cancelEdit() {
     resetForm();
     setFormOpen(false);
   }
+
+  function openCreate() {
+    resetForm();
+    setFormOpen(true);
+  }
+
+  function openEdit(item: Investment) {
+    setEditingId(item.id);
+    setTitle(item.title);
+    setAssetType(item.assetType);
+    setGoldKind(item.goldKind ?? "melted");
+    setQuantity(String(item.quantity));
+    setPurchasePrice(String(item.purchasePricePerUnit));
+    setPurchaseDate(item.purchaseDate);
+    setHasProfit(item.hasProfit);
+    setProfitMode(item.profitMode ?? "percent");
+    setProfitValue(item.profitValue != null ? String(item.profitValue) : "");
+    setProfitFrequency(item.profitFrequency ?? "monthly");
+    setProfitNextDate(item.profitNextDate || "");
+    setProfitEndDate(item.profitEndDate || "");
+    setNotes(item.notes || "");
+    setAccountId("");
+    setFormOpen(true);
+  }
+
+  const isEditing = Boolean(editingId);
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -307,6 +337,65 @@ export default function InvestmentsPage() {
           ? err.message
           : ((err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
             "خطا در ذخیره");
+      message.error(msg);
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingId) throw new Error("مورد ویرایش مشخص نیست");
+      const qty = parseAmountInput(quantity);
+      const price =
+        assetType === "rial" ? 1 : parseAmountInput(purchasePrice);
+      if (title.trim().length < 2) throw new Error("عنوان را وارد کنید");
+      if (!Number.isFinite(qty) || qty <= 0) throw new Error("مقدار معتبر نیست");
+      if (
+        assetType === "gold" &&
+        goldKind === "quarter_coin" &&
+        (!Number.isInteger(qty) || qty < 1)
+      ) {
+        throw new Error("تعداد ربع سکه باید عدد صحیح باشد");
+      }
+      if (assetType !== "rial" && (!Number.isFinite(price) || price <= 0)) {
+        throw new Error("قیمت خرید معتبر نیست");
+      }
+      if (!purchaseDate.trim()) throw new Error("تاریخ خرید را وارد کنید");
+      if (hasProfit && !profitNextDate.trim()) {
+        throw new Error("تاریخ پرداخت سود را وارد کنید");
+      }
+
+      return updateInvestment(editingId, {
+        title: title.trim(),
+        quantity: qty,
+        purchasePricePerUnit: price,
+        purchaseDate: normalizeJalaliDateInput(purchaseDate),
+        notes: notes.trim() || null,
+        ...(hasProfit
+          ? {
+              profitNextDate: normalizeJalaliDateInput(profitNextDate),
+              profitEndDate: profitEndDate
+                ? normalizeJalaliDateInput(profitEndDate)
+                : null,
+            }
+          : {}),
+      });
+    },
+    onSuccess: () => {
+      message.success("ویرایش ذخیره شد؛ تراکنش خرید مرتبط هم به‌روز شد");
+      resetForm();
+      setFormOpen(false);
+      void queryClient.invalidateQueries({ queryKey: ["investments"] });
+      void queryClient.invalidateQueries({ queryKey: ["recurring"] });
+      void queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      void queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+    onError: (err: unknown) => {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : ((err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+            "خطا در ویرایش");
       message.error(msg);
     },
   });
@@ -440,11 +529,7 @@ export default function InvestmentsPage() {
         description="طلا، دلار و ریال جدا از حساب بانکی — ارزش روز، سود دوره‌ای و محاسبه‌گر"
         actions={
           tab === "investments" ? (
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => setFormOpen(true)}
-            >
+            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
               افزودن
             </Button>
           ) : undefined
@@ -537,22 +622,31 @@ export default function InvestmentsPage() {
           <AppModal
             open={formOpen}
             onClose={cancelEdit}
-            title="افزودن سرمایه‌گذاری"
+            title={isEditing ? "ویرایش سرمایه‌گذاری" : "افزودن سرمایه‌گذاری"}
             width={640}
             footer={
               <Flex gap="small" justify="end" wrap="wrap">
                 <Button onClick={cancelEdit}>انصراف</Button>
                 <Button
                   type="primary"
-                  loading={createMutation.isPending}
-                  onClick={() => createMutation.mutate()}
+                  loading={createMutation.isPending || updateMutation.isPending}
+                  onClick={() =>
+                    isEditing ? updateMutation.mutate() : createMutation.mutate()
+                  }
                 >
-                  ذخیره
+                  {isEditing ? "ذخیره تغییرات" : "ذخیره"}
                 </Button>
               </Flex>
             }
           >
             <Flex vertical gap="middle">
+              {isEditing ? (
+                <Text type="secondary" className="text-xs">
+                  تغییر مقدار یا قیمت خرید، مبلغ تراکنش «خرید» مرتبط را هم اصلاح می‌کند. برای نقد
+                  شدن از دکمه فروش استفاده کنید.
+                </Text>
+              ) : null}
+
               <Input
                 placeholder="عنوان (مثلاً طلای خونه)"
                 value={title}
@@ -568,6 +662,7 @@ export default function InvestmentsPage() {
                     className="w-full"
                     value={assetType}
                     options={assetOptions}
+                    disabled={isEditing}
                     onChange={(v: InvestmentAssetType) => {
                       setAssetType(v);
                       if (v === "gold") setGoldKind("melted");
@@ -584,6 +679,7 @@ export default function InvestmentsPage() {
                       className="w-full"
                       value={goldKind}
                       options={goldKindOptions}
+                      disabled={isEditing}
                       onChange={setGoldKind}
                     />
                   </Col>
@@ -643,69 +739,82 @@ export default function InvestmentsPage() {
                 <JalaliDateInput value={purchaseDate} onChange={setPurchaseDate} />
               </div>
 
-              <div>
-                <Text type="secondary" className="text-xs">
-                  حساب بانکی خرید (کسر نقد)
-                </Text>
-                <Select
-                  className="mt-1 w-full"
-                  value={effectiveAccountId || undefined}
-                  onChange={setAccountId}
-                  placeholder="انتخاب حساب"
-                  options={(accountsQ.data ?? []).map((a) => ({
-                    value: a.id,
-                    label: `${a.name} · ${formatToman(a.balance)}`,
-                  }))}
-                />
-              </div>
+              {!isEditing ? (
+                <div>
+                  <Text type="secondary" className="text-xs">
+                    حساب بانکی خرید (کسر نقد)
+                  </Text>
+                  <Select
+                    className="mt-1 w-full"
+                    value={effectiveAccountId || undefined}
+                    onChange={setAccountId}
+                    placeholder="انتخاب حساب"
+                    options={(accountsQ.data ?? []).map((a) => ({
+                      value: a.id,
+                      label: `${a.name} · ${formatToman(a.balance)}`,
+                    }))}
+                  />
+                </div>
+              ) : null}
 
-              <Flex align="center" gap="middle">
-                <Switch checked={hasProfit} onChange={setHasProfit} />
-                <Text>سود دوره‌ای دارد</Text>
-              </Flex>
+              {!isEditing ? (
+                <Flex align="center" gap="middle">
+                  <Switch checked={hasProfit} onChange={setHasProfit} />
+                  <Text>سود دوره‌ای دارد</Text>
+                </Flex>
+              ) : null}
 
               {hasProfit ? (
                 <SectionCard title="سود دوره‌ای" className="!shadow-none">
                   <Flex vertical gap="middle">
-                    <Row gutter={[12, 12]}>
-                      <Col xs={24} sm={8}>
-                        <Text type="secondary" className="text-xs">
-                          نوع سود
-                        </Text>
-                        <Select
-                          className="w-full"
-                          value={profitMode}
-                          options={profitModeOptions}
-                          onChange={setProfitMode}
-                        />
-                      </Col>
-                      <Col xs={24} sm={8}>
-                        <Text type="secondary" className="text-xs">
-                          {profitMode === "percent"
-                            ? "درصد سود"
-                            : `مقدار سود (${unitLabel})`}
-                        </Text>
-                        <AmountInput
-                          value={profitValue}
-                          onChange={setProfitValue}
-                          placeholder={profitMode === "percent" ? "مثلاً ۲" : "مثلاً ۱٫۵"}
-                          allowDecimals
-                          decimalPlaces={profitMode === "percent" ? 2 : 3}
-                          showWords={false}
-                        />
-                      </Col>
-                      <Col xs={24} sm={8}>
-                        <Text type="secondary" className="text-xs">
-                          دوره
-                        </Text>
-                        <Select
-                          className="w-full"
-                          value={profitFrequency}
-                          options={frequencyOptions}
-                          onChange={setProfitFrequency}
-                        />
-                      </Col>
-                    </Row>
+                    {!isEditing ? (
+                      <Row gutter={[12, 12]}>
+                        <Col xs={24} sm={8}>
+                          <Text type="secondary" className="text-xs">
+                            نوع سود
+                          </Text>
+                          <Select
+                            className="w-full"
+                            value={profitMode}
+                            options={profitModeOptions}
+                            onChange={setProfitMode}
+                          />
+                        </Col>
+                        <Col xs={24} sm={8}>
+                          <Text type="secondary" className="text-xs">
+                            {profitMode === "percent"
+                              ? "درصد سود"
+                              : `مقدار سود (${unitLabel})`}
+                          </Text>
+                          <AmountInput
+                            value={profitValue}
+                            onChange={setProfitValue}
+                            placeholder={profitMode === "percent" ? "مثلاً ۲" : "مثلاً ۱٫۵"}
+                            allowDecimals
+                            decimalPlaces={profitMode === "percent" ? 2 : 3}
+                            showWords={false}
+                          />
+                        </Col>
+                        <Col xs={24} sm={8}>
+                          <Text type="secondary" className="text-xs">
+                            دوره
+                          </Text>
+                          <Select
+                            className="w-full"
+                            value={profitFrequency}
+                            options={frequencyOptions}
+                            onChange={setProfitFrequency}
+                          />
+                        </Col>
+                      </Row>
+                    ) : (
+                      <Text type="secondary" className="text-xs">
+                        {profitMode === "percent"
+                          ? `سود ${profitValue || "—"}٪ `
+                          : `سود ثابت ${profitValue || "—"} ${unitLabel} `}
+                        · {frequencyOptions.find((f) => f.value === profitFrequency)?.label}
+                      </Text>
+                    )}
 
                     <Row gutter={[12, 12]}>
                       <Col xs={24} sm={12}>
@@ -722,7 +831,7 @@ export default function InvestmentsPage() {
                       </Col>
                     </Row>
 
-                    {previewProfitQty != null ? (
+                    {!isEditing && previewProfitQty != null ? (
                       <Text type="secondary" className="text-xs">
                         هر دوره ≈{" "}
                         {previewProfitQty.toLocaleString("fa-IR", { maximumFractionDigits: 3 })}{" "}
@@ -874,6 +983,14 @@ export default function InvestmentsPage() {
                     }
                     trailing={
                       <Space size={0}>
+                        <Button
+                          type="text"
+                          icon={<EditOutlined />}
+                          onClick={() => openEdit(item)}
+                          title="ویرایش"
+                        >
+                          {!isMobile ? "ویرایش" : null}
+                        </Button>
                         <Button
                           type="text"
                           icon={<SwapOutlined />}
