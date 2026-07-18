@@ -6,7 +6,11 @@ import { InvestmentModel } from "../models/Investment";
 import { RecurringTransactionModel } from "../models/RecurringTransaction";
 import { TransactionModel } from "../models/Transaction";
 import { BankAccountModel } from "../models/BankAccount";
-import { InvestmentCreateSchema, InvestmentUpdateSchema } from "../validations/investments";
+import {
+  InvestmentCreateSchema,
+  InvestmentSellSchema,
+  InvestmentUpdateSchema,
+} from "../validations/investments";
 import { normalizeJalaliDate } from "../utils/normalizeDigits";
 import { getMarketPrices } from "../services/market-prices.service";
 import {
@@ -21,6 +25,7 @@ import {
 import {
   ensureNamedCategory,
   INVESTMENT_PURCHASE_CATEGORY_NAME,
+  INVESTMENT_SALE_CATEGORY_NAME,
 } from "../services/accounting.service";
 
 function unitPriceToman(
@@ -368,4 +373,134 @@ export const remove = asyncHandler(async (req: Request, res: Response) => {
   }
 
   return sendSuccess(res, { id }, "حذف شد");
+});
+
+/** Sell all or part of a holding — credits cash and reduces quantity. */
+export const sell = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) throw new AppError(401, "عدم دسترسی");
+
+  const parsed = InvestmentSellSchema.safeParse(req.body);
+  if (!parsed.success) throw new AppError(400, "خطا در اعتبارسنجی داده‌ها", parsed.error.flatten());
+
+  const { id } = req.params;
+  const investment = await InvestmentModel.findOne({ _id: id, userId });
+  if (!investment) throw new AppError(404, "سرمایه‌گذاری یافت نشد");
+  if (!investment.active) throw new AppError(400, "این سرمایه‌گذاری غیرفعال است");
+
+  const data = parsed.data;
+  const sellQty = data.quantity;
+  const eps = 1e-9;
+  if (sellQty > investment.quantity + eps) {
+    throw new AppError(400, "مقدار فروش بیشتر از موجودی است");
+  }
+
+  const goldKind = resolveGoldKind(investment.assetType, investment.goldKind);
+  if (
+    investment.assetType === "gold" &&
+    goldKind === "quarter_coin" &&
+    (!Number.isInteger(sellQty) || sellQty < 1)
+  ) {
+    throw new AppError(400, "تعداد ربع سکه فروش باید عدد صحیح باشد");
+  }
+
+  const account = await BankAccountModel.findOne({
+    _id: data.accountId,
+    userId,
+    isActive: true,
+  });
+  if (!account) throw new AppError(404, "حساب بانکی یافت نشد");
+
+  const salePricePerUnit =
+    investment.assetType === "rial" ? 1 : data.salePricePerUnit;
+  const saleDate = normalizeJalaliDate(data.saleDate);
+  const proceeds = Math.round(sellQty * salePricePerUnit);
+  if (proceeds <= 0) throw new AppError(400, "مبلغ فروش معتبر نیست");
+
+  const costSold = Math.round(sellQty * investment.purchasePricePerUnit);
+  const realizedPnl = proceeds - costSold;
+
+  const saleCategory = await ensureNamedCategory(
+    userId,
+    INVESTMENT_SALE_CATEGORY_NAME,
+    "income",
+    "TrendingUp",
+    "#22c55e"
+  );
+
+  await TransactionModel.create({
+    userId,
+    accountId: account._id,
+    type: "income",
+    amount: proceeds,
+    categoryId: saleCategory._id,
+    title: `فروش ${investment.title}`,
+    description:
+      (data.notes?.trim() ||
+        `ورود نقد از فروش سرمایه‌گذاری (${assetTypeLabel(investment.assetType, goldKind)})`) +
+      (realizedPnl !== 0
+        ? ` · سود/زیان تحقق‌یافته ${realizedPnl.toLocaleString("en-US")} تومان`
+        : ""),
+    date: saleDate,
+    tags: ["سرمایه-گذاری", "فروش"],
+    source: "investment",
+    needsReview: false,
+    investmentId: investment._id,
+  });
+
+  const remaining = Math.max(0, Math.round((investment.quantity - sellQty) * 1000) / 1000);
+  investment.quantity = remaining;
+
+  if (remaining <= eps) {
+    investment.quantity = 0;
+    investment.active = false;
+    investment.profitAssetQuantity = 0;
+    if (investment.recurringId) {
+      await RecurringTransactionModel.updateOne(
+        { _id: investment.recurringId, userId },
+        { $set: { active: false } }
+      );
+    }
+  } else if (investment.hasProfit && investment.profitMode === "percent") {
+    const nextProfitQty = computeProfitAssetQuantity({
+      quantity: remaining,
+      hasProfit: true,
+      profitMode: "percent",
+      profitValue: investment.profitValue,
+    });
+    investment.profitAssetQuantity = nextProfitQty;
+    if (investment.recurringId) {
+      await RecurringTransactionModel.updateOne(
+        { _id: investment.recurringId, userId },
+        {
+          $set: {
+            assetQuantity: nextProfitQty,
+            title: `سود ${formatAssetQuantity(nextProfitQty, investment.assetType, goldKind)} — ${investment.title}`,
+          },
+        }
+      );
+    }
+  }
+
+  await investment.save();
+
+  let market: Awaited<ReturnType<typeof getMarketPrices>> | null = null;
+  try {
+    market = await getMarketPrices();
+  } catch {
+    market = null;
+  }
+
+  return sendSuccess(res, {
+    item: await mapInvestment(investment, market),
+    sold: {
+      quantity: sellQty,
+      salePricePerUnit,
+      proceeds,
+      costBasis: costSold,
+      realizedPnl,
+      saleDate,
+      accountId: String(account._id),
+    },
+  }, "فروش ثبت شد");
 });

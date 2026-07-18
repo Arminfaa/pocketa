@@ -25,13 +25,16 @@ import {
   FundOutlined,
   LineChartOutlined,
   PlusOutlined,
+  SwapOutlined,
   WalletOutlined,
 } from "@ant-design/icons";
 import {
   createInvestment,
   deleteInvestment,
   fetchInvestments,
+  sellInvestment,
   type GoldKind,
+  type Investment,
   type InvestmentAssetType,
   type ProfitFrequency,
   type ProfitMode,
@@ -161,6 +164,13 @@ export default function InvestmentsPage() {
   const [profitEndDate, setProfitEndDate] = useState("");
   const [notes, setNotes] = useState("");
   const [formOpen, setFormOpen] = useState(false);
+
+  const [sellTarget, setSellTarget] = useState<Investment | null>(null);
+  const [sellQty, setSellQty] = useState("");
+  const [sellPrice, setSellPrice] = useState("");
+  const [sellDate, setSellDate] = useState("");
+  const [sellAccountId, setSellAccountId] = useState("");
+  const [sellNotes, setSellNotes] = useState("");
 
   const unitLabel = assetUnitLabel(assetType, goldKind);
 
@@ -316,8 +326,105 @@ export default function InvestmentsPage() {
     },
   });
 
+  const effectiveSellAccountId =
+    sellAccountId || selectedAccountId || accountsQ.data?.[0]?.id || "";
+
+  function openSell(item: Investment) {
+    setSellTarget(item);
+    setSellQty(
+      item.assetType === "gold" && item.goldKind === "quarter_coin"
+        ? String(item.quantity)
+        : String(item.quantity)
+    );
+    setSellPrice(
+      item.assetType === "rial"
+        ? "1"
+        : item.currentUnitPrice != null
+          ? String(item.currentUnitPrice)
+          : String(item.purchasePricePerUnit)
+    );
+    setSellDate("");
+    setSellAccountId(selectedAccountId || "");
+    setSellNotes("");
+  }
+
+  function closeSell() {
+    setSellTarget(null);
+    setSellQty("");
+    setSellPrice("");
+    setSellDate("");
+    setSellAccountId("");
+    setSellNotes("");
+  }
+
+  const sellMutation = useMutation({
+    mutationFn: async () => {
+      if (!sellTarget) throw new Error("مورد فروش مشخص نیست");
+      const qty = parseAmountInput(sellQty);
+      const price =
+        sellTarget.assetType === "rial" ? 1 : parseAmountInput(sellPrice);
+      if (!Number.isFinite(qty) || qty <= 0) throw new Error("مقدار فروش معتبر نیست");
+      if (qty > sellTarget.quantity + 1e-9) {
+        throw new Error("مقدار فروش بیشتر از موجودی است");
+      }
+      if (
+        sellTarget.assetType === "gold" &&
+        sellTarget.goldKind === "quarter_coin" &&
+        (!Number.isInteger(qty) || qty < 1)
+      ) {
+        throw new Error("تعداد ربع سکه باید عدد صحیح باشد");
+      }
+      if (sellTarget.assetType !== "rial" && (!Number.isFinite(price) || price <= 0)) {
+        throw new Error("قیمت فروش معتبر نیست");
+      }
+      if (!sellDate.trim()) throw new Error("تاریخ فروش را وارد کنید");
+      if (!effectiveSellAccountId) throw new Error("حساب واریز فروش را انتخاب کنید");
+
+      return sellInvestment(sellTarget.id, {
+        quantity: qty,
+        salePricePerUnit: price,
+        saleDate: normalizeJalaliDateInput(sellDate),
+        accountId: effectiveSellAccountId,
+        notes: sellNotes.trim() || null,
+      });
+    },
+    onSuccess: (data) => {
+      const pnl = data.sold.realizedPnl;
+      message.success(
+        pnl === 0
+          ? `${formatToman(data.sold.proceeds)} به حساب واریز شد`
+          : `${formatToman(data.sold.proceeds)} واریز شد · سود/زیان ${formatToman(pnl)}`
+      );
+      closeSell();
+      void queryClient.invalidateQueries({ queryKey: ["investments"] });
+      void queryClient.invalidateQueries({ queryKey: ["recurring"] });
+      void queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      void queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+    onError: (err: unknown) => {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : ((err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+            "خطا در فروش");
+      message.error(msg);
+    },
+  });
+
   const summary = q.data?.summary;
   const items = q.data?.items ?? [];
+  const sellUnitLabel = sellTarget
+    ? assetUnitLabel(sellTarget.assetType, sellTarget.goldKind)
+    : "";
+  const sellPreviewProceeds = useMemo(() => {
+    if (!sellTarget) return null;
+    const qty = parseAmountInput(sellQty);
+    const price =
+      sellTarget.assetType === "rial" ? 1 : parseAmountInput(sellPrice);
+    if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(price) || price <= 0) return null;
+    return Math.round(qty * price);
+  }, [sellTarget, sellQty, sellPrice]);
 
   return (
     <PageShell>
@@ -636,6 +743,119 @@ export default function InvestmentsPage() {
             </Flex>
           </AppModal>
 
+          <AppModal
+            open={Boolean(sellTarget)}
+            onClose={closeSell}
+            title={sellTarget ? `فروش «${sellTarget.title}»` : "فروش"}
+            width={520}
+            footer={
+              <Flex gap="small" justify="end" wrap="wrap">
+                <Button onClick={closeSell}>انصراف</Button>
+                <Button
+                  type="primary"
+                  loading={sellMutation.isPending}
+                  onClick={() => sellMutation.mutate()}
+                >
+                  تأیید فروش
+                </Button>
+              </Flex>
+            }
+          >
+            {sellTarget ? (
+              <Flex vertical gap="middle">
+                <Text type="secondary" className="text-xs">
+                  موجودی:{" "}
+                  {sellTarget.assetType === "gold" && sellTarget.goldKind === "quarter_coin"
+                    ? `${sellTarget.quantity.toLocaleString("fa-IR")} عدد`
+                    : `${sellTarget.quantity.toLocaleString("fa-IR", {
+                        maximumFractionDigits: 3,
+                      })} ${sellUnitLabel}`}
+                  {sellTarget.currentUnitPrice != null
+                    ? ` · قیمت روز ≈ ${formatToman(sellTarget.currentUnitPrice)}`
+                    : ""}
+                </Text>
+
+                <div>
+                  <Text type="secondary" className="text-xs">
+                    مقدار فروش ({sellUnitLabel})
+                  </Text>
+                  <AmountInput
+                    value={sellQty}
+                    onChange={setSellQty}
+                    allowDecimals={
+                      !(
+                        sellTarget.assetType === "gold" &&
+                        sellTarget.goldKind === "quarter_coin"
+                      ) && sellTarget.assetType !== "rial"
+                    }
+                    decimalPlaces={
+                      sellTarget.assetType === "gold" &&
+                      sellTarget.goldKind === "quarter_coin"
+                        ? 0
+                        : sellTarget.assetType === "usd"
+                          ? 2
+                          : 3
+                    }
+                    showWords={false}
+                  />
+                  <Button
+                    type="link"
+                    size="small"
+                    className="!px-0"
+                    onClick={() => setSellQty(String(sellTarget.quantity))}
+                  >
+                    فروش همه
+                  </Button>
+                </div>
+
+                {sellTarget.assetType !== "rial" ? (
+                  <div>
+                    <Text type="secondary" className="text-xs">
+                      قیمت فروش هر {sellUnitLabel} (تومان)
+                    </Text>
+                    <AmountInput value={sellPrice} onChange={setSellPrice} placeholder="قیمت فروش" />
+                  </div>
+                ) : null}
+
+                <div>
+                  <Text type="secondary" className="text-xs">
+                    تاریخ فروش
+                  </Text>
+                  <JalaliDateInput value={sellDate} onChange={setSellDate} />
+                </div>
+
+                <div>
+                  <Text type="secondary" className="text-xs">
+                    حساب واریز (ورود نقد)
+                  </Text>
+                  <Select
+                    className="mt-1 w-full"
+                    value={effectiveSellAccountId || undefined}
+                    onChange={setSellAccountId}
+                    placeholder="انتخاب حساب"
+                    options={(accountsQ.data ?? []).map((a) => ({
+                      value: a.id,
+                      label: `${a.name} · ${formatToman(a.balance)}`,
+                    }))}
+                  />
+                </div>
+
+                <Input.TextArea
+                  rows={2}
+                  placeholder="یادداشت (اختیاری)"
+                  value={sellNotes}
+                  onChange={(e) => setSellNotes(e.target.value)}
+                />
+
+                {sellPreviewProceeds != null ? (
+                  <Text>
+                    مبلغ واریزی ≈ <Text strong>{formatToman(sellPreviewProceeds)}</Text>
+                  </Text>
+                ) : null}
+              </Flex>
+            ) : null}
+          </AppModal>
+
           {items.length === 0 ? (
             <EmptyState title="هنوز سرمایه‌گذاری ثبت نشده" />
           ) : (
@@ -653,19 +873,29 @@ export default function InvestmentsPage() {
                       </Space>
                     }
                     trailing={
-                      <Popconfirm
-                        title="حذف شود؟"
-                        okText="بله"
-                        cancelText="خیر"
-                        onConfirm={() => deleteMutation.mutate(item.id)}
-                      >
+                      <Space size={0}>
                         <Button
-                          danger
                           type="text"
-                          icon={<DeleteOutlined />}
-                          loading={deleteMutation.isPending}
-                        />
-                      </Popconfirm>
+                          icon={<SwapOutlined />}
+                          onClick={() => openSell(item)}
+                          title="فروش"
+                        >
+                          {!isMobile ? "فروش" : null}
+                        </Button>
+                        <Popconfirm
+                          title="حذف شود؟ (وجه خرید برنمی‌گردد — برای نقد شدن از فروش استفاده کنید)"
+                          okText="بله"
+                          cancelText="خیر"
+                          onConfirm={() => deleteMutation.mutate(item.id)}
+                        >
+                          <Button
+                            danger
+                            type="text"
+                            icon={<DeleteOutlined />}
+                            loading={deleteMutation.isPending}
+                          />
+                        </Popconfirm>
+                      </Space>
                     }
                     footer={
                       <div className="flex flex-col">

@@ -1,4 +1,5 @@
 import { CategoryModel } from "../models/Category";
+import { TransactionModel } from "../models/Transaction";
 import { toEnglishDigits } from "../utils/normalizeDigits";
 
 type CategoryHit = {
@@ -65,6 +66,10 @@ const RULES: Array<{
   },
 ];
 
+/** Generic import / system titles — never use as learning anchors. */
+const GENERIC_TITLE_RE =
+  /بدون عنوان|واریز بانکی|برداشت بانکی|واریز بررسی|برداشت بررسی|^خرید |^فروش |انتقال بین حساب|تعدیل موجودی|موجودی اولیه/;
+
 function normalizeText(input: string): string {
   return toEnglishDigits(input)
     .replace(/\u200c/g, " ")
@@ -73,6 +78,48 @@ function normalizeText(input: string): string {
     .replace(/\s+/g, " ")
     .trim()
     .toLowerCase();
+}
+
+async function scoreFromHistory(params: {
+  userId: string;
+  title: string;
+  type?: "income" | "expense";
+  bumpById: (categoryId: string, score: number) => void;
+  categoryIds: Set<string>;
+}): Promise<void> {
+  const title = params.title;
+  if (title.length < 2 || GENERIC_TITLE_RE.test(title)) return;
+
+  const filter: Record<string, unknown> = {
+    userId: params.userId,
+    needsReview: false,
+    categoryId: { $exists: true, $ne: null },
+  };
+  if (params.type) filter.type = params.type;
+
+  const past = await TransactionModel.find(filter)
+    .select("title categoryId type")
+    .sort({ updatedAt: -1 })
+    .limit(400)
+    .lean();
+
+  for (const tx of past) {
+    const pastTitle = normalizeText(String(tx.title ?? ""));
+    if (pastTitle.length < 2 || GENERIC_TITLE_RE.test(pastTitle)) continue;
+    const categoryId = String(tx.categoryId);
+    if (!params.categoryIds.has(categoryId)) continue;
+
+    if (pastTitle === title) {
+      params.bumpById(categoryId, 20);
+      continue;
+    }
+    // Fuzzy: shared substring of meaningful length
+    if (pastTitle.length >= 4 && title.includes(pastTitle)) {
+      params.bumpById(categoryId, 14);
+    } else if (title.length >= 4 && pastTitle.includes(title)) {
+      params.bumpById(categoryId, 12);
+    }
+  }
 }
 
 export async function suggestCategoryForTitle(params: {
@@ -95,18 +142,18 @@ export async function suggestCategoryForTitle(params: {
 
   const scores = new Map<string, CategoryHit>();
 
-  function bump(
-    cat: (typeof categories)[number],
-    score: number
-  ) {
-    const id = String(cat._id);
-    const prev = scores.get(id);
+  const byId = new Map(categories.map((c) => [String(c._id), c]));
+
+  function bumpById(categoryId: string, score: number) {
+    const cat = byId.get(categoryId);
+    if (!cat) return;
+    const prev = scores.get(categoryId);
     if (prev) {
       prev.score += score;
       return;
     }
-    scores.set(id, {
-      _id: id,
+    scores.set(categoryId, {
+      _id: categoryId,
       name: cat.name,
       type: cat.type as "income" | "expense",
       color: cat.color,
@@ -115,6 +162,20 @@ export async function suggestCategoryForTitle(params: {
     });
   }
 
+  function bump(cat: (typeof categories)[number], score: number) {
+    bumpById(String(cat._id), score);
+  }
+
+  // 1) Learn from user's previously named/reviewed transactions
+  await scoreFromHistory({
+    userId: params.userId,
+    title,
+    type: params.type,
+    bumpById,
+    categoryIds: new Set(byId.keys()),
+  });
+
+  // 2) Title contains category name
   for (const cat of categories) {
     const name = normalizeText(cat.name);
     if (name.length >= 2 && title.includes(name)) {
@@ -122,6 +183,7 @@ export async function suggestCategoryForTitle(params: {
     }
   }
 
+  // 3) Static keyword rules
   for (const rule of RULES) {
     if (params.type && rule.type && rule.type !== params.type) continue;
     const hit = rule.keywords.some((kw) => title.includes(normalizeText(kw)));

@@ -184,3 +184,40 @@ if (smsModeIgnoresCard.items.some((i) => i.parser === "card_transfer")) {
   throw new Error("sms mode should not parse card receipts");
 }
 console.log("OK: sms mode ignores card receipts");
+
+const compactSample = `47001850970602
+مبلغ:49,500,000+
+مانده:49,500,000
+04/20
+12:31`;
+const rCompact = parseBankSmsText(compactSample, 1405, "acc1");
+if (rCompact.items.length !== 1) {
+  throw new Error(`compact: expected 1, got ${rCompact.items.length}`);
+}
+const compact = rCompact.items[0]!;
+if (compact.parser !== "compact_sms") throw new Error(`compact: bad parser ${compact.parser}`);
+if (compact.type !== "income") throw new Error(`compact: expected income, got ${compact.type}`);
+if (compact.amount !== 4_950_000) {
+  throw new Error(`compact: expected 4950000 toman, got ${compact.amount}`);
+}
+if (compact.balanceAfter !== 4_950_000) {
+  throw new Error(`compact: bad balanceAfter ${compact.balanceAfter}`);
+}
+if (compact.date !== "1405/04/20" || compact.time !== "12:31") {
+  throw new Error(`compact: bad date/time ${compact.date} ${compact.time}`);
+}
+if (compact.accountHint !== "47001850970602") {
+  throw new Error(`compact: bad accountHint ${compact.accountHint}`);
+}
+console.log("OK: compact SMS income parsed");
+
+const compactExpense = `47001850970602
+مبلغ:1,000,000-
+مانده:48,500,000
+04/21
+09:05`;
+const rCompactExp = parseBankSmsText(compactExpense, 1405, "acc1");
+if (rCompactExp.items[0]?.type !== "expense" || rCompactExp.items[0]?.amount !== 100_000) {
+  throw new Error(`compact expense unexpected: ${JSON.stringify(rCompactExp.items[0])}`);
+}
+console.log("OK: compact SMS expense parsed");

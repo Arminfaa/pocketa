@@ -73,6 +73,35 @@ export async function createInvestment(payload: CreateInvestmentPayload): Promis
   await api.post("/api/investments", payload);
 }
 
+export type SellInvestmentPayload = {
+  quantity: number;
+  salePricePerUnit: number;
+  saleDate: string;
+  accountId: string;
+  notes?: string | null;
+};
+
+export type SellInvestmentResult = {
+  item: Investment;
+  sold: {
+    quantity: number;
+    salePricePerUnit: number;
+    proceeds: number;
+    costBasis: number;
+    realizedPnl: number;
+    saleDate: string;
+    accountId: string;
+  };
+};
+
+export async function sellInvestment(
+  id: string,
+  payload: SellInvestmentPayload
+): Promise<SellInvestmentResult> {
+  const res = await api.post(`/api/investments/${id}/sell`, payload);
+  return res.data.data;
+}
+
 export async function deleteInvestment(id: string): Promise<void> {
   await api.delete(`/api/investments/${id}`);
 }

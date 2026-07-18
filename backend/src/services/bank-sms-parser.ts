@@ -12,7 +12,7 @@ export type ParsedBankSms = {
   accountHint?: string;
   rawSnippet: string;
   importHash: string;
-  parser: "pasargad" | "melli" | "generic" | "card_transfer";
+  parser: "pasargad" | "melli" | "generic" | "card_transfer" | "compact_sms";
   /** true when +/- was missing and type was inferred */
   typeInferred?: boolean;
   /** Melli «اصلاحيه» — reverses a prior same-amount opposite tx */
@@ -178,6 +178,9 @@ export function splitBankSmsBlocks(raw: string): string[] {
     parts = text.split(/(?=بانك\s*ملي|بانک\s*ملی)/);
   } else if (/\d{3}\.\d{3}\.[\d.]+/.test(text)) {
     parts = text.split(/(?=\d{3}\.\d{3}\.[\d.]+)/);
+  } else if (/(?:^|\n)\d{10,20}\s*\n\s*مبلغ\s*:/.test(text)) {
+    // Compact: account\nمبلغ:N+\nمانده:…\nMM/DD\nHH:mm
+    parts = text.split(/(?=(?:^|\n)\d{10,20}\s*\n\s*مبلغ\s*:)/);
   } else {
     parts = text.split(/\n{2,}/);
   }
@@ -394,6 +397,42 @@ function extractPasargadSafe(text: string, jalaliYear: number): ParsedBankSms[] 
   return extractPasargadFromText(text, jalaliYear);
 }
 
+/**
+ * Compact unsigned SMS (no bank header):
+ * 47001850970602
+ * مبلغ:49,500,000+
+ * مانده:49,500,000
+ * 04/20
+ * 12:31
+ */
+function extractCompactSmsFromText(text: string, jalaliYear: number): ParsedBankSms[] {
+  const normalized = normalizeSmsText(text);
+  const re =
+    /(\d{10,20})\s*\n\s*مبلغ\s*:\s*([\d,]+)\s*([+-])\s*\n\s*مانده\s*:\s*([\d,]+)\s*\n\s*(\d{1,2})\/(\d{1,2})\s*\n\s*(\d{1,2}):(\d{2})/g;
+
+  const items: ParsedBankSms[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(normalized)) !== null) {
+    const amountRial = parseAmountNumber(match[2]!);
+    const balanceRial = parseAmountNumber(match[4]!);
+    if (!Number.isFinite(amountRial) || amountRial <= 0) continue;
+
+    items.push({
+      type: match[3] === "+" ? "income" : "expense",
+      amount: rialToToman(amountRial),
+      amountRial,
+      date: `${jalaliYear}/${match[5]!.padStart(2, "0")}/${match[6]!.padStart(2, "0")}`,
+      time: `${match[7]!.padStart(2, "0")}:${match[8]!}`,
+      balanceAfter: rialToToman(balanceRial),
+      accountHint: match[1],
+      rawSnippet: match[0].slice(0, 500),
+      importHash: "",
+      parser: "compact_sms",
+    });
+  }
+  return items;
+}
+
 /** Digits + cleanup, keep Persian ی/ک/آ for display names. */
 function softNormalizeSms(raw: string): string {
   return toEnglishDigits(raw)
@@ -558,6 +597,9 @@ export function parseBankSmsBlock(
   const pasargad = extractPasargadFromText(normalized, jalaliYear)[0];
   if (pasargad) return pasargad;
 
+  const compact = extractCompactSmsFromText(normalized, jalaliYear)[0];
+  if (compact) return compact;
+
   return null;
 }
 
@@ -652,7 +694,8 @@ export function parseBankSmsText(
   // SMS mode: bank messages only (no card receipts mixed in)
   const melliItems = extractMelliFromText(text, jalaliYear);
   const pasargadItems = extractPasargadSafe(text, jalaliYear);
-  const extracted = [...pasargadItems, ...melliItems];
+  const compactItems = extractCompactSmsFromText(text, jalaliYear);
+  const extracted = [...pasargadItems, ...melliItems, ...compactItems];
 
   if (extracted.length > 0) {
     extracted.sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
