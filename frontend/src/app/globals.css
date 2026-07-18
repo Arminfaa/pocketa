@@ -71,7 +71,7 @@
 @layer components {
   /* Soft elevated surface used by modern finance cards */
   .surface-card {
-    @apply rounded-3xl border border-app-border/80 bg-app-card;
+    @apply rounded-3xl border border-app-border bg-app-card;
     box-shadow: 0 10px 32px rgba(15, 23, 42, 0.06);
   }
 
@@ -81,7 +81,7 @@
 
   /* Global Ant Design Card → soft PWA surface */
   .ant-card {
-    @apply !rounded-3xl !border-app-border/80;
+    @apply !rounded-3xl !border-app-border;
     box-shadow: 0 10px 32px rgba(15, 23, 42, 0.06) !important;
   }
 
@@ -90,7 +90,7 @@
   }
 
   .ant-card .ant-card-head {
-    @apply !min-h-0 !border-app-border/50 !px-4 !py-3.5 sm:!px-5;
+    @apply !min-h-0 !border-app-border !px-4 !py-3.5 sm:!px-5;
   }
 
   .ant-card .ant-card-head-title {
@@ -136,11 +136,12 @@
   }
 
   .ant-table-wrapper .ant-table-thead > tr > th {
-    @apply !bg-brand-50/60 !text-app-muted !text-xs !font-semibold;
+    @apply !text-app-muted !text-xs !font-semibold;
+    background-color: color-mix(in srgb, var(--accent) 8%, var(--card)) !important;
   }
 
   .dark .ant-table-wrapper .ant-table-thead > tr > th {
-    @apply !bg-brand-500/10;
+    background-color: color-mix(in srgb, var(--accent) 12%, var(--card)) !important;
   }
 
   .ant-alert {
@@ -171,7 +172,12 @@
   }
 
   .app-modal-root .ant-modal-close {
-    @apply !text-app-muted hover:!text-brand-500 hover:!bg-brand-500/10 !rounded-xl;
+    @apply !text-app-muted !rounded-xl;
+  }
+
+  .app-modal-root .ant-modal-close:hover {
+    @apply !text-brand-500;
+    background-color: color-mix(in srgb, var(--accent) 10%, transparent) !important;
   }
 
   .app-modal-root .ant-modal-body {
@@ -232,7 +238,7 @@
 
   /* Dashboard market price ticker */
   .market-ticker {
-    @apply relative overflow-visible rounded-3xl border border-app-border/80 bg-app-card;
+    @apply relative overflow-visible rounded-3xl border border-app-border bg-app-card;
     box-shadow: 0 10px 32px rgba(15, 23, 42, 0.06);
     z-index: 1;
   }
