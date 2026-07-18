@@ -54,6 +54,7 @@ import type { ReactNode } from "react";
 import api from "@/services/api";
 import { PageShell } from "@/components/ui/page-shell";
 import { PageHeader } from "@/components/ui/page-header";
+import { AppModal } from "@/components/ui/modal";
 import { SoftList, SoftListItem, SoftListRow } from "@/components/ui/soft-list";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { SectionCard } from "@/components/ui/section-card";
@@ -218,6 +219,11 @@ export default function InvestmentsPage() {
     setNotes("");
   };
 
+  function cancelEdit() {
+    resetForm();
+    setFormOpen(false);
+  }
+
   const createMutation = useMutation({
     mutationFn: async () => {
       const qty = parseAmountInput(quantity);
@@ -344,7 +350,7 @@ export default function InvestmentsPage() {
             <Button
               type="primary"
               icon={<PlusOutlined />}
-              onClick={() => setFormOpen((o) => !o)}
+              onClick={() => setFormOpen(true)}
             >
               افزودن
             </Button>
@@ -413,8 +419,24 @@ export default function InvestmentsPage() {
             </Col>
           </Row>
 
-          {formOpen ? (
-            <SectionCard title="افزودن سرمایه‌گذاری">
+          <AppModal
+            open={formOpen}
+            onClose={cancelEdit}
+            title="افزودن سرمایه‌گذاری"
+            width={640}
+            footer={
+              <Flex gap="small" justify="end" wrap="wrap">
+                <Button onClick={cancelEdit}>انصراف</Button>
+                <Button
+                  type="primary"
+                  loading={createMutation.isPending}
+                  onClick={() => createMutation.mutate()}
+                >
+                  ذخیره
+                </Button>
+              </Flex>
+            }
+          >
             <Flex vertical gap="middle">
               <Input
                 placeholder="عنوان (مثلاً طلای خونه)"
@@ -603,18 +625,8 @@ export default function InvestmentsPage() {
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
               />
-
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                loading={createMutation.isPending}
-                onClick={() => createMutation.mutate()}
-              >
-                ذخیره
-              </Button>
             </Flex>
-          </SectionCard>
-          ) : null}
+          </AppModal>
 
           {items.length === 0 ? (
             <EmptyState title="هنوز سرمایه‌گذاری ثبت نشده" />

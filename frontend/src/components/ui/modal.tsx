@@ -183,7 +183,8 @@ export function AppModal({
       }}
       styles={{
         mask: {
-          backdropFilter: "blur(4px)",
+          backdropFilter: "blur(6px)",
+          background: "rgba(15, 23, 42, 0.45)",
         },
         container: {
           display: "flex",
@@ -191,19 +192,26 @@ export function AppModal({
           maxHeight: "min(90dvh, 720px)",
           overflow: "hidden",
           padding: 0,
+          background: "var(--card)",
+          color: "var(--text)",
         },
         body: {
           flex: "1 1 auto",
           minHeight: 0,
           overflowY: "auto",
           overscrollBehavior: "contain",
+          background: "var(--card)",
+          color: "var(--text)",
         },
         header: {
           flexShrink: 0,
+          background: "var(--card)",
+          color: "var(--text)",
         },
         footer: {
           flexShrink: 0,
           textAlign: "unset",
+          background: "var(--card)",
         },
         ...modalStyles,
       }}

@@ -32,7 +32,7 @@ import { AmountInput } from "@/components/ui/amount-input";
 import { AmountText } from "@/components/ui/amount-text";
 import { FilterBar, FilterField } from "@/components/ui/filter-bar";
 import { KpiCard } from "@/components/ui/kpi-card";
-import { SectionCard } from "@/components/ui/section-card";
+import { AppModal } from "@/components/ui/modal";
 import { BudgetsListSkeleton, KpiRowSkeleton } from "@/components/skeletons";
 import { QueryError } from "@/components/ui/query-error";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -114,6 +114,12 @@ export default function BudgetsPage() {
   const summary = budgetsQ.data?.summary;
   const alertCount = (summary?.warningCount ?? 0) + (summary?.dangerCount ?? 0);
 
+  function cancelEdit() {
+    setAmount("");
+    setCategoryId("");
+    setFormOpen(false);
+  }
+
   return (
     <PageShell width="form">
       <PageHeader
@@ -124,8 +130,8 @@ export default function BudgetsPage() {
           <Button
             type="primary"
             icon={<PlusOutlined />}
-            onClick={() => setFormOpen((o) => !o)}
-            aria-label={formOpen ? "بستن فرم" : "افزودن بودجه"}
+            onClick={() => setFormOpen(true)}
+            aria-label="افزودن بودجه"
           />
         }
         extra={
@@ -192,47 +198,52 @@ export default function BudgetsPage() {
         />
       ) : null}
 
-      {formOpen ? (
-        <SectionCard
-          title="تنظیم / به‌روزرسانی بودجه"
-          description={`برای ${MONTH_LABELS[month - 1]} ${toPersianDigits(String(year))}`}
-        >
-          <Space orientation="vertical" size="middle" className="w-full">
-            <Row gutter={[12, 12]}>
-              <Col xs={24} md={12}>
-                <Text type="secondary">دسته هزینه</Text>
-                <Select
-                  className="w-full mt-2"
-                  placeholder="انتخاب کنید"
-                  value={categoryId || undefined}
-                  onChange={setCategoryId}
-                  options={expenseCategories.map((c) => ({
-                    value: c._id,
-                    label: c.name,
-                  }))}
-                />
-              </Col>
-              <Col xs={24} md={12}>
-                <Text type="secondary">سقف ماهانه (تومان)</Text>
-                <div className="mt-2">
-                  <AmountInput
-                    value={amount}
-                    onChange={setAmount}
-                    placeholder="۳٬۰۰۰٬۰۰۰"
-                  />
-                </div>
-              </Col>
-            </Row>
+      <AppModal
+        open={formOpen}
+        onClose={cancelEdit}
+        title="تنظیم / به‌روزرسانی بودجه"
+        subtitle={`برای ${MONTH_LABELS[month - 1]} ${toPersianDigits(String(year))}`}
+        footer={
+          <Flex gap="small" justify="end" wrap="wrap">
+            <Button onClick={cancelEdit}>انصراف</Button>
             <Button
               type="primary"
               loading={saveMutation.isPending}
               onClick={() => saveMutation.mutate()}
             >
-              {saveMutation.isPending ? "در حال ذخیره..." : "ذخیره بودجه"}
+              ذخیره
             </Button>
-          </Space>
-        </SectionCard>
-      ) : null}
+          </Flex>
+        }
+      >
+        <Space orientation="vertical" size="middle" className="w-full">
+          <Row gutter={[12, 12]}>
+            <Col xs={24} md={12}>
+              <Text type="secondary">دسته هزینه</Text>
+              <Select
+                className="w-full mt-2"
+                placeholder="انتخاب کنید"
+                value={categoryId || undefined}
+                onChange={setCategoryId}
+                options={expenseCategories.map((c) => ({
+                  value: c._id,
+                  label: c.name,
+                }))}
+              />
+            </Col>
+            <Col xs={24} md={12}>
+              <Text type="secondary">سقف ماهانه (تومان)</Text>
+              <div className="mt-2">
+                <AmountInput
+                  value={amount}
+                  onChange={setAmount}
+                  placeholder="۳٬۰۰۰٬۰۰۰"
+                />
+              </div>
+            </Col>
+          </Row>
+        </Space>
+      </AppModal>
 
       {budgetsQ.isLoading ? <BudgetsListSkeleton /> : null}
       {budgetsQ.error ? (
