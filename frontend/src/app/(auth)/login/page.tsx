@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { App, Button, Card, Flex, Form, Input, Space, Typography } from "antd";
 import api from "@/services/api";
 import { useAuthStore, type AuthUser } from "@/stores/auth.store";
@@ -19,7 +19,7 @@ function safeNextPath(raw: string | null): string {
   return raw;
 }
 
-export default function LoginPage() {
+function LoginFormInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { message } = App.useApp();
@@ -105,5 +105,21 @@ export default function LoginPage() {
         </Space>
       </Card>
     </Flex>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <Flex align="center" justify="center" className="min-h-dvh !p-6">
+          <Card className="w-full max-w-md shadow-soft">
+            <Typography.Text type="secondary">در حال بارگذاری…</Typography.Text>
+          </Card>
+        </Flex>
+      }
+    >
+      <LoginFormInner />
+    </Suspense>
   );
 }
