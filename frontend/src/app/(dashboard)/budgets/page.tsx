@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useOpenOnQuery } from "@/hooks/use-open-on-query";
 import {
   Alert,
   App,
@@ -56,6 +57,8 @@ export default function BudgetsPage() {
   const [categoryId, setCategoryId] = useState("");
   const [amount, setAmount] = useState("");
   const [formOpen, setFormOpen] = useState(false);
+
+  useOpenOnQuery("new", "1", "/budgets", () => setFormOpen(true));
 
   const budgetsQ = useQuery({
     queryKey: ["budgets", month, year, selectedAccountId],

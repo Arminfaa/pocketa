@@ -14,6 +14,7 @@ import {
   AppstoreOutlined,
   PlusCircleOutlined,
   SettingOutlined,
+  SwapOutlined,
 } from "@ant-design/icons";
 
 export type NavItem = {
@@ -85,7 +86,65 @@ export const MORE_NAV_ITEMS: NavItem[] = [
   },
 ].filter((it) => !BOTTOM_PRIMARY_BASES.has(it.href.split("?")[0] ?? it.href));
 
-/** Primary mobile bottom tabs (5 slots). "more" opens the bottom action sheet. */
+/** Quick-create destinations for the bottom-nav «+» action sheet. */
+export const ADD_SHORTCUT_ITEMS: NavItem[] = [
+  {
+    key: "add-transaction",
+    href: "/transactions?new=1",
+    label: "تراکنش",
+    icon: <TransactionOutlined />,
+  },
+  {
+    key: "add-transfer",
+    href: "/transactions?transfer=1",
+    label: "انتقال وجه",
+    icon: <SwapOutlined />,
+  },
+  {
+    key: "add-import",
+    href: "/imports/bank-sms",
+    label: "ایمپورت بانکی",
+    icon: <ImportOutlined />,
+  },
+  {
+    key: "add-investment",
+    href: "/investments?new=1",
+    label: "سرمایه‌گذاری",
+    icon: <FundOutlined />,
+  },
+  {
+    key: "add-goal",
+    href: "/goals?new=1",
+    label: "هدف",
+    icon: <AimOutlined />,
+  },
+  {
+    key: "add-recurring",
+    href: "/recurring?new=1",
+    label: "سررسید / بدهی",
+    icon: <AccountBookOutlined />,
+  },
+  {
+    key: "add-account",
+    href: "/accounts?new=1",
+    label: "حساب بانکی",
+    icon: <BankOutlined />,
+  },
+  {
+    key: "add-category",
+    href: "/categories?new=1",
+    label: "دسته‌بندی",
+    icon: <TagsOutlined />,
+  },
+  {
+    key: "add-budget",
+    href: "/budgets?new=1",
+    label: "بودجه",
+    icon: <WalletOutlined />,
+  },
+];
+
+/** Primary mobile bottom tabs (5 slots). "add" / "more" open action sheets. */
 export const BOTTOM_NAV_ITEMS: NavItem[] = [
   {
     key: "home",
@@ -103,7 +162,7 @@ export const BOTTOM_NAV_ITEMS: NavItem[] = [
   },
   {
     key: "add",
-    href: "/transactions?new=1",
+    href: "#add",
     label: "افزودن",
     icon: <PlusCircleOutlined />,
     match: () => false,
