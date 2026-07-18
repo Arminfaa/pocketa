@@ -7,8 +7,8 @@ import JalaliProvider from "antd-jalali-v5";
 import { useThemeStore } from "@/stores/theme.store";
 
 const brand = {
-  colorPrimary: "#06b6d4",
-  borderRadius: 12,
+  colorPrimary: "#2563eb",
+  borderRadius: 16,
   fontFamily: "var(--font-vazir), Tahoma, Arial, sans-serif",
 };
 
@@ -25,45 +25,48 @@ export function AntdProvider({ children }: { children: React.ReactNode }) {
           algorithm: isDark ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
           token: {
             ...brand,
-            colorBgContainer: isDark ? "#0f1a2e" : "#ffffff",
-            colorBgLayout: isDark ? "#0b1220" : "#f8fafc",
+            colorBgContainer: isDark ? "#111827" : "#ffffff",
+            colorBgLayout: isDark ? "#0b1220" : "#eef5ff",
             colorText: isDark ? "#e5e7eb" : "#0f172a",
-            colorTextSecondary: isDark ? "#93a4b8" : "#475569",
-            colorBorder: isDark ? "rgba(148, 163, 184, 0.22)" : "rgba(15, 23, 42, 0.12)",
+            colorTextSecondary: isDark ? "#93a4b8" : "#64748b",
+            colorBorder: isDark ? "rgba(148, 163, 184, 0.18)" : "rgba(37, 99, 235, 0.1)",
           },
           components: {
             Layout: {
-              siderBg: isDark ? "#0f1a2e" : "#ffffff",
-              headerBg: isDark ? "#0f1a2e" : "#ffffff",
+              siderBg: isDark ? "#111827" : "#ffffff",
+              headerBg: isDark ? "#111827" : "rgba(255,255,255,0.92)",
               bodyBg: "transparent",
             },
             Menu: {
-              itemBorderRadius: 12,
+              itemBorderRadius: 14,
               itemBg: "transparent",
               subMenuItemBg: "transparent",
               darkItemBg: "transparent",
               darkSubMenuItemBg: "transparent",
+              itemSelectedBg: isDark ? "rgba(59,130,246,0.18)" : "rgba(37,99,235,0.1)",
+              itemSelectedColor: isDark ? "#60a5fa" : "#2563eb",
             },
             Drawer: {
-              colorBgElevated: isDark ? "#0f1a2e" : "#ffffff",
+              colorBgElevated: isDark ? "#111827" : "#ffffff",
             },
             Card: {
-              borderRadiusLG: 16,
+              borderRadiusLG: 24,
             },
             Button: {
-              controlHeight: 40,
+              controlHeight: 42,
+              borderRadius: 14,
             },
             Input: {
-              controlHeight: 40,
-              borderRadius: 12,
+              controlHeight: 42,
+              borderRadius: 14,
             },
             Select: {
-              controlHeight: 40,
-              borderRadius: 12,
+              controlHeight: 42,
+              borderRadius: 14,
             },
             DatePicker: {
-              controlHeight: 40,
-              borderRadius: 12,
+              controlHeight: 42,
+              borderRadius: 14,
             },
           },
         }}
