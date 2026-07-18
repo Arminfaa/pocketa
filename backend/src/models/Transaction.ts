@@ -31,6 +31,10 @@ const TransactionSchema = new Schema(
       balanceAfter: { type: Number },
       time: { type: String },
       rawSnippet: { type: String },
+      /** کارمزد (تومان) — برای رسید کارت‌به‌کارت */
+      feeAmount: { type: Number },
+      /** مبلغ انتقال بدون کارمزد (تومان) */
+      transferAmount: { type: Number },
     },
 
     /** Links the two legs of an inter-account transfer */

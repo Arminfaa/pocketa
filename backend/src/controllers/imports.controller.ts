@@ -14,6 +14,7 @@ import {
   ensureBankSmsCategories,
   findExistingHashes,
   findNearDuplicateImportKeys,
+  nearDuplicateAmount,
   nearDuplicateKey,
 } from "../services/bank-sms-import.service";
 import { suggestCategoryForTitle } from "../services/category-suggest.service";
@@ -32,6 +33,7 @@ export const preview = asyncHandler(async (req: Request, res: Response) => {
 
   const { rawText, accountId } = parsed.data;
   const jalaliYear = parsed.data.jalaliYear ?? currentJalaliYear();
+  const mode = parsed.data.mode ?? "sms";
 
   const account = await BankAccountModel.findOne({ _id: accountId, userId, isActive: true });
   if (!account) throw new AppError(404, "حساب بانکی یافت نشد");
@@ -39,6 +41,7 @@ export const preview = asyncHandler(async (req: Request, res: Response) => {
   const userName = await loadUserName(userId);
   const { items, failedBlocks } = parseBankSmsText(rawText, jalaliYear, accountId, {
     userName,
+    mode,
   });
   const [existing, nearDupes] = await Promise.all([
     findExistingHashes(
@@ -53,7 +56,7 @@ export const preview = asyncHandler(async (req: Request, res: Response) => {
     const nearKey = nearDuplicateKey({
       accountId,
       type: item.type,
-      amount: item.amount,
+      amount: nearDuplicateAmount(item),
       date: item.date,
     });
     const dupInBatch = seenNearKeys.has(nearKey);
@@ -75,6 +78,7 @@ export const preview = asyncHandler(async (req: Request, res: Response) => {
   return sendSuccess(res, {
     jalaliYear,
     accountId,
+    mode,
     bankHint,
     parsedCount: previewItems.length,
     duplicateCount: previewItems.filter((i) => i.isDuplicate).length,
@@ -93,12 +97,13 @@ export const confirm = asyncHandler(async (req: Request, res: Response) => {
 
   const { rawText, accountId, selectedHashes } = parsed.data;
   const jalaliYear = parsed.data.jalaliYear ?? currentJalaliYear();
+  const mode = parsed.data.mode ?? "sms";
 
   const account = await BankAccountModel.findOne({ _id: accountId, userId, isActive: true });
   if (!account) throw new AppError(404, "حساب بانکی یافت نشد");
 
   const userName = await loadUserName(userId);
-  const { items } = parseBankSmsText(rawText, jalaliYear, accountId, { userName });
+  const { items } = parseBankSmsText(rawText, jalaliYear, accountId, { userName, mode });
   const selected =
     selectedHashes && selectedHashes.length > 0
       ? items.filter((i) => selectedHashes.includes(i.importHash))
@@ -118,7 +123,7 @@ export const confirm = asyncHandler(async (req: Request, res: Response) => {
     const nearKey = nearDuplicateKey({
       accountId,
       type: i.type,
-      amount: i.amount,
+      amount: nearDuplicateAmount(i),
       date: i.date,
     });
     if (nearDupes.has(nearKey) || seenNearKeys.has(nearKey)) return false;
@@ -139,6 +144,14 @@ export const confirm = asyncHandler(async (req: Request, res: Response) => {
         suggested.suggestion?._id ??
         (item.type === "income" ? categories.income._id : categories.expense._id);
 
+      const feeNote =
+        item.feeAmount && item.feeAmount > 0
+          ? `\nکارمزد: ${item.feeAmount.toLocaleString("en-US")} تومان` +
+            (item.transferAmount
+              ? ` · مبلغ انتقال: ${item.transferAmount.toLocaleString("en-US")} تومان`
+              : "")
+          : "";
+
       return {
         userId,
         accountId,
@@ -146,7 +159,7 @@ export const confirm = asyncHandler(async (req: Request, res: Response) => {
         amount: item.amount,
         categoryId,
         title,
-        description: item.rawSnippet,
+        description: `${item.rawSnippet}${feeNote}`,
         date: item.date,
         source: "bank_sms" as const,
         needsReview: item.skipReview ? false : true,
@@ -158,6 +171,8 @@ export const confirm = asyncHandler(async (req: Request, res: Response) => {
           balanceAfter: item.balanceAfter,
           time: item.time,
           rawSnippet: item.rawSnippet,
+          feeAmount: item.feeAmount,
+          transferAmount: item.transferAmount,
         },
       };
     })

@@ -11,6 +11,7 @@ import {
   Flex,
   Grid,
   Input,
+  Segmented,
   Select,
   Space,
   Tag,
@@ -22,7 +23,12 @@ import {
   WarningOutlined,
 } from "@ant-design/icons";
 import { fetchAccounts } from "@/services/accounts";
-import { confirmBankSms, previewBankSms, type ParsedImportItem } from "@/services/imports";
+import {
+  confirmBankSms,
+  previewBankSms,
+  type ImportParseMode,
+  type ParsedImportItem,
+} from "@/services/imports";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { formatToman, formatJalaliDate } from "@/lib/format";
 import { Sk } from "@/components/ui/skeleton";
@@ -36,6 +42,21 @@ import { AmountText } from "@/components/ui/amount-text";
 
 const { Text } = Typography;
 const { TextArea } = Input;
+
+const SMS_PLACEHOLDER = `پیامک بانکی پاسارگاد / ملی را اینجا Paste کنید…
+(مبالغ پیامک معمولاً ریال‌اند و به تومان تبدیل می‌شوند)`;
+
+const RECEIPT_PLACEHOLDER = `رسید کارت به کارت
+ وضعیت تراکنش: موفق
+ کارت مقصد: 7317 - ∗∗∗∗ - ∗∗86 - 6219
+ نام مقصد: محدثه کشانی
+ مبلغ: 642,500تومان
+شماره پیگیری: 737795
+شماره ارجاع: 72261566541
+کارت مبدا: 8281 - ∗∗∗∗ - ∗∗29 - 5022
+نام مبدا: آرمین فاتحی
+تاریخ و ساعت: 19:31:12 1405/04/27
+کارمزد: 720تومان`;
 
 function currentJalaliYearGuess(): number {
   try {
@@ -59,6 +80,7 @@ export default function BankSmsImportPage() {
 
   const accountsQ = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
 
+  const [mode, setMode] = useState<ImportParseMode>("sms");
   const [rawText, setRawText] = useState("");
   const [accountId, setAccountId] = useState(selectedAccountId ?? "");
   const [jalaliYear, setJalaliYear] = useState(String(currentJalaliYearGuess()));
@@ -71,6 +93,14 @@ export default function BankSmsImportPage() {
   } | null>(null);
 
   const effectiveAccountId = accountId || accountsQ.data?.[0]?.id || "";
+  const isReceiptMode = mode === "card_receipt";
+
+  function resetPreview() {
+    setItems([]);
+    setSelected({});
+    setFailedBlocks([]);
+    setPreviewMeta(null);
+  }
 
   const previewMutation = useMutation({
     mutationFn: () =>
@@ -78,6 +108,7 @@ export default function BankSmsImportPage() {
         rawText,
         accountId: effectiveAccountId,
         jalaliYear: Number(jalaliYear),
+        mode,
       }),
     onSuccess: (data) => {
       setItems(data.items);
@@ -88,12 +119,16 @@ export default function BankSmsImportPage() {
         next[item.importHash] = !item.isDuplicate;
       }
       setSelected(next);
-      message.success(`${data.parsedCount} پیامک شناسایی شد`);
+      message.success(
+        isReceiptMode
+          ? `${data.parsedCount} رسید شناسایی شد`
+          : `${data.parsedCount} پیامک شناسایی شد`
+      );
     },
     onError: (err: unknown) => {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        "خطا در پردازش پیامک‌ها";
+        "خطا در پردازش متن";
       message.error(msg);
     },
   });
@@ -107,6 +142,7 @@ export default function BankSmsImportPage() {
         rawText,
         accountId: effectiveAccountId,
         jalaliYear: Number(jalaliYear),
+        mode,
         selectedHashes,
       });
     },
@@ -134,19 +170,40 @@ export default function BankSmsImportPage() {
   return (
     <PageShell width="wide">
       <PageHeader
-        title="ایمپورت پیامک بانکی"
+        title="ایمپورت بانکی"
         icon={<FileTextOutlined />}
         description={
-          <>
-            پیامک بانکی (پاسارگاد / ملی — مبالغ ریال → تومان) یا{" "}
-            <Text strong>رسید کارت‌به‌کارت</Text> را Paste کنید. در رسید اگر مبلغ «ریال» باشد
-            ÷۱۰ می‌شود و اگر «تومان» باشد همان می‌ماند؛ عنوان خودکار است و نیاز به نام‌گذاری ندارد.
-          </>
+          isReceiptMode ? (
+            <>
+              ساختار <Text strong>رسید کارت‌به‌کارت</Text> را Paste کنید. جهت واریز/برداشت از{" "}
+              <Text strong>نام مبدا/مقصد</Text> نسبت به نام پروفایل شما تشخیص داده می‌شود. اگر{" "}
+              <Text strong>کارمزد</Text> در متن باشد، برای برداشت به مبلغ اضافه می‌شود و مورد به{" "}
+              <Text strong>نام‌گذاری</Text> می‌رود.
+            </>
+          ) : (
+            <>
+              پیامک بانکی (پاسارگاد / ملی) را Paste کنید. مبالغ پیامک معمولاً ریال‌اند و به تومان
+              تبدیل می‌شوند؛ بعد از ورود در صفحه نام‌گذاری عنوان بگذارید.
+            </>
+          )
         }
       />
 
-      <SectionCard title="ورود متن پیامک">
+      <SectionCard title="ورود متن">
         <Space orientation="vertical" size="middle" className="w-full">
+          <Segmented
+            block
+            value={mode}
+            onChange={(value) => {
+              setMode(value as ImportParseMode);
+              resetPreview();
+            }}
+            options={[
+              { label: "پیامک‌ها", value: "sms" },
+              { label: "رسید انتقال وجه", value: "card_receipt" },
+            ]}
+          />
+
           <FilterBar className="!p-0 !shadow-none !bg-transparent !border-0">
             <FilterField label="حساب مقصد" className="sm:flex-[2]">
               {accountsQ.isLoading ? (
@@ -164,22 +221,26 @@ export default function BankSmsImportPage() {
               )}
             </FilterField>
 
-            <FilterField label="سال شمسی (برای تاریخ‌های بدون سال)" className="sm:max-w-[10rem]">
-              <Input
-                dir="ltr"
-                value={jalaliYear}
-                onChange={(e) => setJalaliYear(e.target.value)}
-              />
-            </FilterField>
+            {!isReceiptMode ? (
+              <FilterField label="سال شمسی (برای تاریخ‌های بدون سال)" className="sm:max-w-[10rem]">
+                <Input
+                  dir="ltr"
+                  value={jalaliYear}
+                  onChange={(e) => setJalaliYear(e.target.value)}
+                />
+              </FilterField>
+            ) : null}
           </FilterBar>
 
           <div>
-            <Text type="secondary" className="text-xs font-medium">متن پیامک‌ها</Text>
+            <Text type="secondary" className="text-xs font-medium">
+              {isReceiptMode ? "متن رسید(ها)" : "متن پیامک‌ها"}
+            </Text>
             <TextArea
               className="mt-2 font-mono"
-              dir="ltr"
-              rows={10}
-              placeholder={`پیامک بانکی یا رسید کارت‌به‌کارت…\n\nمثال رسید:\nرسید کارت به کارت\nوضعیت تراکنش: موفق\nنام مقصد: …\nمبلغ: 1,000,000تومان\nنام مبدا: …\nتاریخ و ساعت: 00:11:54 1405/04/27`}
+              dir="rtl"
+              rows={12}
+              placeholder={isReceiptMode ? RECEIPT_PLACEHOLDER : SMS_PLACEHOLDER}
               value={rawText}
               onChange={(e) => setRawText(e.target.value)}
             />
@@ -199,7 +260,7 @@ export default function BankSmsImportPage() {
       {previewMeta ? (
         <Space wrap>
           {previewMeta.bankHint ? (
-            <Tag color="cyan">بانک تشخیص‌داده‌شده: {previewMeta.bankHint}</Tag>
+            <Tag color="cyan">نوع تشخیص‌داده‌شده: {previewMeta.bankHint}</Tag>
           ) : null}
           <Tag>تکراری: {previewMeta.duplicateCount}</Tag>
           <Tag color="blue">انتخاب‌شده برای ورود: {selectedCount}</Tag>
@@ -260,6 +321,14 @@ export default function BankSmsImportPage() {
                         <>
                           {formatJalaliDate(item.date)}
                           {item.time ? ` · ${item.time}` : ""}
+                          {item.feeAmount && item.feeAmount > 0 ? (
+                            <>
+                              {" · "}
+                              انتقال {formatToman(item.transferAmount ?? item.amount - item.feeAmount)}
+                              {" + کارمزد "}
+                              {formatToman(item.feeAmount)}
+                            </>
+                          ) : null}
                         </>
                       }
                       trailing={
@@ -267,6 +336,9 @@ export default function BankSmsImportPage() {
                           tone={item.type === "income" ? "income" : "expense"}
                           size="sm"
                           prefix={item.type === "income" ? "+" : "-"}
+                          caption={
+                            item.feeAmount && item.feeAmount > 0 ? "مبلغ + کارمزد" : undefined
+                          }
                         >
                           {formatToman(item.amount)}
                         </AmountText>
@@ -275,10 +347,6 @@ export default function BankSmsImportPage() {
                         item.isDuplicate ? (
                           <Tag icon={<WarningOutlined />} color="warning">
                             قبلاً ایمپورت شده — رد می‌شود
-                          </Tag>
-                        ) : item.skipReview ? (
-                          <Tag icon={<CheckCircleOutlined />} color="success">
-                            آماده ورود · بدون نیاز به نام‌گذاری
                           </Tag>
                         ) : (
                           <Tag icon={<CheckCircleOutlined />} color="success">
@@ -311,13 +379,13 @@ export default function BankSmsImportPage() {
         <Alert
           type="error"
           showIcon
-          title={`${failedBlocks.length} بلوک قابل parse نبود`}
+          title={`${failedBlocks.length} مورد قابل تشخیص نبود`}
           description={
             <Space orientation="vertical" size="small" className="w-full">
               {failedBlocks.slice(0, 3).map((b, i) => (
                 <pre
                   key={i}
-                  className="m-0 text-xs whitespace-pre-wrap p-2 rounded-xl border border-slate-400/20"
+                  className="m-0 text-xs whitespace-pre-wrap p-2 rounded-xl bg-[color-mix(in_srgb,var(--muted)_8%,transparent)]"
                 >
                   {b}
                 </pre>
