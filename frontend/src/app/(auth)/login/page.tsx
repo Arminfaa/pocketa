@@ -1,27 +1,18 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { useState } from "react";
 import { App, Button, Card, Flex, Form, Input, Space, Typography } from "antd";
 import api from "@/services/api";
 import { useAuthStore, type AuthUser } from "@/stores/auth.store";
-import { useRouter, useSearchParams } from "next/navigation";
-import { peekShareImportText } from "@/lib/share-import";
+import { useRouter } from "next/navigation";
 
 type LoginForm = {
   email: string;
   password: string;
 };
 
-function safeNextPath(raw: string | null): string {
-  if (!raw) return "/dashboard";
-  if (!raw.startsWith("/") || raw.startsWith("//")) return "/dashboard";
-  if (raw.startsWith("/login") || raw.startsWith("/register")) return "/dashboard";
-  return raw;
-}
-
-function LoginFormInner() {
+export default function LoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { message } = App.useApp();
   const setUser = useAuthStore((s) => s.setUser);
   const setSessionChecked = useAuthStore((s) => s.setSessionChecked);
@@ -39,13 +30,7 @@ function LoginFormInner() {
       setUser(user);
       setSessionChecked(true);
       message.success("ورود موفقیت‌آمیز بود");
-      const next = safeNextPath(searchParams.get("next"));
-      // Pending share (session) or share-target return URL → import page
-      if (peekShareImportText() || next.includes("/imports/bank-sms")) {
-        router.replace("/imports/bank-sms?from=share");
-      } else {
-        router.replace(next);
-      }
+      router.replace("/dashboard");
     } catch (err: unknown) {
       const apiErr = err as { response?: { data?: { message?: string } } };
       const errorMessage = apiErr?.response?.data?.message ?? "خطای نامشخص";
@@ -105,21 +90,5 @@ function LoginFormInner() {
         </Space>
       </Card>
     </Flex>
-  );
-}
-
-export default function LoginPage() {
-  return (
-    <Suspense
-      fallback={
-        <Flex align="center" justify="center" className="min-h-dvh !p-6">
-          <Card className="w-full max-w-md shadow-soft">
-            <Typography.Text type="secondary">در حال بارگذاری…</Typography.Text>
-          </Card>
-        </Flex>
-      }
-    >
-      <LoginFormInner />
-    </Suspense>
   );
 }
