@@ -23,6 +23,10 @@ export type ParsedBankSms = {
   skipReview?: boolean;
   /** Extra uniqueness for hash (e.g. tracking number) */
   hashExtra?: string;
+  /** Base transfer amount before fee (تومان) — used for near-dupe vs bank SMS */
+  transferAmount?: number;
+  /** Fee amount in تومان (added into `amount` for expense card transfers) */
+  feeAmount?: number;
 };
 
 /** بانک‌ها مبلغ را به ریال می‌فرستند؛ واحد اپ تومان است. */
@@ -393,9 +397,33 @@ function softNormalizeSms(raw: string): string {
     .trim();
 }
 
+/** Parse «مبلغ: 1,000تومان|ریال» style amounts to تومان. */
+function parseTomanAmountWithUnit(
+  rawAmount: string,
+  unit?: string
+): { toman: number; rial?: number } | null {
+  const amountRaw = parseAmountNumber(rawAmount);
+  if (!Number.isFinite(amountRaw) || amountRaw <= 0) return null;
+  const u = unit ?? "تومان";
+  if (u === "ريال" || u === "ریال") {
+    return { toman: rialToToman(amountRaw), rial: amountRaw };
+  }
+  return { toman: Math.round(amountRaw) };
+}
+
+/** Optional کارمزد line inside a receipt / fee SMS. */
+export function parseFeeAmountFromText(text: string): number {
+  const b = normalizeSmsText(text);
+  const feeMatch = b.match(/كارمزد\s*:?\s*([\d,]+)\s*(تومان|ريال)?/);
+  if (!feeMatch) return 0;
+  const parsed = parseTomanAmountWithUnit(feeMatch[1]!, feeMatch[2]);
+  return parsed?.toman ?? 0;
+}
+
 /**
  * رسید کارت به کارت — مبلغ ممکن است تومان یا ریال باشد (واحد در متن آمده).
  * فقط وضعیت «موفق»؛ جهت از تطبیق نام مبدا/مقصد با نام کاربر.
+ * کارمزد (اگر در متن باشد) برای برداشت به مبلغ اضافه می‌شود؛ مورد به صف نام‌گذاری می‌رود.
  */
 export function parseCardTransferBlock(
   block: string,
@@ -410,11 +438,11 @@ export function parseCardTransferBlock(
 
   const amountMatch = b.match(/مبلغ\s*:\s*([\d,]+)\s*(تومان|ريال)/);
   if (!amountMatch) return null;
-  const amountRaw = parseAmountNumber(amountMatch[1]!);
-  if (!Number.isFinite(amountRaw) || amountRaw <= 0) return null;
-  const unit = amountMatch[2]!;
-  const amountToman = unit === "ريال" ? rialToToman(amountRaw) : Math.round(amountRaw);
-  const amountRial = unit === "ريال" ? amountRaw : undefined;
+  const parsedAmount = parseTomanAmountWithUnit(amountMatch[1]!, amountMatch[2]);
+  if (!parsedAmount) return null;
+  const transferAmount = parsedAmount.toman;
+  const amountRial = parsedAmount.rial;
+  const feeAmount = parseFeeAmountFromText(block);
 
   // Names from soft text (keep آ); map Arabic ي/ك → Persian for titles
   const soft = softNormalizeSms(block);
@@ -454,10 +482,16 @@ export function parseCardTransferBlock(
     return null;
   }
 
+  // کارمزد معمولاً روی حساب مبدا کم می‌شود → فقط به برداشت اضافه می‌شود
+  const appliedFee = type === "expense" ? feeAmount : 0;
+  const amount = transferAmount + appliedFee;
+
   return {
     type,
-    amount: amountToman,
+    amount,
     amountRial,
+    transferAmount,
+    feeAmount: appliedFee || feeAmount || undefined,
     date,
     time,
     bankName: "کارت به کارت",
@@ -466,7 +500,8 @@ export function parseCardTransferBlock(
     importHash: "",
     parser: "card_transfer",
     suggestedTitle,
-    skipReview: true,
+    // باید در «نام‌گذاری» دیده شوند تا عنوان نهایی را کاربر بگذارد
+    skipReview: false,
     hashExtra: tracking || `${sourceName}|${destName}`,
   };
 }
@@ -517,10 +552,54 @@ export function parseBankSmsBlock(
   return null;
 }
 
+export type ImportParseMode = "sms" | "card_receipt";
+
 export type ParseBankSmsOptions = {
   /** Profile display name — required to resolve card-to-card direction */
   userName?: string;
+  /**
+   * sms = فقط پیامک بانکی (ملی/پاسارگاد)
+   * card_receipt = فقط رسید کارت‌به‌کارت
+   */
+  mode?: ImportParseMode;
 };
+
+/** Standalone fee snippets (not inside a receipt header) — attach to previous expense receipt. */
+function extractStandaloneFees(text: string): number[] {
+  const soft = softNormalizeSms(text);
+  // Drop card-receipt blocks so their inline fees are not double-counted
+  const withoutReceipts = soft
+    .split(/(?=رس[یي]د\s*[کك]ارت\s*به\s*[کك]ارت)/)
+    .filter((chunk) => !/رس[یي]د\s*[کك]ارت\s*به\s*[کك]ارت/.test(chunk))
+    .join("\n");
+  const fees: number[] = [];
+  const re = /كارمزد\s*:?\s*([\d,]+)\s*(تومان|ريال)?/g;
+  const normalized = normalizeSmsText(withoutReceipts);
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(normalized))) {
+    const parsed = parseTomanAmountWithUnit(m[1]!, m[2]);
+    if (parsed) fees.push(parsed.toman);
+  }
+  return fees;
+}
+
+function attachStandaloneFees(items: ParsedBankSms[], fees: number[]): ParsedBankSms[] {
+  if (fees.length === 0) return items;
+  const unused = [...fees];
+  return items.map((item) => {
+    if (item.parser !== "card_transfer" || item.type !== "expense") return item;
+    if ((item.feeAmount ?? 0) > 0) return item;
+    const fee = unused.shift();
+    if (!fee) return item;
+    const transferAmount = item.transferAmount ?? item.amount;
+    return {
+      ...item,
+      transferAmount,
+      feeAmount: fee,
+      amount: transferAmount + fee,
+    };
+  });
+}
 
 export function parseBankSmsText(
   rawText: string,
@@ -531,12 +610,38 @@ export function parseBankSmsText(
   const text = normalizeSmsText(rawText);
   const failedBlocks: string[] = [];
   const userName = options.userName?.trim() ?? "";
+  const mode: ImportParseMode = options.mode ?? "sms";
 
-  // Pass original text so card-to-card keeps آ/ی in person names
-  const cardItems = userName ? extractCardTransfersFromText(rawText, userName) : [];
+  if (mode === "card_receipt") {
+    if (!userName) {
+      return {
+        items: [],
+        failedBlocks: [
+          "برای تشخیص واریز/برداشت رسید کارت‌به‌کارت، نام پروفایل باید با نام مبدا یا مقصد یکی باشد.",
+        ],
+      };
+    }
+    let cardItems = extractCardTransfersFromText(rawText, userName);
+    cardItems = attachStandaloneFees(cardItems, extractStandaloneFees(rawText));
+    cardItems.sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
+    if (cardItems.length === 0) {
+      const soft = softNormalizeSms(rawText);
+      if (/رس[یي]د\s*[کك]ارت\s*به\s*[کك]ارت/.test(soft)) {
+        failedBlocks.push(
+          "رسید پیدا شد ولی قابل تشخیص نبود (وضعیت غیرموفق، نام مبدا/مقصد با پروفایل یکی نیست، یا فیلدها ناقص‌اند)."
+        );
+      }
+    }
+    return {
+      items: cardItems.map((item) => withHash(item, accountId)),
+      failedBlocks,
+    };
+  }
+
+  // SMS mode: bank messages only (no card receipts mixed in)
   const melliItems = extractMelliFromText(text, jalaliYear);
   const pasargadItems = extractPasargadSafe(text, jalaliYear);
-  const extracted = [...cardItems, ...pasargadItems, ...melliItems];
+  const extracted = [...pasargadItems, ...melliItems];
 
   if (extracted.length > 0) {
     extracted.sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
@@ -550,8 +655,13 @@ export function parseBankSmsText(
   const items: ParsedBankSms[] = [];
 
   for (const block of blocks) {
-    const parsed = parseBankSmsBlock(block, jalaliYear, userName);
-    if (!parsed) {
+    // Explicitly skip card receipts in SMS mode
+    if (/رسيد\s*كارت\s*به\s*كارت/.test(normalizeSmsText(block))) {
+      failedBlocks.push("این بلوک رسید کارت‌به‌کارت است — از تب «رسید انتقال وجه» استفاده کنید.");
+      continue;
+    }
+    const parsed = parseBankSmsBlock(block, jalaliYear, "");
+    if (!parsed || parsed.parser === "card_transfer") {
       failedBlocks.push(block.slice(0, 200));
       continue;
     }

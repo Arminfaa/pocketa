@@ -33,6 +33,8 @@ export type Transaction = {
     balanceAfter?: number;
     time?: string;
     rawSnippet?: string;
+    feeAmount?: number;
+    transferAmount?: number;
   };
   categoryId: TransactionCategoryRef | string;
   accountId: TransactionAccountRef | string;
