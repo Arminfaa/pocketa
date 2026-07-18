@@ -35,6 +35,20 @@ function safeSort(sortBy: string | null | undefined) {
   return sortBy && allowed[sortBy] ? allowed[sortBy] : "date";
 }
 
+/** Newest-first by default; use numeric dirs so Mongo never misreads "desc". */
+function buildTransactionSort(
+  sortBy: string | null | undefined,
+  sortOrder: "asc" | "desc" | undefined
+): Record<string, 1 | -1> {
+  const dir: 1 | -1 = sortOrder === "asc" ? 1 : -1;
+  const field = safeSort(sortBy);
+  if (field === "date") {
+    // آخرین تراکنش انجام‌شده = تاریخ جدیدتر، بعد ساعت پیامک، بعد زمان ثبت
+    return { date: dir, "bankMeta.time": dir, createdAt: dir };
+  }
+  return { [field]: dir, createdAt: -1 };
+}
+
 export const list = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user?.userId;
   if (!userId) throw new AppError(401, "عدم دسترسی");
@@ -80,7 +94,7 @@ export const list = asyncHandler(async (req: Request, res: Response) => {
   const total = await TransactionModel.countDocuments(filter);
 
   const items = await TransactionModel.find(filter)
-    .sort({ [safeSort(sortBy)]: sortOrder })
+    .sort(buildTransactionSort(sortBy, sortOrder))
     .skip((page - 1) * limit)
     .limit(limit)
     .populate({ path: "accountId", select: "name bankName color icon" })
