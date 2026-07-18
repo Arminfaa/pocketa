@@ -57,6 +57,8 @@ export type CreateInvestmentPayload = {
   profitNextDate?: string | null;
   profitEndDate?: string | null;
   notes?: string | null;
+  /** Bank account debited for the purchase */
+  accountId: string;
 };
 
 export async function fetchInvestments(): Promise<{

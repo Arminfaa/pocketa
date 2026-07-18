@@ -7,6 +7,10 @@ import { sendSuccess } from "../utils/apiResponse";
 import { TransactionModel } from "../models/Transaction";
 import { CategoryModel } from "../models/Category";
 import { BankAccountModel } from "../models/BankAccount";
+import {
+  getActiveAccountIds,
+  getNonOperatingCategoryIds,
+} from "../services/accounting.service";
 
 function currentJalaliMonthYear() {
   const now = new Date();
@@ -35,11 +39,20 @@ async function assertAccountOwned(userId: string, accountId?: string) {
   if (!account) throw new AppError(404, "حساب بانکی یافت نشد");
 }
 
-function baseMatch(userId: string, accountId?: string): Record<string, unknown> {
+async function operatingScope(userId: string, accountId?: string) {
+  const nonOp = await getNonOperatingCategoryIds(userId);
+  const activeIds = await getActiveAccountIds(userId);
+  const accountScope: mongoose.Types.ObjectId | { $in: mongoose.Types.ObjectId[] } =
+    accountId
+      ? new mongoose.Types.ObjectId(accountId)
+      : { $in: activeIds.length > 0 ? activeIds : [new mongoose.Types.ObjectId()] };
+
   const match: Record<string, unknown> = {
     userId: new mongoose.Types.ObjectId(userId),
+    accountId: accountScope,
+    source: { $nin: ["transfer", "balance_adjustment", "investment", "goal"] },
   };
-  if (accountId) match.accountId = new mongoose.Types.ObjectId(accountId);
+  if (nonOp.length > 0) match.categoryId = { $nin: nonOp };
   return match;
 }
 
@@ -51,10 +64,11 @@ async function sumByTypeAndMonth(
   accountId?: string
 ) {
   const p = prefix(year, month);
+  const base = await operatingScope(userId, accountId);
   const result = await TransactionModel.aggregate([
     {
       $match: {
-        ...baseMatch(userId, accountId),
+        ...base,
         type,
         date: { $regex: `^${p}` },
       },
@@ -100,8 +114,8 @@ export const monthly = asyncHandler(async (req: Request, res: Response) => {
   const expense = ordered.map((d) => d.expense);
   const net = ordered.map((d) => d.income - d.expense);
 
-  const totalIncome = income.reduce((s, n) => s + n, 0);
-  const totalExpense = expense.reduce((s, n) => s + n, 0);
+  const totalIncome = income.reduce((s, v) => s + v, 0);
+  const totalExpense = expense.reduce((s, v) => s + v, 0);
 
   return sendSuccess(res, {
     accountId: accountId ?? null,
@@ -130,7 +144,7 @@ export const categories = asyncHandler(async (req: Request, res: Response) => {
   const month = req.query.month ? Number(req.query.month) : current.month;
   const p = prefix(year, month);
   const matchBase = {
-    ...baseMatch(userId, accountId),
+    ...(await operatingScope(userId, accountId)),
     date: { $regex: `^${p}` },
   };
 
@@ -148,10 +162,8 @@ export const categories = asyncHandler(async (req: Request, res: Response) => {
       { $limit: 8 },
     ]),
     TransactionModel.find({
-      userId,
+      ...matchBase,
       type: "expense",
-      date: { $regex: `^${p}` },
-      ...(accountId ? { accountId } : {}),
     })
       .sort({ amount: -1 })
       .limit(8)

@@ -29,6 +29,7 @@ import { AmountInput } from "@/components/ui/amount-input";
 import { BudgetsListSkeleton, KpiRowSkeleton } from "@/components/skeletons";
 import { QueryError } from "@/components/ui/query-error";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { cn } from "@/lib/cn";
 
 const { Title, Text } = Typography;
@@ -36,6 +37,7 @@ const { Title, Text } = Typography;
 export default function BudgetsPage() {
   const { message } = App.useApp();
   const queryClient = useQueryClient();
+  const selectedAccountId = useAccountFilterStore((s) => s.selectedAccountId);
   const current = getJalaliMonthYear();
   const [month, setMonth] = useState(current.month);
   const [year, setYear] = useState(current.year);
@@ -43,8 +45,8 @@ export default function BudgetsPage() {
   const [amount, setAmount] = useState("");
 
   const budgetsQ = useQuery({
-    queryKey: ["budgets", month, year],
-    queryFn: () => fetchBudgets({ month, year }),
+    queryKey: ["budgets", month, year, selectedAccountId],
+    queryFn: () => fetchBudgets({ month, year, accountId: selectedAccountId }),
   });
 
   const categoriesQ = useQuery({

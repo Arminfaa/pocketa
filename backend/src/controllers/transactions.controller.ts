@@ -10,6 +10,7 @@ import {
   TransactionUpdateSchema,
   TransactionQuerySchema,
   TransactionBulkDeleteSchema,
+  TransferCreateSchema,
 } from "../validations/transactions";
 import { normalizeJalaliDate, toEnglishDigits } from "../utils/normalizeDigits";
 import { ensureDefaultAccount } from "../services/account.service";
@@ -18,6 +19,8 @@ import {
   ensureReceivableIncomeCategory,
 } from "../services/debt-category.service";
 import { settleRecurringWithExistingTransaction } from "../services/recurring-settle.service";
+import { deleteTransactionsWithSideEffects } from "../services/transaction-delete.service";
+import { ensureTransferCategories } from "../services/accounting.service";
 import { RecurringTransactionModel } from "../models/RecurringTransaction";
 import mongoose from "mongoose";
 
@@ -191,9 +194,86 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
       remainderDueDate,
     });
     message = settle.message;
+    tx.settledRecurringId = new mongoose.Types.ObjectId(settleRecurringId);
+    tx.settleMode = settleMode;
+    tx.settleSnapshot = settle.snapshot;
+    if (settle.deferredDebt?._id) {
+      tx.deferredDebtId = settle.deferredDebt._id;
+    }
+    await tx.save();
+  }
+
+  if (debt?._id) {
+    tx.createdDebtId = debt._id;
+    await tx.save();
   }
 
   return sendSuccess(res, { item: tx, debt, settle }, message, 201);
+});
+
+export const transfer = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) throw new AppError(401, "عدم دسترسی");
+
+  const parsed = TransferCreateSchema.safeParse(req.body);
+  if (!parsed.success) throw new AppError(400, "خطا در اعتبارسنجی داده‌ها", parsed.error.flatten());
+
+  const { fromAccountId, toAccountId, amount, description, date } = parsed.data;
+  const title =
+    parsed.data.title?.trim() ||
+    "انتقال بین حساب‌ها";
+
+  const [fromAccount, toAccount, cats] = await Promise.all([
+    BankAccountModel.findOne({ _id: fromAccountId, userId, isActive: true }),
+    BankAccountModel.findOne({ _id: toAccountId, userId, isActive: true }),
+    ensureTransferCategories(userId),
+  ]);
+  if (!fromAccount) throw new AppError(404, "حساب مبدأ یافت نشد");
+  if (!toAccount) throw new AppError(404, "حساب مقصد یافت نشد");
+
+  const normalizedDate = normalizeJalaliDate(date);
+  const transferGroupId = new mongoose.Types.ObjectId();
+
+  const outTx = await TransactionModel.create({
+    userId,
+    accountId: fromAccountId,
+    type: "expense",
+    amount,
+    categoryId: cats.expense._id,
+    title: `${title} → ${toAccount.name}`,
+    description: description ?? `انتقال به ${toAccount.name}`,
+    date: normalizedDate,
+    tags: ["انتقال"],
+    source: "transfer",
+    needsReview: false,
+    transferGroupId,
+  });
+
+  const inTx = await TransactionModel.create({
+    userId,
+    accountId: toAccountId,
+    type: "income",
+    amount,
+    categoryId: cats.income._id,
+    title: `${title} ← ${fromAccount.name}`,
+    description: description ?? `انتقال از ${fromAccount.name}`,
+    date: normalizedDate,
+    tags: ["انتقال"],
+    source: "transfer",
+    needsReview: false,
+    transferGroupId,
+    linkedTransactionId: outTx._id,
+  });
+
+  outTx.linkedTransactionId = inTx._id;
+  await outTx.save();
+
+  return sendSuccess(
+    res,
+    { item: outTx, linked: inTx, transferGroupId },
+    "انتقال بین حساب‌ها ثبت شد",
+    201
+  );
 });
 
 export const update = asyncHandler(async (req: Request, res: Response) => {
@@ -218,7 +298,16 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
   if (parsed.data.categoryId) {
     const category = await CategoryModel.findOne({ _id: parsed.data.categoryId, userId });
     if (!category) throw new AppError(404, "دسته‌بندی یافت نشد");
+    const nextType = (parsed.data.type ?? tx.type) as "income" | "expense";
+    if (category.type !== nextType) {
+      throw new AppError(400, "نوع دسته با نوع تراکنش همخوانی ندارد");
+    }
     next.categoryId = parsed.data.categoryId;
+  } else if (parsed.data.type && parsed.data.type !== tx.type) {
+    const category = await CategoryModel.findById(tx.categoryId);
+    if (category && category.type !== parsed.data.type) {
+      throw new AppError(400, "نوع دسته با نوع تراکنش همخوانی ندارد");
+    }
   }
 
   if (parsed.data.accountId) {
@@ -308,6 +397,18 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
       remainderDueDate: parsed.data.remainderDueDate,
     });
     message = settle.message;
+    updated.settledRecurringId = new mongoose.Types.ObjectId(parsed.data.settleRecurringId);
+    updated.settleMode = parsed.data.settleMode;
+    updated.settleSnapshot = settle.snapshot;
+    if (settle.deferredDebt?._id) {
+      updated.deferredDebtId = settle.deferredDebt._id;
+    }
+    await updated.save();
+  }
+
+  if (debt?._id) {
+    updated.createdDebtId = debt._id;
+    await updated.save();
   }
 
   return sendSuccess(res, { item: updated, debt, settle }, message);
@@ -317,11 +418,12 @@ export const remove = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user?.userId;
   if (!userId) throw new AppError(401, "عدم دسترسی");
 
-  const { id } = req.params;
-  const deleted = await TransactionModel.findOneAndDelete({ _id: id, userId });
-  if (!deleted) throw new AppError(404, "تراکنش یافت نشد");
+  const id = String(req.params.id ?? "");
+  if (!id) throw new AppError(400, "شناسه تراکنش معتبر نیست");
+  const result = await deleteTransactionsWithSideEffects(userId, [id]);
+  if (result.deletedCount === 0) throw new AppError(404, "تراکنش یافت نشد");
 
-  return sendSuccess(res, { id }, "تراکنش حذف شد");
+  return sendSuccess(res, { id, deletedIds: result.deletedIds }, "تراکنش حذف شد");
 });
 
 export const bulkRemove = asyncHandler(async (req: Request, res: Response) => {
@@ -331,23 +433,15 @@ export const bulkRemove = asyncHandler(async (req: Request, res: Response) => {
   const parsed = TransactionBulkDeleteSchema.safeParse(req.body);
   if (!parsed.success) throw new AppError(400, "خطا در اعتبارسنجی داده‌ها", parsed.error.flatten());
 
-  const objectIds = parsed.data.ids
-    .filter((id) => mongoose.Types.ObjectId.isValid(id))
-    .map((id) => new mongoose.Types.ObjectId(id));
-
-  if (objectIds.length === 0) {
+  const result = await deleteTransactionsWithSideEffects(userId, parsed.data.ids);
+  if (result.deletedCount === 0) {
     throw new AppError(400, "شناسه تراکنش معتبر نیست");
   }
 
-  const result = await TransactionModel.deleteMany({
-    _id: { $in: objectIds },
-    userId,
-  });
-
   return sendSuccess(
     res,
-    { deletedCount: result.deletedCount ?? 0, ids: parsed.data.ids },
-    `${result.deletedCount ?? 0} تراکنش حذف شد`
+    { deletedCount: result.deletedCount, ids: result.deletedIds },
+    `${result.deletedCount} تراکنش حذف شد`
   );
 });
 

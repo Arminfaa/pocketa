@@ -13,6 +13,7 @@ import {
   Popconfirm,
   Progress,
   Row,
+  Select,
   Space,
   Statistic,
   Tag,
@@ -20,6 +21,7 @@ import {
 } from "antd";
 import { AimOutlined, DeleteOutlined, PlusOutlined } from "@ant-design/icons";
 import { contributeGoal, createGoal, deleteGoal, fetchGoals } from "@/services/goals";
+import { fetchAccounts } from "@/services/accounts";
 import { formatJalaliDate, formatToman } from "@/lib/format";
 import { normalizeJalaliDateInput, parseAmountInput } from "@/lib/amount";
 import { CATEGORY_COLORS } from "@/lib/finance-ui";
@@ -28,6 +30,7 @@ import { JalaliDateInput } from "@/components/ui/jalali-date-input";
 import { GoalsListSkeleton, KpiRowSkeleton } from "@/components/skeletons";
 import { EmptyState } from "@/components/ui/empty-state";
 import { QueryError } from "@/components/ui/query-error";
+import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { cn } from "@/lib/cn";
 
 const { Title, Text } = Typography;
@@ -39,24 +42,24 @@ export default function GoalsPage() {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
   const [targetAmount, setTargetAmount] = useState("");
-  const [currentAmount, setCurrentAmount] = useState("0");
   const [deadline, setDeadline] = useState("");
   const [color, setColor] = useState(CATEGORY_COLORS[0]!);
   const [contributeAmounts, setContributeAmounts] = useState<Record<string, string>>({});
+  const [contributeAccounts, setContributeAccounts] = useState<Record<string, string>>({});
+  const selectedAccountId = useAccountFilterStore((s) => s.selectedAccountId);
 
   const q = useQuery({ queryKey: ["goals"], queryFn: fetchGoals });
+  const accountsQ = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
 
   const createMutation = useMutation({
     mutationFn: async () => {
       const target = parseAmountInput(targetAmount);
-      const current = parseAmountInput(currentAmount);
-      const currentSafe = Number.isFinite(current) && current > 0 ? current : 0;
       if (title.trim().length < 2) throw new Error("عنوان را وارد کنید");
       if (!Number.isFinite(target) || target <= 0) throw new Error("مبلغ هدف معتبر نیست");
       return createGoal({
         title: title.trim(),
         targetAmount: target,
-        currentAmount: currentSafe,
+        currentAmount: 0,
         deadline: deadline ? normalizeJalaliDateInput(deadline) : undefined,
         color,
       });
@@ -65,7 +68,6 @@ export default function GoalsPage() {
       message.success("هدف پس‌انداز ساخته شد");
       setTitle("");
       setTargetAmount("");
-      setCurrentAmount("0");
       setDeadline("");
       void queryClient.invalidateQueries({ queryKey: ["goals"] });
     },
@@ -80,12 +82,22 @@ export default function GoalsPage() {
   });
 
   const contributeMutation = useMutation({
-    mutationFn: async ({ id, amount }: { id: string; amount: number }) =>
-      contributeGoal(id, amount),
+    mutationFn: async ({
+      id,
+      amount,
+      accountId,
+    }: {
+      id: string;
+      amount: number;
+      accountId: string;
+    }) => contributeGoal(id, { amount, accountId }),
     onSuccess: (_data, vars) => {
-      message.success("به هدف اضافه شد");
+      message.success("از حساب کم و به هدف اضافه شد");
       setContributeAmounts((s) => ({ ...s, [vars.id]: "" }));
       void queryClient.invalidateQueries({ queryKey: ["goals"] });
+      void queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      void queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
     onError: (err: unknown) => {
       const msg =
@@ -158,22 +170,18 @@ export default function GoalsPage() {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
           />
+          <Text type="secondary" className="text-xs">
+            پیشرفت هدف فقط با «افزودن» از حساب بانکی ثبت می‌شود تا موجودی نقد دوبار شمرده نشود.
+          </Text>
           <Row gutter={[12, 12]}>
-            <Col xs={24} sm={12} md={8}>
+            <Col xs={24} sm={12}>
               <AmountInput
                 placeholder="مبلغ هدف (تومان)"
                 value={targetAmount}
                 onChange={setTargetAmount}
               />
             </Col>
-            <Col xs={24} sm={12} md={8}>
-              <AmountInput
-                placeholder="پس‌انداز فعلی"
-                value={currentAmount}
-                onChange={setCurrentAmount}
-              />
-            </Col>
-            <Col xs={24} sm={12} md={8}>
+            <Col xs={24} sm={12}>
               <JalaliDateInput
                 placeholder="مهلت YYYY/MM/DD"
                 value={deadline}
@@ -267,6 +275,22 @@ export default function GoalsPage() {
                 vertical={isMobile}
                 className={cn("mt-3", isMobile && "w-full")}
               >
+                <Select
+                  className={cn(isMobile ? "w-full" : "min-w-[160px]")}
+                  placeholder="از حساب"
+                  value={
+                    contributeAccounts[goal.id] ||
+                    selectedAccountId ||
+                    accountsQ.data?.[0]?.id
+                  }
+                  onChange={(v) =>
+                    setContributeAccounts((s) => ({ ...s, [goal.id]: v }))
+                  }
+                  options={(accountsQ.data ?? []).map((a) => ({
+                    value: a.id,
+                    label: a.name,
+                  }))}
+                />
                 <div className={cn("flex-1", isMobile ? "min-w-full" : "min-w-[120px]")}>
                   <AmountInput
                     placeholder="مبلغ افزودنی"
@@ -282,14 +306,23 @@ export default function GoalsPage() {
                   loading={contributeMutation.isPending}
                   onClick={() => {
                     const value = parseAmountInput(contributeAmounts[goal.id] ?? "");
+                    const accountId =
+                      contributeAccounts[goal.id] ||
+                      selectedAccountId ||
+                      accountsQ.data?.[0]?.id ||
+                      "";
                     if (!Number.isFinite(value) || value <= 0) {
                       message.error("مبلغ معتبر نیست");
                       return;
                     }
-                    contributeMutation.mutate({ id: goal.id, amount: value });
+                    if (!accountId) {
+                      message.error("حساب بانکی را انتخاب کنید");
+                      return;
+                    }
+                    contributeMutation.mutate({ id: goal.id, amount: value, accountId });
                   }}
                 >
-                  افزودن
+                  افزودن از حساب
                 </Button>
               </Flex>
             ) : null}

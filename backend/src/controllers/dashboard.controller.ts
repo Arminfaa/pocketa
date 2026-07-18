@@ -7,6 +7,11 @@ import { sendSuccess } from "../utils/apiResponse";
 import { TransactionModel } from "../models/Transaction";
 import { BankAccountModel } from "../models/BankAccount";
 import { ensureDefaultAccount } from "../services/account.service";
+import {
+  computeNetWorth,
+  getActiveAccountIds,
+  getNonOperatingCategoryIds,
+} from "../services/accounting.service";
 
 function currentJalaliMonthYear() {
   const now = new Date();
@@ -23,20 +28,25 @@ function prefix(year: number, month: number) {
   return `${year}/${String(month).padStart(2, "0")}/`;
 }
 
-async function sumByTypeAndMonth(
+async function sumOperatingByTypeAndMonth(
   userId: string,
   type: "income" | "expense",
   year: number,
   month: number,
-  accountId?: string
+  accountScope: mongoose.Types.ObjectId | { $in: mongoose.Types.ObjectId[] },
+  nonOpCategoryIds: mongoose.Types.ObjectId[]
 ) {
   const p = prefix(year, month);
   const match: Record<string, unknown> = {
     userId: new mongoose.Types.ObjectId(userId),
     type,
     date: { $regex: `^${p}` },
+    accountId: accountScope,
+    source: { $nin: ["transfer", "balance_adjustment", "investment", "goal"] },
   };
-  if (accountId) match.accountId = new mongoose.Types.ObjectId(accountId);
+  if (nonOpCategoryIds.length > 0) {
+    match.categoryId = { $nin: nonOpCategoryIds };
+  }
 
   const result = await TransactionModel.aggregate([
     { $match: match },
@@ -64,20 +74,31 @@ export const getDashboard = asyncHandler(async (req: Request, res: Response) => 
   const { year, month } = currentJalaliMonthYear();
   const prev = prevMonthYear(year, month);
 
-  const userObjectId = new mongoose.Types.ObjectId(userId);
-  const overallMatch: Record<string, unknown> = { userId: userObjectId };
-  if (accountId) overallMatch.accountId = new mongoose.Types.ObjectId(accountId);
+  const activeIds = await getActiveAccountIds(userId);
+  const nonOp = await getNonOperatingCategoryIds(userId);
 
-  const [incomeThis, expenseThis, incomePrev, expensePrev, overall] = await Promise.all([
-    sumByTypeAndMonth(userId, "income", year, month, accountId),
-    sumByTypeAndMonth(userId, "expense", year, month, accountId),
-    sumByTypeAndMonth(userId, "income", prev.year, prev.month, accountId),
-    sumByTypeAndMonth(userId, "expense", prev.year, prev.month, accountId),
-    TransactionModel.aggregate([
-      { $match: overallMatch },
-      { $group: { _id: "$type", sum: { $sum: "$amount" } } },
-    ]),
-  ]);
+  const accountScope: mongoose.Types.ObjectId | { $in: mongoose.Types.ObjectId[] } =
+    accountId
+      ? new mongoose.Types.ObjectId(accountId)
+      : { $in: activeIds.length > 0 ? activeIds : [new mongoose.Types.ObjectId()] };
+
+  const balanceMatch: Record<string, unknown> = {
+    userId: new mongoose.Types.ObjectId(userId),
+    accountId: accountScope,
+  };
+
+  const [incomeThis, expenseThis, incomePrev, expensePrev, overall, netWorth] =
+    await Promise.all([
+      sumOperatingByTypeAndMonth(userId, "income", year, month, accountScope, nonOp),
+      sumOperatingByTypeAndMonth(userId, "expense", year, month, accountScope, nonOp),
+      sumOperatingByTypeAndMonth(userId, "income", prev.year, prev.month, accountScope, nonOp),
+      sumOperatingByTypeAndMonth(userId, "expense", prev.year, prev.month, accountScope, nonOp),
+      TransactionModel.aggregate([
+        { $match: balanceMatch },
+        { $group: { _id: "$type", sum: { $sum: "$amount" } } },
+      ]),
+      accountId ? null : computeNetWorth(userId),
+    ]);
 
   const totalByType = new Map<string, number>();
   for (const row of overall) totalByType.set(String(row._id), row.sum);
@@ -85,11 +106,11 @@ export const getDashboard = asyncHandler(async (req: Request, res: Response) => 
   const incomeTotal = totalByType.get("income") ?? 0;
   const expenseTotal = totalByType.get("expense") ?? 0;
 
-  // Accounting identity: موجودی = درآمد − هزینه (no hidden initialBalance plug)
+  // Full ledger identity (includes opening/adjustment/transfers/investments/goals)
   const balance = incomeTotal - expenseTotal;
 
   const savings = incomeThis - expenseThis;
-  const savingsPercent = incomeThis > 0 ? Math.max(0, (savings / incomeThis) * 100) : 0;
+  const savingsPercent = incomeThis > 0 ? (savings / incomeThis) * 100 : 0;
 
   return sendSuccess(res, {
     currentMonth: { year, month },
@@ -105,5 +126,14 @@ export const getDashboard = asyncHandler(async (req: Request, res: Response) => 
       expenseThisMonth: expenseThis,
       savingsPercent,
     },
+    netWorth: netWorth
+      ? {
+          cash: netWorth.cash,
+          investmentsValue: netWorth.investmentsValue,
+          liabilities: netWorth.liabilities,
+          receivables: netWorth.receivables,
+          netWorth: netWorth.netWorth,
+        }
+      : null,
   });
 });

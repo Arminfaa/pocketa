@@ -21,4 +21,7 @@ export const GoalUpdateSchema = GoalCreateSchema.partial().extend({
 
 export const GoalContributeSchema = z.object({
   amount: z.coerce.number().positive(),
+  /** Bank account to debit for this contribution */
+  accountId: z.string().min(1, "حساب بانکی را انتخاب کنید"),
+  date: JalaliDateSchema.optional().nullable(),
 });

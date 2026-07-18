@@ -190,13 +190,13 @@ export default function DashboardPage() {
           <Row gutter={[16, 16]}>
             <Col xs={24} sm={12} lg={6}>
               <Card>
-                <Statistic title="موجودی فعلی" value={formatToman(dashboard.totals.balance)} />
+                <Statistic title="موجودی نقد" value={formatToman(dashboard.totals.balance)} />
               </Card>
             </Col>
             <Col xs={24} sm={12} lg={6}>
               <Card>
                 <Statistic
-                  title="درآمد این ماه"
+                  title="درآمد عملیاتی این ماه"
                   value={formatToman(dashboard.totals.incomeThisMonth)}
                   className="[&_.ant-statistic-content-value]:text-emerald-500"
                 />
@@ -205,7 +205,7 @@ export default function DashboardPage() {
             <Col xs={24} sm={12} lg={6}>
               <Card>
                 <Statistic
-                  title="هزینه این ماه"
+                  title="هزینه عملیاتی این ماه"
                   value={formatToman(dashboard.totals.expenseThisMonth)}
                   className="[&_.ant-statistic-content-value]:text-red-500"
                 />
@@ -214,13 +214,53 @@ export default function DashboardPage() {
             <Col xs={24} sm={12} lg={6}>
               <Card>
                 <Statistic
-                  title="درصد پس‌انداز"
+                  title="درصد پس‌انداز عملیاتی"
                   value={dashboard.totals.savingsPercent.toFixed(1)}
                   suffix="%"
                 />
               </Card>
             </Col>
           </Row>
+
+          {dashboard.netWorth && !selectedAccountId ? (
+            <Card title="ارزش خالص (خلاصه تراز)">
+              <Row gutter={[16, 16]}>
+                <Col xs={12} sm={8} md={4}>
+                  <Statistic title="نقد" value={formatToman(dashboard.netWorth.cash)} />
+                </Col>
+                <Col xs={12} sm={8} md={5}>
+                  <Statistic
+                    title="سرمایه‌گذاری"
+                    value={formatToman(dashboard.netWorth.investmentsValue)}
+                  />
+                </Col>
+                <Col xs={12} sm={8} md={5}>
+                  <Statistic
+                    title="بدهی‌ها"
+                    value={formatToman(dashboard.netWorth.liabilities)}
+                    className="[&_.ant-statistic-content-value]:text-red-500"
+                  />
+                </Col>
+                <Col xs={12} sm={8} md={5}>
+                  <Statistic
+                    title="طلب‌ها"
+                    value={formatToman(dashboard.netWorth.receivables)}
+                    className="[&_.ant-statistic-content-value]:text-emerald-500"
+                  />
+                </Col>
+                <Col xs={24} sm={16} md={5}>
+                  <Statistic
+                    title="ارزش خالص"
+                    value={formatToman(dashboard.netWorth.netWorth)}
+                    className="[&_.ant-statistic-content-value]:text-brand-500"
+                  />
+                </Col>
+              </Row>
+              <Text type="secondary" className="mt-2 block text-xs">
+                ارزش خالص = نقد + سرمایه‌گذاری − بدهی + طلب (سررسیدهای فعال)
+              </Text>
+            </Card>
+          ) : null}
 
           <Row gutter={[16, 16]}>
             <Col xs={24} lg={12}>

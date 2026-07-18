@@ -23,7 +23,7 @@ export type Transaction = {
   title: string;
   description?: string;
   date: string;
-  source?: "manual" | "bank_sms" | "balance_adjustment";
+  source?: "manual" | "bank_sms" | "balance_adjustment" | "transfer" | "investment" | "goal";
   needsReview?: boolean;
   tags?: string[];
   importHash?: string;

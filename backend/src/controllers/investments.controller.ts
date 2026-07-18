@@ -4,6 +4,8 @@ import { AppError } from "../utils/AppError";
 import { sendSuccess } from "../utils/apiResponse";
 import { InvestmentModel } from "../models/Investment";
 import { RecurringTransactionModel } from "../models/RecurringTransaction";
+import { TransactionModel } from "../models/Transaction";
+import { BankAccountModel } from "../models/BankAccount";
 import { InvestmentCreateSchema, InvestmentUpdateSchema } from "../validations/investments";
 import { normalizeJalaliDate } from "../utils/normalizeDigits";
 import { getMarketPrices } from "../services/market-prices.service";
@@ -16,6 +18,10 @@ import {
   type GoldKind,
   type InvestmentAssetType,
 } from "../services/investment.service";
+import {
+  ensureNamedCategory,
+  INVESTMENT_PURCHASE_CATEGORY_NAME,
+} from "../services/accounting.service";
 
 function unitPriceToman(
   assetType: InvestmentAssetType | string,
@@ -161,6 +167,16 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
   const purchasePricePerUnit =
     data.assetType === "rial" ? 1 : data.purchasePricePerUnit;
 
+  const account = await BankAccountModel.findOne({
+    _id: data.accountId,
+    userId,
+    isActive: true,
+  });
+  if (!account) throw new AppError(404, "حساب بانکی یافت نشد");
+
+  const costBasis = Math.round(data.quantity * purchasePricePerUnit);
+  if (costBasis <= 0) throw new AppError(400, "مبلغ خرید معتبر نیست");
+
   const investment = await InvestmentModel.create({
     userId,
     title: data.title,
@@ -182,6 +198,29 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
     profitAssetQuantity: data.hasProfit ? profitAssetQuantity : 0,
     notes: data.notes ?? "",
     active: true,
+  });
+
+  // Post cash outlay so holdings are not double-counted with bank balance
+  const purchaseCategory = await ensureNamedCategory(
+    userId,
+    INVESTMENT_PURCHASE_CATEGORY_NAME,
+    "expense",
+    "TrendingUp",
+    "#0ea5e9"
+  );
+  await TransactionModel.create({
+    userId,
+    accountId: account._id,
+    type: "expense",
+    amount: costBasis,
+    categoryId: purchaseCategory._id,
+    title: `خرید ${data.title}`,
+    description: `خروج نقد برای خرید سرمایه‌گذاری (${assetTypeLabel(data.assetType, goldKind)})`,
+    date: purchaseDate,
+    tags: ["سرمایه-گذاری"],
+    source: "investment",
+    needsReview: false,
+    investmentId: investment._id,
   });
 
   if (data.hasProfit && profitAssetQuantity > 0 && data.profitNextDate && data.profitFrequency) {

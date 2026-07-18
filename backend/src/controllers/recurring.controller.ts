@@ -516,16 +516,18 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
       );
     }
 
+    // Postponed due amount becomes a one-time debt only — do NOT also roll it
+    // into next month's installment (that double-counted the liability).
     deferredDebt = await createDeferredOneTimeDebt(
       userId,
       recurring,
-      baseAmount,
+      dueAmount,
       deferDate,
       `تعویق قسط به ${deferDate}`,
       "تعویق"
     );
 
-    recurring.amount = dueAmount + baseAmount;
+    recurring.amount = baseAmount;
     recurring.baseAmount = baseAmount;
     advanceRecurringSchedule(recurring);
 
@@ -540,7 +542,7 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
         nextAmount: recurring.amount,
         active: recurring.active,
       },
-      `قسط به ماه بعد منتقل شد (${Math.round(recurring.amount).toLocaleString("en-US")} تومان) و بدهی تعویق ثبت شد`
+      `قسط تعویق شد؛ بدهی جدا به مبلغ ${Math.round(dueAmount).toLocaleString("en-US")} تومان ثبت شد و قسط بعدی ${Math.round(baseAmount).toLocaleString("en-US")} تومان است`
     );
   }
 

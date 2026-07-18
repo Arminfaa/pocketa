@@ -32,7 +32,7 @@ export const list = asyncHandler(async (req: Request, res: Response) => {
   const parsed = BudgetQuerySchema.safeParse(req.query);
   if (!parsed.success) throw new AppError(400, "خطا در اعتبارسنجی داده‌ها", parsed.error.flatten());
 
-  const { page, limit, month, year } = parsed.data;
+  const { page, limit, month, year, accountId } = parsed.data;
   const current = getCurrentJalaliMonthYear();
   const y = year ?? current.year;
   const m = month ?? current.month;
@@ -47,14 +47,17 @@ export const list = asyncHandler(async (req: Request, res: Response) => {
     .populate({ path: "categoryId", select: "name icon color type" });
 
   const prefix = datePrefix(y, m);
+  const expenseMatch: Record<string, unknown> = {
+    userId: new mongoose.Types.ObjectId(userId),
+    type: "expense",
+    date: { $regex: `^${prefix}` },
+    source: { $nin: ["transfer", "balance_adjustment", "investment", "goal"] },
+  };
+  if (accountId) {
+    expenseMatch.accountId = new mongoose.Types.ObjectId(accountId);
+  }
   const expenseSums = await TransactionModel.aggregate([
-    {
-      $match: {
-        userId: new mongoose.Types.ObjectId(userId),
-        type: "expense",
-        date: { $regex: `^${prefix}` },
-      },
-    },
+    { $match: expenseMatch },
     { $group: { _id: "$categoryId", sum: { $sum: "$amount" } } },
   ]);
 

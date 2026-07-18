@@ -26,12 +26,14 @@ import {
   PlusOutlined,
   DeleteOutlined,
   ExclamationCircleOutlined,
+  SwapOutlined,
 } from "@ant-design/icons";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { fetchAccounts } from "@/services/accounts";
 import {
   bulkDeleteTransactions,
   createTransaction,
+  createTransfer,
   deleteTransaction,
   fetchCategories,
   fetchTransactions,
@@ -46,6 +48,7 @@ import { TransactionsListSkeleton } from "@/components/skeletons";
 import { QueryError } from "@/components/ui/query-error";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TransactionFormModal } from "@/features/transactions/TransactionFormModal";
+import { TransferFormModal } from "@/features/transactions/TransferFormModal";
 
 const { useBreakpoint } = Grid;
 const { Title, Text } = Typography;
@@ -76,6 +79,7 @@ export default function TransactionsPage() {
   });
   const [searchInput, setSearchInput] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
@@ -144,6 +148,23 @@ export default function TransactionsPage() {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         "خطا در ذخیره تراکنش";
+      message.error(msg);
+    },
+  });
+
+  const transferMutation = useMutation({
+    mutationFn: createTransfer,
+    onSuccess: () => {
+      message.success("انتقال بین حساب‌ها ثبت شد");
+      setTransferOpen(false);
+      void queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      void queryClient.invalidateQueries({ queryKey: ["accounts"] });
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        "خطا در ثبت انتقال";
       message.error(msg);
     },
   });
@@ -399,6 +420,9 @@ export default function TransactionsPage() {
           <Button icon={<DownloadOutlined />} onClick={() => void handleExport()}>
             خروجی CSV
           </Button>
+          <Button icon={<SwapOutlined />} onClick={() => setTransferOpen(true)}>
+            انتقال بین حساب
+          </Button>
           <Button
             type="primary"
             icon={<PlusOutlined />}
@@ -640,6 +664,17 @@ export default function TransactionsPage() {
         submitting={saveMutation.isPending}
         onSubmit={async (values) => {
           await saveMutation.mutateAsync(values);
+        }}
+      />
+
+      <TransferFormModal
+        open={transferOpen}
+        onClose={() => setTransferOpen(false)}
+        accounts={accountsQ.data ?? []}
+        defaultFromAccountId={selectedAccountId ?? accountsQ.data?.[0]?.id ?? null}
+        submitting={transferMutation.isPending}
+        onSubmit={async (values) => {
+          await transferMutation.mutateAsync(values);
         }}
       />
     </Space>

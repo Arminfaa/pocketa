@@ -40,6 +40,17 @@ export async function createTransaction(payload: TransactionInput): Promise<Tran
   return res.data.data.item as Transaction;
 }
 
+export async function createTransfer(payload: {
+  fromAccountId: string;
+  toAccountId: string;
+  amount: number;
+  title?: string;
+  description?: string | null;
+  date: string;
+}): Promise<void> {
+  await api.post("/api/transactions/transfer", payload);
+}
+
 export async function updateTransaction(
   id: string,
   payload: Partial<TransactionInput>
