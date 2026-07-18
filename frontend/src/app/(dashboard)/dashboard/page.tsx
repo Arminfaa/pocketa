@@ -224,39 +224,82 @@ export default function DashboardPage() {
 
           {dashboard.netWorth && !selectedAccountId ? (
             <Card title="ارزش خالص (خلاصه تراز)">
-              <Row gutter={[16, 16]}>
-                <Col xs={12} sm={8} md={4}>
-                  <Statistic title="نقد" value={formatToman(dashboard.netWorth.cash)} />
-                </Col>
-                <Col xs={12} sm={8} md={5}>
-                  <Statistic
-                    title="سرمایه‌گذاری"
-                    value={formatToman(dashboard.netWorth.investmentsValue)}
-                  />
-                </Col>
-                <Col xs={12} sm={8} md={5}>
-                  <Statistic
-                    title="بدهی‌ها"
-                    value={formatToman(dashboard.netWorth.liabilities)}
-                    className="[&_.ant-statistic-content-value]:text-red-500"
-                  />
-                </Col>
-                <Col xs={12} sm={8} md={5}>
-                  <Statistic
-                    title="طلب‌ها"
-                    value={formatToman(dashboard.netWorth.receivables)}
-                    className="[&_.ant-statistic-content-value]:text-emerald-500"
-                  />
-                </Col>
-                <Col xs={24} sm={16} md={5}>
-                  <Statistic
-                    title="ارزش خالص"
-                    value={formatToman(dashboard.netWorth.netWorth)}
-                    className="[&_.ant-statistic-content-value]:text-brand-500"
-                  />
-                </Col>
-              </Row>
-              <Text type="secondary" className="mt-2 block text-xs">
+              {isMobile ? (
+                <div className="flex flex-col gap-3">
+                  {[
+                    { label: "نقد", value: dashboard.netWorth.cash, valueClassName: "" },
+                    {
+                      label: "سرمایه‌گذاری",
+                      value: dashboard.netWorth.investmentsValue,
+                      valueClassName: "",
+                    },
+                    {
+                      label: "بدهی‌ها",
+                      value: dashboard.netWorth.liabilities,
+                      valueClassName: "text-red-500",
+                    },
+                    {
+                      label: "طلب‌ها",
+                      value: dashboard.netWorth.receivables,
+                      valueClassName: "text-emerald-500",
+                    },
+                    {
+                      label: "ارزش خالص",
+                      value: dashboard.netWorth.netWorth,
+                      valueClassName: "text-brand-500 font-semibold",
+                    },
+                  ].map((row) => (
+                    <Flex
+                      key={row.label}
+                      justify="space-between"
+                      align="center"
+                      gap="middle"
+                      className="border-b border-app-border/50 pb-3 last:border-b-0 last:pb-0"
+                    >
+                      <Text type="secondary" className="shrink-0">
+                        {row.label}
+                      </Text>
+                      <Text className={`min-w-0 text-left tabular-nums ${row.valueClassName}`}>
+                        {formatToman(row.value)}
+                      </Text>
+                    </Flex>
+                  ))}
+                </div>
+              ) : (
+                <Row gutter={[16, 16]}>
+                  <Col sm={8} md={4}>
+                    <Statistic title="نقد" value={formatToman(dashboard.netWorth.cash)} />
+                  </Col>
+                  <Col sm={8} md={5}>
+                    <Statistic
+                      title="سرمایه‌گذاری"
+                      value={formatToman(dashboard.netWorth.investmentsValue)}
+                    />
+                  </Col>
+                  <Col sm={8} md={5}>
+                    <Statistic
+                      title="بدهی‌ها"
+                      value={formatToman(dashboard.netWorth.liabilities)}
+                      className="[&_.ant-statistic-content-value]:text-red-500"
+                    />
+                  </Col>
+                  <Col sm={8} md={5}>
+                    <Statistic
+                      title="طلب‌ها"
+                      value={formatToman(dashboard.netWorth.receivables)}
+                      className="[&_.ant-statistic-content-value]:text-emerald-500"
+                    />
+                  </Col>
+                  <Col sm={16} md={5}>
+                    <Statistic
+                      title="ارزش خالص"
+                      value={formatToman(dashboard.netWorth.netWorth)}
+                      className="[&_.ant-statistic-content-value]:text-brand-500"
+                    />
+                  </Col>
+                </Row>
+              )}
+              <Text type="secondary" className="mt-3 block text-xs">
                 ارزش خالص = نقد + سرمایه‌گذاری − بدهی + طلب (سررسیدهای فعال)
               </Text>
             </Card>
