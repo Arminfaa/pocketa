@@ -25,7 +25,67 @@ export type NavItem = {
   match?: (pathname: string) => boolean;
 };
 
-/** Primary mobile bottom tabs (5 slots). "more" opens the overflow drawer. */
+const BOTTOM_PRIMARY_BASES = new Set(["/dashboard", "/transactions", "/reports"]);
+
+/** Overflow destinations shown in the mobile «بیشتر» action sheet. */
+export const MORE_NAV_ITEMS: NavItem[] = [
+  {
+    key: "imports",
+    href: "/imports/bank-sms",
+    label: "ایمپورت پیامک",
+    icon: <ImportOutlined />,
+  },
+  {
+    key: "review",
+    href: "/review",
+    label: "نام‌گذاری",
+    icon: <FormOutlined />,
+  },
+  {
+    key: "recurring",
+    href: "/recurring",
+    label: "سررسید‌ها",
+    icon: <AccountBookOutlined />,
+  },
+  {
+    key: "investments",
+    href: "/investments",
+    label: "سرمایه‌گذاری",
+    icon: <FundOutlined />,
+  },
+  {
+    key: "goals",
+    href: "/goals",
+    label: "اهداف",
+    icon: <AimOutlined />,
+  },
+  {
+    key: "accounts",
+    href: "/accounts",
+    label: "حساب‌ها",
+    icon: <BankOutlined />,
+  },
+  {
+    key: "categories",
+    href: "/categories",
+    label: "دسته‌بندی‌ها",
+    icon: <TagsOutlined />,
+  },
+  {
+    key: "budgets",
+    href: "/budgets",
+    label: "بودجه",
+    icon: <WalletOutlined />,
+  },
+  {
+    key: "settings",
+    href: "/settings",
+    label: "تنظیمات",
+    icon: <SettingOutlined />,
+  },
+].filter((it) => !BOTTOM_PRIMARY_BASES.has(it.href.split("?")[0] ?? it.href));
+
+/** Primary mobile bottom tabs (5 slots). "more" opens the bottom action sheet. */
 export const BOTTOM_NAV_ITEMS: NavItem[] = [
   {
     key: "home",
