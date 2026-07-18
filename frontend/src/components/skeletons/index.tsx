@@ -51,15 +51,26 @@ function ChartCardSkeleton({
   );
 }
 
-/** Dashboard: 4 KPI cards + 2 chart cards (stack on mobile). */
+/** Dashboard content placeholder — matches hero + section cards. */
 export function DashboardSkeleton() {
   return (
     <div className="w-full space-y-4" aria-busy="true">
-      <KpiRowSkeleton
-        count={4}
-        colProps={{ xs: 24, sm: 12, lg: 6 }}
-        gutter={[16, 16]}
-      />
+      <div className="surface-card space-y-4 p-5 sm:p-6">
+        <Sk className="mx-auto h-3 w-24 sm:mx-0" />
+        <Sk className="mx-auto h-10 w-56 sm:mx-0" />
+        <Sk className="mx-auto h-3 w-40 sm:mx-0" />
+        <div className="grid grid-cols-2 gap-3">
+          <Sk className="h-16 w-full rounded-2xl" />
+          <Sk className="h-16 w-full rounded-2xl" />
+        </div>
+        <Sk className="h-12 w-full rounded-2xl" />
+      </div>
+      <div className="surface-card space-y-3 p-4 sm:p-5">
+        <Sk className="h-4 w-32" />
+        <Sk className="h-3 w-full" />
+        <Sk className="h-3 w-5/6" />
+        <Sk className="h-3 w-2/3" />
+      </div>
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={12}>
           <ChartCardSkeleton titleWidth="55%" />
@@ -68,6 +79,71 @@ export function DashboardSkeleton() {
           <ChartCardSkeleton titleWidth="45%" />
         </Col>
       </Row>
+    </div>
+  );
+}
+
+/** Initial auth gate — mirrors AppLayout chrome, not a random dashboard. */
+export function AppShellSkeleton() {
+  return (
+    <div className="flex h-dvh max-h-dvh overflow-hidden bg-app-surface" aria-busy="true">
+      {/* Desktop sidebar */}
+      <aside className="hidden h-full w-[268px] shrink-0 border-l border-app-border bg-app-card p-4 lg:flex lg:flex-col lg:gap-4">
+        <div className="flex items-center gap-3 px-1 py-2">
+          <Sk className="h-10 w-10 shrink-0 rounded-2xl" />
+          <div className="min-w-0 flex-1 space-y-2">
+            <Sk className="h-4 w-24" />
+            <Sk className="h-3 w-32" />
+          </div>
+        </div>
+        <div className="space-y-2 px-1">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Sk key={i} className="h-10 w-full rounded-2xl" />
+          ))}
+        </div>
+      </aside>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="shrink-0 border-b border-app-border bg-app-card/90 px-3 py-3 sm:px-5">
+          <div className="flex items-center gap-3 lg:hidden">
+            <Sk className="h-9 w-9 shrink-0 rounded-2xl" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <Sk className="h-4 w-28" />
+              <Sk className="h-3 w-36" />
+            </div>
+            <Sk className="h-9 w-9 shrink-0 rounded-full" />
+          </div>
+          <div className="mt-3 lg:mt-0">
+            <Sk className="hidden h-10 w-44 rounded-2xl lg:block" />
+            <Sk className="h-10 w-full rounded-2xl lg:hidden" />
+          </div>
+        </header>
+
+        <main className="flex-1 space-y-4 overflow-hidden p-3 sm:p-4 md:p-6">
+          <div className="flex items-center gap-3">
+            <Sk className="h-12 w-12 shrink-0 rounded-2xl" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <Sk className="h-5 w-40" />
+              <Sk className="h-3 w-56 max-w-full" />
+            </div>
+          </div>
+          <div className="surface-card space-y-4 p-5">
+            <Sk className="h-3 w-24" />
+            <Sk className="h-10 w-48" />
+            <div className="grid grid-cols-2 gap-3">
+              <Sk className="h-16 rounded-2xl" />
+              <Sk className="h-16 rounded-2xl" />
+            </div>
+            <Sk className="h-12 rounded-2xl" />
+          </div>
+          <div className="surface-card space-y-3 p-4">
+            <Sk className="h-4 w-1/3" />
+            <Sk className="h-3 w-full" />
+            <Sk className="h-3 w-5/6" />
+            <Sk className="h-3 w-2/3" />
+          </div>
+        </main>
+      </div>
     </div>
   );
 }
