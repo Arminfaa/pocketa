@@ -14,6 +14,8 @@ const TransactionSchema = new Schema(
 
     // Jalali date string: YYYY/MM/DD
     date: { type: String, required: true, index: true },
+    /** Optional clock time HH:mm (from SMS import or manual picker) */
+    time: { type: String, required: false, default: "" },
 
     source: {
       type: String,
@@ -70,8 +72,8 @@ const TransactionSchema = new Schema(
   { timestamps: true }
 );
 
-TransactionSchema.index({ userId: 1, accountId: 1, date: -1 });
-TransactionSchema.index({ userId: 1, type: 1, date: -1 });
+TransactionSchema.index({ userId: 1, accountId: 1, date: -1, time: -1 });
+TransactionSchema.index({ userId: 1, type: 1, date: -1, time: -1 });
 TransactionSchema.index({ userId: 1, tags: 1 });
 TransactionSchema.index(
   { userId: 1, importHash: 1 },

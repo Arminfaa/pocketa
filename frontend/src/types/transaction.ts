@@ -23,6 +23,8 @@ export type Transaction = {
   title: string;
   description?: string;
   date: string;
+  /** HH:mm when known (import or manual) */
+  time?: string;
   source?: "manual" | "bank_sms" | "balance_adjustment" | "transfer" | "investment" | "goal";
   needsReview?: boolean;
   tags?: string[];
@@ -52,6 +54,7 @@ export type TransactionInput = {
   title: string;
   description?: string | null;
   date: string;
+  time?: string | null;
   needsReview?: boolean;
   tags?: string[];
   /** ثبت هم‌زمان به‌عنوان بدهی (درآمد) یا طلب (هزینه) */
