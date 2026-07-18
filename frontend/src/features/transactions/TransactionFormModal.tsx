@@ -341,8 +341,12 @@ export function TransactionFormModal({
       }
     >
       <Form form={form} layout="vertical" onFinish={handleFinish} requiredMark={false}>
-        <Form.Item name="type" rules={[{ required: true, message: "نوع را انتخاب کنید" }]}>
-          <FinanceTypeToggle />
+        <Form.Item
+          name="type"
+          className="!mb-4 w-full"
+          rules={[{ required: true, message: "نوع را انتخاب کنید" }]}
+        >
+          <FinanceTypeToggle className="w-full" />
         </Form.Item>
 
         {isCreate ? (

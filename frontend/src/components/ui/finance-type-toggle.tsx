@@ -18,18 +18,19 @@ export function FinanceTypeToggle({ className, withAll = false, ...props }: Prop
     <Radio.Group
       optionType="button"
       buttonStyle="solid"
-      className={cn("finance-type-toggle flex w-full", className)}
+      block
+      className={cn("finance-type-toggle w-full", className)}
       {...props}
     >
       {withAll ? (
-        <Radio.Button value="all" className="finance-type-all flex-1 text-center">
+        <Radio.Button value="all" className="finance-type-all">
           همه
         </Radio.Button>
       ) : null}
-      <Radio.Button value="expense" className="finance-type-expense flex-1 text-center">
+      <Radio.Button value="expense" className="finance-type-expense">
         هزینه
       </Radio.Button>
-      <Radio.Button value="income" className="finance-type-income flex-1 text-center">
+      <Radio.Button value="income" className="finance-type-income">
         درآمد
       </Radio.Button>
     </Radio.Group>

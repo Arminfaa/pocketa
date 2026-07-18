@@ -166,25 +166,23 @@ export default function CategoriesPage() {
         }
       >
         <Space orientation="vertical" size="middle" className="w-full">
-          <Row gutter={[12, 12]}>
-            <Col xs={24} md={14}>
-              <Text type="secondary">نام</Text>
-              <Input
-                className="mt-2"
-                value={form.name}
-                onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
-                placeholder="مثلاً خوراک"
-              />
-            </Col>
-            <Col xs={24} md={10}>
-              <Text type="secondary">نوع</Text>
-              <FinanceTypeToggle
-                className="mt-2"
-                value={form.type}
-                onChange={(e) => setForm((s) => ({ ...s, type: e.target.value }))}
-              />
-            </Col>
-          </Row>
+          <div>
+            <Text type="secondary">نوع</Text>
+            <FinanceTypeToggle
+              className="mt-2"
+              value={form.type}
+              onChange={(e) => setForm((s) => ({ ...s, type: e.target.value }))}
+            />
+          </div>
+          <div>
+            <Text type="secondary">نام</Text>
+            <Input
+              className="mt-2"
+              value={form.name}
+              onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
+              placeholder="مثلاً خوراک"
+            />
+          </div>
 
           <div>
             <Text type="secondary">رنگ</Text>
