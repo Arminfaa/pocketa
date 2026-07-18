@@ -248,13 +248,17 @@
     }
   }
 
-  /* Income / expense type toggle */
+  /* Income / expense type toggle — always full width equal segments */
   .finance-type-toggle.ant-radio-group {
-    @apply w-full;
+    display: flex !important;
+    width: 100% !important;
   }
 
   .finance-type-toggle .ant-radio-button-wrapper {
-    @apply flex-1 text-center;
+    flex: 1 1 0 !important;
+    width: auto !important;
+    min-width: 0 !important;
+    text-align: center !important;
   }
 
   .finance-type-toggle .finance-type-expense.ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled) {
