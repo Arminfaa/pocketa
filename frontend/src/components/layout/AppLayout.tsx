@@ -210,7 +210,7 @@ export default function AppLayout({ children }: PropsWithChildren) {
         <Content
           className={cn(
             "flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6",
-            isMobileShell && "pb-[5.5rem]"
+            isMobileShell && "pb-[6.75rem]"
           )}
         >
           <PageMotion key={pathname}>{children}</PageMotion>

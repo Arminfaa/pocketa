@@ -24,12 +24,12 @@ export function BottomNav({ onMore, moreOpen }: BottomNavProps) {
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       aria-label="ناوبری اصلی"
     >
-      <div className="mx-auto max-w-lg px-3 pb-2 pt-1">
-        <div className="flex items-stretch justify-between gap-0.5 rounded-[1.75rem] border-0 bg-app-card/95 px-1.5 py-1.5 shadow-soft backdrop-blur-xl">
+      <div className="mx-auto max-w-lg px-3 pb-2.5 pt-1.5">
+        <div className="flex items-stretch justify-between gap-1 rounded-[1.85rem] border border-[color-mix(in_srgb,var(--muted)_22%,transparent)] bg-app-card/95 px-2 py-2 shadow-soft backdrop-blur-xl dark:border-[color-mix(in_srgb,var(--muted)_32%,transparent)]">
           {BOTTOM_NAV_ITEMS.map((item) => {
             const active = isItemActive(pathname, item, moreOpen);
             const className = [
-              "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1.5 transition-all",
+              "flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2.5 transition-all",
               active
                 ? "bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300"
                 : "text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800",
@@ -46,18 +46,26 @@ export function BottomNav({ onMore, moreOpen }: BottomNavProps) {
                   aria-label={item.label}
                   aria-expanded={moreOpen}
                 >
-                  <span className={active ? "scale-105" : "opacity-80"}>{item.icon}</span>
-                  <span className="truncate text-[10px] font-medium leading-none">{item.label}</span>
+                  <span className={`text-xl leading-none ${active ? "scale-105" : "opacity-80"}`}>
+                    {item.icon}
+                  </span>
+                  <span className="truncate text-[11px] font-medium leading-none">{item.label}</span>
                 </button>
               );
             }
 
             return (
               <Link key={item.key} href={item.href} className={className} aria-label={item.label}>
-                <span className={item.key === "add" || active ? "scale-105 text-lg leading-none" : "opacity-80"}>
+                <span
+                  className={`leading-none ${
+                    item.key === "add" || active
+                      ? "scale-105 text-[1.35rem]"
+                      : "text-xl opacity-80"
+                  }`}
+                >
                   {item.icon}
                 </span>
-                <span className="truncate text-[10px] font-medium leading-none">{item.label}</span>
+                <span className="truncate text-[11px] font-medium leading-none">{item.label}</span>
               </Link>
             );
           })}
