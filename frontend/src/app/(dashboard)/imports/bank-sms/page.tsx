@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Alert,
   App,
@@ -20,6 +20,7 @@ import {
 import {
   CheckCircleOutlined,
   FileTextOutlined,
+  ShareAltOutlined,
   WarningOutlined,
 } from "@ant-design/icons";
 import { fetchAccounts } from "@/services/accounts";
@@ -39,6 +40,10 @@ import { SoftList, SoftListItem, SoftListRow } from "@/components/ui/soft-list";
 import { SectionCard } from "@/components/ui/section-card";
 import { FilterBar, FilterField } from "@/components/ui/filter-bar";
 import { AmountText } from "@/components/ui/amount-text";
+import {
+  consumeShareImportText,
+  detectImportModeFromText,
+} from "@/lib/share-import";
 
 const { Text } = Typography;
 const { TextArea } = Input;
@@ -75,6 +80,7 @@ export default function BankSmsImportPage() {
   const isMobile = !screens.md;
   const { message } = App.useApp();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const selectedAccountId = useAccountFilterStore((s) => s.selectedAccountId);
 
@@ -91,6 +97,7 @@ export default function BankSmsImportPage() {
     bankHint: string;
     duplicateCount: number;
   } | null>(null);
+  const [shareLoaded, setShareLoaded] = useState(false);
 
   const effectiveAccountId = accountId || accountsQ.data?.[0]?.id || "";
   const isReceiptMode = mode === "card_receipt";
@@ -101,6 +108,35 @@ export default function BankSmsImportPage() {
     setFailedBlocks([]);
     setPreviewMeta(null);
   }
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadShared() {
+      const fromShare = searchParams.get("from") === "share";
+      const shared = await consumeShareImportText();
+      if (cancelled) return;
+      if (shared) {
+        setMode(detectImportModeFromText(shared));
+        setRawText(shared);
+        setItems([]);
+        setSelected({});
+        setFailedBlocks([]);
+        setPreviewMeta(null);
+        setShareLoaded(true);
+        message.success("متن اشتراک‌گذاری‌شده بارگذاری شد");
+        if (fromShare) router.replace("/imports/bank-sms");
+      } else if (fromShare) {
+        setShareLoaded(true);
+        router.replace("/imports/bank-sms");
+      }
+    }
+    void loadShared();
+    return () => {
+      cancelled = true;
+    };
+    // Consume pending share once on mount (sessionStorage / Cache API).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const previewMutation = useMutation({
     mutationFn: () =>
@@ -175,19 +211,31 @@ export default function BankSmsImportPage() {
         description={
           isReceiptMode ? (
             <>
-              ساختار <Text strong>رسید کارت‌به‌کارت</Text> را Paste کنید. جهت واریز/برداشت از{" "}
+              ساختار <Text strong>رسید کارت‌به‌کارت</Text> را Paste کنید یا از منوی اشتراک سیستم به{" "}
+              <Text strong>Pocketa</Text> بفرستید. جهت واریز/برداشت از{" "}
               <Text strong>نام مبدا/مقصد</Text> نسبت به نام پروفایل شما تشخیص داده می‌شود. برای
               برداشت، <Text strong>کارمزد</Text> در مرحله <Text strong>نام‌گذاری</Text> اجباری است
               و به مبلغ انتقال اضافه می‌شود.
             </>
           ) : (
             <>
-              پیامک بانکی (پاسارگاد / ملی) را Paste کنید. مبالغ پیامک معمولاً ریال‌اند و به تومان
-              تبدیل می‌شوند؛ بعد از ورود در صفحه نام‌گذاری عنوان بگذارید.
+              پیامک بانکی (پاسارگاد / ملی) را Paste کنید یا از منوی اشتراک به{" "}
+              <Text strong>Pocketa</Text> بفرستید. مبالغ معمولاً ریال‌اند و به تومان تبدیل می‌شوند؛
+              بعد از ورود در صفحه نام‌گذاری عنوان بگذارید.
             </>
           )
         }
       />
+
+      {shareLoaded ? (
+        <Alert
+          type="info"
+          showIcon
+          icon={<ShareAltOutlined />}
+          title="از اشتراک سیستم"
+          description="متن از Share سیستم بارگذاری شد. حساب را انتخاب کنید و پیش‌نمایش بزنید."
+        />
+      ) : null}
 
       <SectionCard title="ورود متن">
         <Space orientation="vertical" size="middle" className="w-full">
