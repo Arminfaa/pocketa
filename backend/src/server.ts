@@ -8,6 +8,7 @@ import {
   refreshGoldIfNeeded,
 } from "./services/market-prices.service";
 import { migrateLegacyInitialBalances } from "./services/account.service";
+import { backfillTransactionTimes } from "./services/backfill-transaction-times.service";
 
 async function start() {
   await connectDb();
@@ -23,6 +24,19 @@ async function start() {
   } catch (err: unknown) {
     // eslint-disable-next-line no-console
     console.warn("[accounting] initialBalance migration skipped/failed", err);
+  }
+
+  try {
+    const times = await backfillTransactionTimes();
+    if (times.updated > 0) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[transactions] backfilled time on ${times.updated}/${times.scanned} row(s) (skipped ${times.skipped})`
+      );
+    }
+  } catch (err: unknown) {
+    // eslint-disable-next-line no-console
+    console.warn("[transactions] time backfill skipped/failed", err);
   }
 
   startReminderCron();

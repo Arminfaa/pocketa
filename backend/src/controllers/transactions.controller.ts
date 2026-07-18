@@ -13,6 +13,7 @@ import {
   TransferCreateSchema,
 } from "../validations/transactions";
 import { normalizeJalaliDate, toEnglishDigits } from "../utils/normalizeDigits";
+import { normalizeTime } from "../utils/transactionTime";
 import { ensureDefaultAccount } from "../services/account.service";
 import {
   ensureDebtExpenseCategory,
@@ -43,8 +44,8 @@ function buildTransactionSort(
   const dir: 1 | -1 = sortOrder === "asc" ? 1 : -1;
   const field = safeSort(sortBy);
   if (field === "date") {
-    // آخرین تراکنش انجام‌شده = تاریخ جدیدتر، بعد ساعت پیامک، بعد زمان ثبت
-    return { date: dir, "bankMeta.time": dir, createdAt: dir };
+    // آخرین تراکنش انجام‌شده = تاریخ جدیدتر، بعد ساعت، بعد زمان ثبت
+    return { date: dir, time: dir, "bankMeta.time": dir, createdAt: dir };
   }
   return { [field]: dir, createdAt: -1 };
 }
@@ -118,6 +119,7 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
     title,
     description,
     date,
+    time,
     tags,
     registerAsDebt,
     debtDueDate,
@@ -138,6 +140,10 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
   }
 
   const normalizedDate = normalizeJalaliDate(date);
+  const normalizedTime = normalizeTime(time);
+  if (time && String(time).trim() && !normalizedTime) {
+    throw new AppError(400, "ساعت باید به صورت HH:mm باشد");
+  }
 
   const tx = await TransactionModel.create({
     userId,
@@ -148,6 +154,7 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
     title,
     description: description ?? "",
     date: normalizedDate,
+    time: normalizedTime,
     tags: tags ?? [],
     source: "manual",
     needsReview: false,
@@ -308,6 +315,13 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
   if (parsed.data.title) next.title = parsed.data.title;
   if (parsed.data.description !== undefined) next.description = parsed.data.description ?? "";
   if (parsed.data.date) next.date = normalizeJalaliDate(parsed.data.date);
+  if (parsed.data.time !== undefined) {
+    const normalizedTime = normalizeTime(parsed.data.time);
+    if (parsed.data.time && String(parsed.data.time).trim() && !normalizedTime) {
+      throw new AppError(400, "ساعت باید به صورت HH:mm باشد");
+    }
+    next.time = normalizedTime;
+  }
 
   if (parsed.data.categoryId) {
     const category = await CategoryModel.findOne({ _id: parsed.data.categoryId, userId });

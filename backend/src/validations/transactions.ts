@@ -5,6 +5,9 @@ const JalaliDateSchema = z
   .string()
   .regex(new RegExp(`^${JalaliDigit}{4}\\/${JalaliDigit}{1,2}\\/${JalaliDigit}{1,2}$`));
 
+/** HH:mm or empty — normalized in controller */
+const TimeSchema = z.string().trim().max(8).optional().nullable();
+
 const TagsSchema = z
   .array(z.string().trim().min(1).max(30))
   .max(20)
@@ -30,6 +33,8 @@ const TransactionBaseFields = {
   title: z.string().min(2).max(120).trim(),
   description: z.string().max(500).optional().nullable(),
   date: JalaliDateSchema,
+  /** HH:mm — optional clock time */
+  time: TimeSchema,
   tags: TagsSchema,
 };
 

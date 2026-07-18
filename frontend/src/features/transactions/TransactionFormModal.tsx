@@ -24,7 +24,9 @@ import { fetchRecurring } from "@/services/recurring";
 import { TagsInput } from "@/components/ui/tags-input";
 import { AmountInput } from "@/components/ui/amount-input";
 import { JalaliDateInput } from "@/components/ui/jalali-date-input";
+import { TimeInput } from "@/components/ui/time-input";
 import { AppModal } from "@/components/ui/modal";
+import { transactionTimeOf } from "@/lib/transaction-time";
 import {
   FinanceTypeToggle,
   financeTypeTextClass,
@@ -45,6 +47,7 @@ export type TransactionFormValues = {
   title: string;
   description?: string;
   date: string;
+  time?: string;
   registerAsDebt?: boolean;
   debtDueDate?: string;
   linkToRecurring?: boolean;
@@ -63,6 +66,7 @@ type SubmitValues = {
   title: string;
   description?: string | null;
   date: string;
+  time?: string | null;
   needsReview?: boolean;
   tags?: string[];
   registerAsDebt?: boolean;
@@ -161,6 +165,7 @@ export function TransactionFormModal({
         title: initial.title,
         description: initial.description ?? "",
         date: initial.date,
+        time: transactionTimeOf(initial),
         registerAsDebt: false,
         debtDueDate: undefined,
         linkToRecurring: false,
@@ -178,6 +183,7 @@ export function TransactionFormModal({
         title: "",
         description: "",
         date: getTodayJalali(),
+        time: "",
         registerAsDebt: false,
         debtDueDate: "",
         linkToRecurring: false,
@@ -294,6 +300,7 @@ export function TransactionFormModal({
       title: values.title.trim(),
       description: values.description?.trim() || "",
       date: normalizeJalaliDateInput(values.date),
+      time: values.time?.trim() || "",
       needsReview: false,
       tags,
       registerAsDebt: asDebt,
@@ -403,6 +410,11 @@ export function TransactionFormModal({
               ]}
             >
               <JalaliDateInput placeholder="1405/04/25" />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={12}>
+            <Form.Item name="time" label="ساعت (اختیاری)">
+              <TimeInput />
             </Form.Item>
           </Col>
         </Row>

@@ -161,6 +161,7 @@ export const confirm = asyncHandler(async (req: Request, res: Response) => {
         title,
         description: `${item.rawSnippet}${feeNote}`,
         date: item.date,
+        time: item.time ? String(item.time).slice(0, 5) : "",
         source: "bank_sms" as const,
         needsReview: item.skipReview ? false : true,
         tags: [] as string[],
