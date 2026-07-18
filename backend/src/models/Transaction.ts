@@ -35,6 +35,8 @@ const TransactionSchema = new Schema(
       feeAmount: { type: Number },
       /** مبلغ انتقال بدون کارمزد (تومان) */
       transferAmount: { type: Number },
+      /** برداشت کارت‌به‌کارت: کارمزد باید در نام‌گذاری گرفته شود */
+      needsFee: { type: Boolean },
     },
 
     /** Links the two legs of an inter-account transfer */
