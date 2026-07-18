@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/services/api";
 import { useAuthStore } from "@/stores/auth.store";
-import { AppShellSkeleton } from "@/components/skeletons";
+import { BootSpinner } from "@/components/ui/boot-spinner";
 
 export function RequireAuth({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -49,8 +49,9 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
 
+  // Auth boot: spinner first; page content uses its own skeleton after this.
   if (!hydrated || !sessionChecked || !user) {
-    return <AppShellSkeleton />;
+    return <BootSpinner />;
   }
 
   return <>{children}</>;
