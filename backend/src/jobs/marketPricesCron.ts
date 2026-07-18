@@ -3,10 +3,16 @@ import { refreshMarketPricesDaily } from "../services/market-prices.service";
 
 /**
  * Daily market price refresh in Asia/Tehran.
- * Primary slot 14:00; later slots retry if the earlier fetch failed
- * (quota/network) so the app is less likely to stay on yesterday's prices.
+ * Multiple slots: first successful write for the day wins; later slots
+ * only hit APIs when today's snapshot is still missing.
  */
-const CRON_SLOTS = ["0 14 * * *", "0 16 * * *", "0 20 * * *"] as const;
+const CRON_SLOTS = [
+  "0 10 * * *",
+  "0 14 * * *",
+  "0 16 * * *",
+  "0 18 * * *",
+  "0 21 * * *",
+] as const;
 
 export function startMarketPricesCron(): void {
   for (const expression of CRON_SLOTS) {
@@ -16,7 +22,7 @@ export function startMarketPricesCron(): void {
         void refreshMarketPricesDaily()
           .then(() => {
             // eslint-disable-next-line no-console
-            console.log(`[cron] market prices refreshed (${expression} Asia/Tehran)`);
+            console.log(`[cron] market prices checked (${expression} Asia/Tehran)`);
           })
           .catch((err: unknown) => {
             // eslint-disable-next-line no-console
@@ -29,6 +35,6 @@ export function startMarketPricesCron(): void {
 
   // eslint-disable-next-line no-console
   console.log(
-    "[cron] market prices job started (14:00 / 16:00 / 20:00 Asia/Tehran)"
+    "[cron] market prices job started (10/14/16/18/21 Asia/Tehran)"
   );
 }
