@@ -43,8 +43,10 @@ import { TagsInput } from "@/components/ui/tags-input";
 import { JalaliDateInput } from "@/components/ui/jalali-date-input";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { cn } from "@/lib/cn";
+import { PageShell } from "@/components/ui/page-shell";
+import { PageHeader } from "@/components/ui/page-header";
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 type Draft = {
   title: string;
@@ -345,18 +347,12 @@ export default function ReviewPage() {
   const selectedOnPage = selectedIds.filter((id) => pageIds.includes(id));
 
   return (
-    <Space orientation="vertical" size="middle" className="w-full max-w-3xl">
-      <div>
-        <Title level={4} className="!m-0 whitespace-normal">
-          <Flex wrap="wrap" gap="small" align="center">
-            <WarningOutlined className="text-brandGold-400" />
-            نام‌گذاری تراکنش‌های ایمپورت‌شده
-          </Flex>
-        </Title>
-        <Text type="secondary">
-          موارد را تکی یا گروهی انتخاب کنید، عنوان بگذارید، سپس ذخیره و خروج از بررسی کنید.
-        </Text>
-      </div>
+    <PageShell width="form">
+      <PageHeader
+        title="نام‌گذاری تراکنش‌های ایمپورت‌شده"
+        icon={<WarningOutlined />}
+        description="موارد را تکی یا گروهی انتخاب کنید، عنوان بگذارید، سپس ذخیره و خروج از بررسی کنید."
+      />
 
       {listQ.isLoading ? <ReviewListSkeleton /> : null}
 
@@ -612,6 +608,6 @@ export default function ReviewPage() {
           );
         })}
       </Space>
-    </Space>
+    </PageShell>
   );
 }

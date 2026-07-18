@@ -30,8 +30,11 @@ import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { formatToman, formatJalaliDate } from "@/lib/format";
 import { Sk } from "@/components/ui/skeleton";
 import { cn } from "@/lib/cn";
+import { PageShell } from "@/components/ui/page-shell";
+import { PageHeader } from "@/components/ui/page-header";
+import { SoftList, SoftListItem, SoftListRow } from "@/components/ui/soft-list";
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 const { TextArea } = Input;
 
 function currentJalaliYearGuess(): number {
@@ -129,20 +132,18 @@ export default function BankSmsImportPage() {
   );
 
   return (
-    <Space orientation="vertical" size="large" className="w-full max-w-4xl">
-      <div>
-        <Title level={4} className="!m-0">
-          <Space>
-            <FileTextOutlined />
-            ایمپورت پیامک بانکی
-          </Space>
-        </Title>
-        <Text type="secondary">
-          پیامک بانکی (پاسارگاد / ملی — مبالغ ریال → تومان) یا{" "}
-          <Text strong>رسید کارت‌به‌کارت</Text> را Paste کنید. در رسید اگر مبلغ «ریال» باشد
-          ÷۱۰ می‌شود و اگر «تومان» باشد همان می‌ماند؛ عنوان خودکار است و نیاز به نام‌گذاری ندارد.
-        </Text>
-      </div>
+    <PageShell width="wide">
+      <PageHeader
+        title="ایمپورت پیامک بانکی"
+        icon={<FileTextOutlined />}
+        description={
+          <>
+            پیامک بانکی (پاسارگاد / ملی — مبالغ ریال → تومان) یا{" "}
+            <Text strong>رسید کارت‌به‌کارت</Text> را Paste کنید. در رسید اگر مبلغ «ریال» باشد
+            ÷۱۰ می‌شود و اگر «تومان» باشد همان می‌ماند؛ عنوان خودکار است و نیاز به نام‌گذاری ندارد.
+          </>
+        }
+      />
 
       <Card>
         <Space orientation="vertical" size="middle" className="w-full">
@@ -209,39 +210,35 @@ export default function BankSmsImportPage() {
       ) : null}
 
       {items.length > 0 ? (
-        <Space orientation="vertical" size="middle" className="w-full">
-          <Flex justify="space-between" align="center" gap="small" wrap="wrap">
-            <Title level={5} className="!m-0">
-              پیش‌نمایش تراکنش‌ها
-            </Title>
-            <Space>
-              <Button
-                size="small"
-                onClick={() => {
-                  const next: Record<string, boolean> = {};
-                  for (const item of items) {
-                    next[item.importHash] = !item.isDuplicate;
-                  }
-                  setSelected(next);
-                }}
-              >
-                انتخاب همه
-              </Button>
-              <Button size="small" onClick={() => setSelected({})}>
-                هیچ‌کدام
-              </Button>
-            </Space>
-          </Flex>
-
-          <Space orientation="vertical" size="small" className="w-full">
+        <>
+          <SoftList
+            header={
+              <Flex justify="space-between" align="center" gap="small" wrap="wrap">
+                <Text strong>پیش‌نمایش تراکنش‌ها</Text>
+                <Space>
+                  <Button
+                    size="small"
+                    onClick={() => {
+                      const next: Record<string, boolean> = {};
+                      for (const item of items) {
+                        next[item.importHash] = !item.isDuplicate;
+                      }
+                      setSelected(next);
+                    }}
+                  >
+                    انتخاب همه
+                  </Button>
+                  <Button size="small" onClick={() => setSelected({})}>
+                    هیچ‌کدام
+                  </Button>
+                </Space>
+              </Flex>
+            }
+          >
             {items.map((item) => (
-              <Card
+              <SoftListItem
                 key={item.importHash}
-                size="small"
-                className={cn(
-                  "w-full",
-                  item.isDuplicate && "opacity-80 border-amber-400/30 bg-amber-500/5"
-                )}
+                className={cn(item.isDuplicate && "bg-amber-500/5 opacity-80")}
               >
                 <Flex gap="middle" align="flex-start">
                   <Checkbox
@@ -251,57 +248,55 @@ export default function BankSmsImportPage() {
                       setSelected((s) => ({ ...s, [item.importHash]: e.target.checked }))
                     }
                   />
-                  <div className="flex-1 min-w-0">
-                    <Flex justify="space-between" align="center" gap="small" wrap="wrap">
-                      <Space size="small" wrap>
-                        <Tag color={item.type === "income" ? "green" : "red"}>
-                          {item.type === "income" ? "واریز" : "برداشت"}
-                        </Tag>
-                        {item.bankName ? <Text strong>{item.bankName}</Text> : null}
-                      </Space>
-                      <Text
-                        strong
-                        className={cn(
-                          item.type === "income" ? "text-emerald-500" : "text-red-500"
-                        )}
-                      >
-                        {item.type === "income" ? "+" : "-"}
-                        {formatToman(item.amount)}
-                      </Text>
-                    </Flex>
-                    {item.suggestedTitle ? (
-                      <Text strong className="mt-1 block">
-                        {item.suggestedTitle}
-                      </Text>
-                    ) : null}
-                    <Text type="secondary" className="text-sm">
-                      {formatJalaliDate(item.date)}
-                      {item.time ? ` · ${item.time}` : ""}
-                    </Text>
-                    {item.isDuplicate ? (
-                      <div className="mt-1">
-                        <Tag icon={<WarningOutlined />} color="warning">
-                          قبلاً ایمپورت شده — رد می‌شود
-                        </Tag>
-                      </div>
-                    ) : item.skipReview ? (
-                      <div className="mt-1">
-                        <Tag icon={<CheckCircleOutlined />} color="success">
-                          آماده ورود · بدون نیاز به نام‌گذاری
-                        </Tag>
-                      </div>
-                    ) : (
-                      <div className="mt-1">
-                        <Tag icon={<CheckCircleOutlined />} color="success">
-                          آماده ورود · نیاز به نام‌گذاری بعداً
-                        </Tag>
-                      </div>
-                    )}
+                  <div className="min-w-0 flex-1">
+                    <SoftListRow
+                      title={
+                        <Space size="small" wrap>
+                          <Tag color={item.type === "income" ? "green" : "red"}>
+                            {item.type === "income" ? "واریز" : "برداشت"}
+                          </Tag>
+                          {item.bankName ? <Text strong>{item.bankName}</Text> : null}
+                          {item.suggestedTitle ? <Text strong>{item.suggestedTitle}</Text> : null}
+                        </Space>
+                      }
+                      subtitle={
+                        <>
+                          {formatJalaliDate(item.date)}
+                          {item.time ? ` · ${item.time}` : ""}
+                        </>
+                      }
+                      trailing={
+                        <Text
+                          strong
+                          className={cn(
+                            item.type === "income" ? "text-emerald-500" : "text-red-500"
+                          )}
+                        >
+                          {item.type === "income" ? "+" : "-"}
+                          {formatToman(item.amount)}
+                        </Text>
+                      }
+                      footer={
+                        item.isDuplicate ? (
+                          <Tag icon={<WarningOutlined />} color="warning">
+                            قبلاً ایمپورت شده — رد می‌شود
+                          </Tag>
+                        ) : item.skipReview ? (
+                          <Tag icon={<CheckCircleOutlined />} color="success">
+                            آماده ورود · بدون نیاز به نام‌گذاری
+                          </Tag>
+                        ) : (
+                          <Tag icon={<CheckCircleOutlined />} color="success">
+                            آماده ورود · نیاز به نام‌گذاری بعداً
+                          </Tag>
+                        )
+                      }
+                    />
                   </div>
                 </Flex>
-              </Card>
+              </SoftListItem>
             ))}
-          </Space>
+          </SoftList>
 
           <Button
             type="primary"
@@ -314,7 +309,7 @@ export default function BankSmsImportPage() {
               ? `تأیید (${selectedCount})`
               : `تأیید و ورود ${selectedCount} تراکنش`}
           </Button>
-        </Space>
+        </>
       ) : null}
 
       {failedBlocks.length > 0 ? (
@@ -336,6 +331,6 @@ export default function BankSmsImportPage() {
           }
         />
       ) : null}
-    </Space>
+    </PageShell>
   );
 }

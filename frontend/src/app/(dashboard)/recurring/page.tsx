@@ -60,8 +60,11 @@ import {
 } from "@/components/ui/market-unit-amount-input";
 import api from "@/services/api";
 import { cn } from "@/lib/cn";
+import { PageShell } from "@/components/ui/page-shell";
+import { PageHeader } from "@/components/ui/page-header";
+import { SoftList, SoftListItem, SoftListRow } from "@/components/ui/soft-list";
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 const KIND_LABEL: Record<DebtKind, string> = {
   recurring: "تکرارشونده (قسط)",
@@ -107,6 +110,7 @@ export default function RecurringPage() {
   const [reminderHour, setReminderHour] = useState(20);
   const [categoryId, setCategoryId] = useState("");
   const [payItem, setPayItem] = useState<RecurringItem | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
 
   const listQ = useQuery({ queryKey: ["recurring"], queryFn: fetchRecurring });
   const accountsQ = useQuery({
@@ -183,6 +187,7 @@ export default function RecurringPage() {
       setAmount("");
       setAmountUnit("toman");
       setCategoryId("");
+      setFormOpen(false);
       void queryClient.invalidateQueries({ queryKey: ["recurring"] });
     },
     onError: (err: unknown) => {
@@ -228,18 +233,21 @@ export default function RecurringPage() {
   const defaultAccountId = accountsQ.data?.[0]?.id ?? "";
 
   return (
-    <Space orientation="vertical" size="large" className="w-full max-w-full min-w-0">
-      <div>
-        <Title level={4} className="!m-0">
-          <Space>
-            <AccountBookOutlined />
-            جریان دوره‌ای / سررسید‌ها
-          </Space>
-        </Title>
-        <Text type="secondary">
-          درآمد، سود، اقساط و بدهی‌های زمان‌بندی‌شده — حساب بانکی را موقع ثبت تراکنش انتخاب کنید.
-        </Text>
-      </div>
+    <PageShell>
+      <PageHeader
+        title="جریان دوره‌ای / سررسید‌ها"
+        icon={<AccountBookOutlined />}
+        description="درآمد، سود، اقساط و بدهی‌های زمان‌بندی‌شده — حساب بانکی را موقع ثبت تراکنش انتخاب کنید."
+        actions={
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => setFormOpen((o) => !o)}
+          >
+            افزودن
+          </Button>
+        }
+      />
 
       {(listQ.data?.dueCount ?? 0) > 0 ? (
         <Alert
@@ -308,14 +316,8 @@ export default function RecurringPage() {
         </Card>
       ) : null}
 
-      <Card
-        title={
-          <Space>
-            <PlusOutlined />
-            افزودن مورد جدید
-          </Space>
-        }
-      >
+      {formOpen ? (
+        <Card title="افزودن مورد جدید">
         <Space orientation="vertical" size="middle" className="w-full">
           <FinanceTypeToggle
             value={type}
@@ -459,6 +461,7 @@ export default function RecurringPage() {
           </Button>
         </Space>
       </Card>
+      ) : null}
 
       {listQ.isLoading ? <RecurringListSkeleton /> : null}
       {listQ.error ? (
@@ -468,86 +471,86 @@ export default function RecurringPage() {
         />
       ) : null}
 
-      <Space orientation="vertical" size="middle" className="w-full">
-        {items.map((item: RecurringItem) => {
-          const categoryName =
-            typeof item.category === "object" && item.category ? item.category.name : "—";
-          const scheduleText =
-            item.kind === "recurring" && item.dayOfMonth != null
-              ? `${toPersianDigits(String(item.dayOfMonth))}ام هر ماه`
-              : `سررسید ${formatJalaliDate(item.nextPaymentDate)}`;
+      {!listQ.isLoading && items.length > 0 ? (
+        <SoftList>
+          {items.map((item: RecurringItem) => {
+            const categoryName =
+              typeof item.category === "object" && item.category ? item.category.name : "—";
+            const scheduleText =
+              item.kind === "recurring" && item.dayOfMonth != null
+                ? `${toPersianDigits(String(item.dayOfMonth))}ام هر ماه`
+                : `سررسید ${formatJalaliDate(item.nextPaymentDate)}`;
 
-          return (
-            <Card
-              key={item.id}
-              className={cn(item.isDue && "border-amber-500/40")}
-            >
-              <Flex
-                justify="space-between"
-                align="flex-start"
-                gap="middle"
-                wrap="wrap"
-                vertical={isMobile}
+            return (
+              <SoftListItem
+                key={item.id}
+                className={cn(item.isDue && "bg-amber-500/5")}
               >
-                <div className="min-w-0 flex-1 mb-3">
-                  <Space size="small" wrap>
-                    <Text strong>{item.title}</Text>
-                    <Tag>{KIND_LABEL[item.kind] ?? item.kind}</Tag>
-                    {item.isDue ? <Tag color="orange">سررسید شده</Tag> : null}
-                  </Space>
-                  <div>
-                    <Text type="secondary" className="break-words">
+                <SoftListRow
+                  title={
+                    <Space size="small" wrap>
+                      <span>{item.title}</span>
+                      <Tag>{KIND_LABEL[item.kind] ?? item.kind}</Tag>
+                      {item.isDue ? <Tag color="orange">سررسید شده</Tag> : null}
+                    </Space>
+                  }
+                  subtitle={
+                    <>
                       {scheduleText} · {endLabel(item)} · موعد بعدی{" "}
                       {formatJalaliDate(item.nextPaymentDate)} · یادآور{" "}
                       {formatReminderHour(item.reminderHour ?? 20)} · {categoryName}
-                    </Text>
-                  </div>
-                </div>
-                <div className="text-left shrink-0">
-                  <Text
-                    strong
-                    className={cn(financeTypeTextClass(item.type), "font-semibold block")}
-                  >
-                    {formatToman(item.amount)}
-                  </Text>
-                  {item.baseAmount != null && item.amount !== item.baseAmount ? (
-                    <Text type="secondary" className="text-xs">
-                      پایه {formatToman(item.baseAmount)}
-                    </Text>
-                  ) : null}
-                </div>
-              </Flex>
-              <Flex
-                gap="small"
-                wrap="wrap"
-                vertical={isMobile}
-                className={cn("mt-3", isMobile && "w-full")}
-              >
-                <Button
-                  type="primary"
-                  block={isMobile}
-                  icon={<CaretRightOutlined />}
-                  onClick={() => setPayItem(item)}
-                >
-                  ثبت تراکنش الان
-                </Button>
-                <Popconfirm
-                  title="حذف مورد"
-                  description="حذف شود؟"
-                  okText="حذف"
-                  cancelText="انصراف"
-                  okButtonProps={{ danger: true }}
-                  onConfirm={() => deleteMutation.mutate(item.id)}
-                >
-                  <Button block={isMobile} danger icon={<DeleteOutlined />}>
-                    حذف
-                  </Button>
-                </Popconfirm>
-              </Flex>
-            </Card>
-          );
-        })}
-      </Space>
+                    </>
+                  }
+                  trailing={
+                    <div className="text-left">
+                      <Text
+                        strong
+                        className={cn(financeTypeTextClass(item.type), "font-semibold block")}
+                      >
+                        {formatToman(item.amount)}
+                      </Text>
+                      {item.baseAmount != null && item.amount !== item.baseAmount ? (
+                        <Text type="secondary" className="text-xs">
+                          پایه {formatToman(item.baseAmount)}
+                        </Text>
+                      ) : null}
+                    </div>
+                  }
+                  footer={
+                    <Flex
+                      gap="small"
+                      wrap="wrap"
+                      vertical={isMobile}
+                      className={cn(isMobile && "w-full")}
+                    >
+                      <Button
+                        type="primary"
+                        block={isMobile}
+                        icon={<CaretRightOutlined />}
+                        onClick={() => setPayItem(item)}
+                      >
+                        ثبت تراکنش الان
+                      </Button>
+                      <Popconfirm
+                        title="حذف مورد"
+                        description="حذف شود؟"
+                        okText="حذف"
+                        cancelText="انصراف"
+                        okButtonProps={{ danger: true }}
+                        onConfirm={() => deleteMutation.mutate(item.id)}
+                      >
+                        <Button block={isMobile} danger icon={<DeleteOutlined />}>
+                          حذف
+                        </Button>
+                      </Popconfirm>
+                    </Flex>
+                  }
+                />
+              </SoftListItem>
+            );
+          })}
+        </SoftList>
+      ) : null}
 
       {!listQ.isLoading && items.length === 0 ? (
         <EmptyState
@@ -568,6 +571,6 @@ export default function RecurringPage() {
           generateMutation.mutate({ id: payItem.id, payload });
         }}
       />
-    </Space>
+    </PageShell>
   );
 }

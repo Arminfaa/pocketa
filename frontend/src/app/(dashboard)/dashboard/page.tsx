@@ -10,6 +10,7 @@ import Link from "next/link";
 import { QueryError } from "@/components/ui/query-error";
 import { DashboardSkeleton } from "@/components/skeletons";
 import { Sk } from "@/components/ui/skeleton";
+import { PageShell } from "@/components/ui/page-shell";
 import { MarketPriceTicker } from "@/components/dashboard/MarketPriceTicker";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { enablePushNotifications, fetchPushStatus } from "@/lib/push";
@@ -147,7 +148,7 @@ export default function DashboardPage() {
   const chartHeight = isMobile ? 300 : 260;
 
   return (
-    <Flex vertical gap="large">
+    <PageShell width="full">
       <MarketPriceTicker
         market={market}
         loading={marketQ.isLoading}
@@ -357,6 +358,6 @@ export default function DashboardPage() {
           </Row>
         </>
       ) : null}
-    </Flex>
+    </PageShell>
   );
 }

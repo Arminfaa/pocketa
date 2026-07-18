@@ -52,8 +52,11 @@ import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { cn } from "@/lib/cn";
 import type { ReactNode } from "react";
 import api from "@/services/api";
+import { PageShell } from "@/components/ui/page-shell";
+import { PageHeader } from "@/components/ui/page-header";
+import { SoftList, SoftListItem, SoftListRow } from "@/components/ui/soft-list";
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 type PageTab = "investments" | "calculator";
 
@@ -143,6 +146,7 @@ export default function InvestmentsPage() {
   const [profitNextDate, setProfitNextDate] = useState("");
   const [profitEndDate, setProfitEndDate] = useState("");
   const [notes, setNotes] = useState("");
+  const [formOpen, setFormOpen] = useState(false);
 
   const unitLabel = assetUnitLabel(assetType, goldKind);
 
@@ -260,6 +264,7 @@ export default function InvestmentsPage() {
           : "سرمایه‌گذاری ثبت شد و مبلغ خرید از حساب کم شد"
       );
       resetForm();
+      setFormOpen(false);
       void queryClient.invalidateQueries({ queryKey: ["investments"] });
       void queryClient.invalidateQueries({ queryKey: ["recurring"] });
       void queryClient.invalidateQueries({ queryKey: ["transactions"] });
@@ -295,39 +300,47 @@ export default function InvestmentsPage() {
   const items = q.data?.items ?? [];
 
   return (
-    <Flex vertical gap="large">
+    <PageShell>
       <MarketPriceTicker
         market={marketQ.data}
         loading={marketQ.isLoading}
         errorMessage={tickerError}
       />
 
-      <div>
-        <Title level={isMobile ? 4 : 3} className="!mb-1">
-          <FundOutlined className="me-2" />
-          سرمایه‌گذاری / پس‌انداز
-        </Title>
-        <Text type="secondary">
-          طلا، دلار و ریال جدا از حساب بانکی — ارزش روز، سود دوره‌ای و محاسبه‌گر
-        </Text>
-      </div>
-
-      <Segmented
-        block
-        value={tab}
-        onChange={(v) => setTab(v as PageTab)}
-        options={[
-          {
-            value: "investments",
-            label: "سرمایه‌گذاری‌ها",
-            icon: <FundOutlined />,
-          },
-          {
-            value: "calculator",
-            label: "محاسبه‌گر طلا / دلار",
-            icon: <CalculatorOutlined />,
-          },
-        ]}
+      <PageHeader
+        title="سرمایه‌گذاری / پس‌انداز"
+        icon={<FundOutlined />}
+        description="طلا، دلار و ریال جدا از حساب بانکی — ارزش روز، سود دوره‌ای و محاسبه‌گر"
+        extra={
+          <Segmented
+            block
+            value={tab}
+            onChange={(v) => setTab(v as PageTab)}
+            options={[
+              {
+                value: "investments",
+                label: "سرمایه‌گذاری‌ها",
+                icon: <FundOutlined />,
+              },
+              {
+                value: "calculator",
+                label: "محاسبه‌گر طلا / دلار",
+                icon: <CalculatorOutlined />,
+              },
+            ]}
+          />
+        }
+        actions={
+          tab === "investments" ? (
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => setFormOpen((o) => !o)}
+            >
+              افزودن
+            </Button>
+          ) : undefined
+        }
       />
 
       {tab === "calculator" ? <AssetCalculator /> : null}
@@ -389,7 +402,8 @@ export default function InvestmentsPage() {
             </Col>
           </Row>
 
-          <Card title="افزودن سرمایه‌گذاری">
+          {formOpen ? (
+            <Card title="افزودن سرمایه‌گذاری">
             <Flex vertical gap="middle">
               <Input
                 placeholder="عنوان (مثلاً طلای خونه)"
@@ -589,108 +603,111 @@ export default function InvestmentsPage() {
               </Button>
             </Flex>
           </Card>
+          ) : null}
 
           {items.length === 0 ? (
             <EmptyState title="هنوز سرمایه‌گذاری ثبت نشده" />
           ) : (
-            <Flex vertical gap="middle">
+            <SoftList>
               {items.map((item) => (
-                <Card
-                  key={item.id}
-                  title={
-                    <Space wrap>
-                      <span>{item.title}</span>
-                      <Tag color={assetTagColor(item.assetType, item.goldKind)}>
-                        {assetDisplayLabel(item.assetType, item.goldKind)}
-                      </Tag>
-                      {item.hasProfit ? <Tag color="green">سوددار</Tag> : null}
-                    </Space>
-                  }
-                  extra={
-                    <Popconfirm
-                      title="حذف شود؟"
-                      okText="بله"
-                      cancelText="خیر"
-                      onConfirm={() => deleteMutation.mutate(item.id)}
-                    >
-                      <Button
-                        danger
-                        type="text"
-                        icon={<DeleteOutlined />}
-                        loading={deleteMutation.isPending}
-                      />
-                    </Popconfirm>
-                  }
-                >
-                  <div className="flex flex-col">
-                    <DetailRow
-                      label={
-                        item.assetType === "gold" && item.goldKind === "quarter_coin"
-                          ? "تعداد"
-                          : "مقدار"
-                      }
-                      value={
-                        item.assetType === "gold" && item.goldKind === "quarter_coin"
-                          ? `${item.quantity.toLocaleString("fa-IR")} عدد ربع سکه`
-                          : `${item.quantity.toLocaleString("fa-IR", {
-                              maximumFractionDigits: 3,
-                            })} ${assetUnitLabel(item.assetType, item.goldKind)}`
-                      }
-                    />
-                    <DetailRow
-                      label="قیمت خرید"
-                      value={formatToman(item.purchasePricePerUnit)}
-                    />
-                    <DetailRow
-                      label="ارزش فعلی"
-                      value={item.currentValue != null ? formatToman(item.currentValue) : "—"}
-                    />
-                    <DetailRow
-                      label="سود / زیان"
-                      value={
-                        item.unrealizedPnl != null ? formatToman(item.unrealizedPnl) : "—"
-                      }
-                      valueClassName={
-                        item.unrealizedPnl != null && item.unrealizedPnl >= 0
-                          ? "text-emerald-500"
-                          : item.unrealizedPnl != null
-                            ? "text-red-500"
-                            : undefined
-                      }
-                    />
-                    <DetailRow
-                      label="تاریخ خرید"
-                      value={formatJalaliDate(item.purchaseDate)}
-                    />
-                    {item.hasProfit ? (
-                      <>
-                        <DetailRow
-                          label="سود هر دوره"
-                          value={`${item.profitAssetQuantity.toLocaleString("fa-IR", {
-                            maximumFractionDigits: 3,
-                          })} ${assetUnitLabel(item.assetType, item.goldKind)}${
-                            item.profitTomanPerPeriod != null
-                              ? ` ≈ ${formatToman(item.profitTomanPerPeriod)}`
-                              : ""
-                          }`}
+                <SoftListItem key={item.id}>
+                  <SoftListRow
+                    title={
+                      <Space wrap>
+                        <span>{item.title}</span>
+                        <Tag color={assetTagColor(item.assetType, item.goldKind)}>
+                          {assetDisplayLabel(item.assetType, item.goldKind)}
+                        </Tag>
+                        {item.hasProfit ? <Tag color="green">سوددار</Tag> : null}
+                      </Space>
+                    }
+                    trailing={
+                      <Popconfirm
+                        title="حذف شود؟"
+                        okText="بله"
+                        cancelText="خیر"
+                        onConfirm={() => deleteMutation.mutate(item.id)}
+                      >
+                        <Button
+                          danger
+                          type="text"
+                          icon={<DeleteOutlined />}
+                          loading={deleteMutation.isPending}
                         />
+                      </Popconfirm>
+                    }
+                    footer={
+                      <div className="flex flex-col">
                         <DetailRow
-                          label="موعد سود"
+                          label={
+                            item.assetType === "gold" && item.goldKind === "quarter_coin"
+                              ? "تعداد"
+                              : "مقدار"
+                          }
                           value={
-                            item.profitNextDate
-                              ? formatJalaliDate(item.profitNextDate)
-                              : "—"
+                            item.assetType === "gold" && item.goldKind === "quarter_coin"
+                              ? `${item.quantity.toLocaleString("fa-IR")} عدد ربع سکه`
+                              : `${item.quantity.toLocaleString("fa-IR", {
+                                  maximumFractionDigits: 3,
+                                })} ${assetUnitLabel(item.assetType, item.goldKind)}`
                           }
                         />
-                      </>
-                    ) : null}
-                  </div>
-                </Card>
+                        <DetailRow
+                          label="قیمت خرید"
+                          value={formatToman(item.purchasePricePerUnit)}
+                        />
+                        <DetailRow
+                          label="ارزش فعلی"
+                          value={item.currentValue != null ? formatToman(item.currentValue) : "—"}
+                        />
+                        <DetailRow
+                          label="سود / زیان"
+                          value={
+                            item.unrealizedPnl != null ? formatToman(item.unrealizedPnl) : "—"
+                          }
+                          valueClassName={
+                            item.unrealizedPnl != null && item.unrealizedPnl >= 0
+                              ? "text-emerald-500"
+                              : item.unrealizedPnl != null
+                                ? "text-red-500"
+                                : undefined
+                          }
+                        />
+                        <DetailRow
+                          label="تاریخ خرید"
+                          value={formatJalaliDate(item.purchaseDate)}
+                        />
+                        {item.hasProfit ? (
+                          <>
+                            <DetailRow
+                              label="سود هر دوره"
+                              value={`${item.profitAssetQuantity.toLocaleString("fa-IR", {
+                                maximumFractionDigits: 3,
+                              })} ${assetUnitLabel(item.assetType, item.goldKind)}${
+                                item.profitTomanPerPeriod != null
+                                  ? ` ≈ ${formatToman(item.profitTomanPerPeriod)}`
+                                  : ""
+                              }`}
+                            />
+                            <DetailRow
+                              label="موعد سود"
+                              value={
+                                item.profitNextDate
+                                  ? formatJalaliDate(item.profitNextDate)
+                                  : "—"
+                              }
+                            />
+                          </>
+                        ) : null}
+                      </div>
+                    }
+                  />
+                </SoftListItem>
               ))}
-            </Flex>
+            </SoftList>
           )}
         </>
       ) : null}
-    </Flex>
+    </PageShell>
   );
 }

@@ -6,16 +6,18 @@ import { useAuthStore } from "@/stores/auth.store";
 import api from "@/services/api";
 import { useRouter } from "next/navigation";
 import { App, Button, Card, Flex, Input, Space, Tag, Typography } from "antd";
-import { BellOutlined, LogoutOutlined } from "@ant-design/icons";
+import { BellOutlined, LogoutOutlined, SettingOutlined } from "@ant-design/icons";
 import { SettingsSkeleton } from "@/components/skeletons";
 import { Sk } from "@/components/ui/skeleton";
+import { PageShell } from "@/components/ui/page-shell";
+import { PageHeader } from "@/components/ui/page-header";
 import {
   disablePushNotifications,
   enablePushNotifications,
   fetchPushStatus,
 } from "@/lib/push";
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 export default function SettingsPage() {
   const { message } = App.useApp();
@@ -89,10 +91,12 @@ export default function SettingsPage() {
   const pushActive = Boolean(pushStatusQ.data?.thisDevice);
 
   return (
-    <Space orientation="vertical" size="large" className="w-full max-w-xl">
-      <Title level={4} className="!m-0">
-        تنظیمات پروفایل
-      </Title>
+    <PageShell width="narrow">
+      <PageHeader
+        icon={<SettingOutlined />}
+        title="تنظیمات پروفایل"
+        description="نام نمایشی، یادآوری پوش و خروج از حساب."
+      />
 
       {!user ? (
         <SettingsSkeleton />
@@ -190,6 +194,6 @@ export default function SettingsPage() {
           </Button>
         </>
       )}
-    </Space>
+    </PageShell>
   );
 }

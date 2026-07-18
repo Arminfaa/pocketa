@@ -19,7 +19,7 @@ import {
   Tag,
   Typography,
 } from "antd";
-import { DeleteOutlined, PlusOutlined, WarningOutlined } from "@ant-design/icons";
+import { DeleteOutlined, FundOutlined, PlusOutlined, WarningOutlined } from "@ant-design/icons";
 import { deleteBudget, fetchBudgets, upsertBudget } from "@/services/budgets";
 import { fetchCategories } from "@/services/categories";
 import { formatToman } from "@/lib/format";
@@ -29,10 +29,13 @@ import { AmountInput } from "@/components/ui/amount-input";
 import { BudgetsListSkeleton, KpiRowSkeleton } from "@/components/skeletons";
 import { QueryError } from "@/components/ui/query-error";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageShell } from "@/components/ui/page-shell";
+import { PageHeader } from "@/components/ui/page-header";
+import { SoftAvatar, SoftList, SoftListItem, SoftListRow } from "@/components/ui/soft-list";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { cn } from "@/lib/cn";
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 export default function BudgetsPage() {
   const { message } = App.useApp();
@@ -43,6 +46,7 @@ export default function BudgetsPage() {
   const [year, setYear] = useState(current.year);
   const [categoryId, setCategoryId] = useState("");
   const [amount, setAmount] = useState("");
+  const [formOpen, setFormOpen] = useState(false);
 
   const budgetsQ = useQuery({
     queryKey: ["budgets", month, year, selectedAccountId],
@@ -70,6 +74,7 @@ export default function BudgetsPage() {
       message.success("بودجه ذخیره شد");
       setAmount("");
       setCategoryId("");
+      setFormOpen(false);
       void queryClient.invalidateQueries({ queryKey: ["budgets"] });
     },
     onError: (err: unknown) => {
@@ -100,37 +105,45 @@ export default function BudgetsPage() {
   const summary = budgetsQ.data?.summary;
 
   return (
-    <Space orientation="vertical" size="large" className="w-full max-w-3xl">
-      <div>
-        <Title level={4} className="!m-0">
-          بودجه‌بندی
-        </Title>
-        <Text type="secondary">برای هر دسته هزینه سقف ماهانه تعیین کنید و مصرف را ببینید.</Text>
-      </div>
-
-      <Row gutter={[12, 12]}>
-        <Col xs={24} sm={12} md={8}>
-          <Text type="secondary">ماه</Text>
-          <Select
-            className="w-full mt-2"
-            value={month}
-            onChange={setMonth}
-            options={MONTH_LABELS.map((label, idx) => ({
-              value: idx + 1,
-              label,
-            }))}
+    <PageShell width="form">
+      <PageHeader
+        icon={<FundOutlined />}
+        title="بودجه‌بندی"
+        description="برای هر دسته هزینه سقف ماهانه تعیین کنید و مصرف را ببینید."
+        actions={
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => setFormOpen((o) => !o)}
+            aria-label={formOpen ? "بستن فرم" : "افزودن بودجه"}
           />
-        </Col>
-        <Col xs={24} sm={12} md={8}>
-          <Text type="secondary">سال</Text>
-          <Input
-            className="mt-2"
-            dir="ltr"
-            value={year}
-            onChange={(e) => setYear(Number(e.target.value) || current.year)}
-          />
-        </Col>
-      </Row>
+        }
+        extra={
+          <Row gutter={[12, 12]}>
+            <Col xs={24} sm={12}>
+              <Text type="secondary">ماه</Text>
+              <Select
+                className="w-full mt-2"
+                value={month}
+                onChange={setMonth}
+                options={MONTH_LABELS.map((label, idx) => ({
+                  value: idx + 1,
+                  label,
+                }))}
+              />
+            </Col>
+            <Col xs={24} sm={12}>
+              <Text type="secondary">سال</Text>
+              <Input
+                className="mt-2"
+                dir="ltr"
+                value={year}
+                onChange={(e) => setYear(Number(e.target.value) || current.year)}
+              />
+            </Col>
+          </Row>
+        }
+      />
 
       {budgetsQ.isLoading ? (
         <KpiRowSkeleton count={3} colProps={{ xs: 24, md: 8 }} />
@@ -167,133 +180,149 @@ export default function BudgetsPage() {
         />
       ) : null}
 
-      <Card
-        title={
-          <Space>
-            <PlusOutlined />
-            تنظیم / به‌روزرسانی بودجه
-          </Space>
-        }
-      >
-        <Space orientation="vertical" size="middle" className="w-full">
-          <Row gutter={[12, 12]}>
-            <Col xs={24} md={12}>
-              <Text type="secondary">دسته هزینه</Text>
-              <Select
-                className="w-full mt-2"
-                placeholder="انتخاب کنید"
-                value={categoryId || undefined}
-                onChange={setCategoryId}
-                options={expenseCategories.map((c) => ({
-                  value: c._id,
-                  label: c.name,
-                }))}
-              />
-            </Col>
-            <Col xs={24} md={12}>
-              <Text type="secondary">سقف ماهانه (تومان)</Text>
-              <div className="mt-2">
-                <AmountInput
-                  value={amount}
-                  onChange={setAmount}
-                  placeholder="۳٬۰۰۰٬۰۰۰"
+      {formOpen ? (
+        <Card
+          title={
+            <Space>
+              <PlusOutlined />
+              تنظیم / به‌روزرسانی بودجه
+            </Space>
+          }
+        >
+          <Space orientation="vertical" size="middle" className="w-full">
+            <Row gutter={[12, 12]}>
+              <Col xs={24} md={12}>
+                <Text type="secondary">دسته هزینه</Text>
+                <Select
+                  className="w-full mt-2"
+                  placeholder="انتخاب کنید"
+                  value={categoryId || undefined}
+                  onChange={setCategoryId}
+                  options={expenseCategories.map((c) => ({
+                    value: c._id,
+                    label: c.name,
+                  }))}
                 />
-              </div>
-            </Col>
-          </Row>
-          <Button
-            type="primary"
-            loading={saveMutation.isPending}
-            onClick={() => saveMutation.mutate()}
-          >
-            {saveMutation.isPending ? "در حال ذخیره..." : "ذخیره بودجه"}
-          </Button>
-        </Space>
-      </Card>
+              </Col>
+              <Col xs={24} md={12}>
+                <Text type="secondary">سقف ماهانه (تومان)</Text>
+                <div className="mt-2">
+                  <AmountInput
+                    value={amount}
+                    onChange={setAmount}
+                    placeholder="۳٬۰۰۰٬۰۰۰"
+                  />
+                </div>
+              </Col>
+            </Row>
+            <Button
+              type="primary"
+              loading={saveMutation.isPending}
+              onClick={() => saveMutation.mutate()}
+            >
+              {saveMutation.isPending ? "در حال ذخیره..." : "ذخیره بودجه"}
+            </Button>
+          </Space>
+        </Card>
+      ) : null}
 
       {budgetsQ.isLoading ? <BudgetsListSkeleton /> : null}
       {budgetsQ.error ? (
         <QueryError message="خطا در دریافت بودجه‌ها." onRetry={() => void budgetsQ.refetch()} />
       ) : null}
 
-      <Row gutter={[12, 12]}>
-        {items.map((b) => {
-          const statusColor =
-            b.status === "danger" ? "red" : b.status === "warning" ? "orange" : "blue";
-          const progressColor =
-            b.status === "danger" ? "#ef4444" : b.status === "warning" ? "#f59e0b" : "#06b6d4";
-          const statusLabel =
-            b.status === "danger"
-              ? "از سقف رد شده"
-              : b.status === "warning"
-                ? "نزدیک به سقف (۸۰٪+)"
-                : "در محدوده";
-
-          return (
-            <Col key={b.id} xs={24} md={12}>
-              <Card
-                className={cn(
-                  b.status === "danger" && "border-red-400/40",
-                  b.status === "warning" && "border-amber-500/40"
-                )}
-              >
-                <Flex justify="space-between" align="center" gap="small">
-                  <Flex align="center" gap="small" className="min-w-0 flex-1 mb-3">
-                    <div
-                      className="w-7 h-7 rounded-xl shrink-0"
-                      style={{ background: b.category?.color ?? "#06b6d4" }}
-                    />
-                    <Text strong ellipsis>
-                      {b.category?.name ?? "دسته"}
-                    </Text>
-                  </Flex>
-                  <Popconfirm
-                    title="حذف بودجه"
-                    description="این بودجه حذف شود؟"
-                    okText="حذف"
-                    cancelText="انصراف"
-                    okButtonProps={{ danger: true }}
-                    onConfirm={() => deleteMutation.mutate(b.id)}
-                  >
-                    <Button
-                      type="default"
-                      danger
-                      icon={<DeleteOutlined />}
-                      loading={deleteMutation.isPending}
-                      aria-label="حذف"
-                    />
-                  </Popconfirm>
-                </Flex>
-
-                <Flex justify="space-between" className="mt-3" wrap="wrap" gap="small">
-                  <Text type="secondary">مصرف: {formatToman(b.consumed)}</Text>
-                  <Text type="secondary">سقف: {formatToman(b.amount)}</Text>
-                </Flex>
-                <Flex wrap="wrap" gap="small" align="center" className="mt-1">
-                  <Text type="secondary" className="text-xs">
-                    باقیمانده: {formatToman(b.remaining)} · {b.rawPercent.toFixed(0)}%
-                  </Text>
-                  <Tag color={statusColor}>{statusLabel}</Tag>
-                </Flex>
-
-                <Progress
-                  percent={b.percent}
-                  showInfo={false}
-                  strokeColor={progressColor}
-                  className="mt-2"
-                />
-              </Card>
-            </Col>
-          );
-        })}
-      </Row>
-
       {!budgetsQ.isLoading && items.length === 0 ? (
         <EmptyState
           title={`بودجه‌ای برای ${MONTH_LABELS[month - 1]} ${year} ثبت نشده`}
           description="برای دسته‌های هزینه سقف ماهانه تعریف کنید."
         />
+      ) : items.length > 0 ? (
+        <SoftList>
+          {items.map((b) => {
+            const statusColor =
+              b.status === "danger" ? "red" : b.status === "warning" ? "orange" : "blue";
+            const progressColor =
+              b.status === "danger" ? "#ef4444" : b.status === "warning" ? "#f59e0b" : "#06b6d4";
+            const statusLabel =
+              b.status === "danger"
+                ? "از سقف رد شده"
+                : b.status === "warning"
+                  ? "نزدیک به سقف (۸۰٪+)"
+                  : "در محدوده";
+
+            return (
+              <SoftListItem
+                key={b.id}
+                className={cn(
+                  b.status === "danger" && "bg-red-500/5",
+                  b.status === "warning" && "bg-amber-500/5"
+                )}
+              >
+                <SoftListRow
+                  leading={
+                    <SoftAvatar
+                      color={b.category?.color ?? "#06b6d4"}
+                      className="!h-7 !w-7 !rounded-xl"
+                    />
+                  }
+                  title={b.category?.name ?? "دسته"}
+                  subtitle={
+                    <Flex wrap="wrap" gap="small" align="center">
+                      <Text type="secondary" className="text-xs">
+                        مصرف: {formatToman(b.consumed)} · سقف: {formatToman(b.amount)}
+                      </Text>
+                      <Tag color={statusColor} className="!m-0">
+                        {statusLabel}
+                      </Tag>
+                    </Flex>
+                  }
+                  trailing={
+                    <div className="text-left">
+                      <Text type="secondary" className="text-xs">
+                        باقیمانده
+                      </Text>
+                      <div>
+                        <Text strong className="tabular-nums">
+                          {formatToman(b.remaining)}
+                        </Text>
+                      </div>
+                      <Text type="secondary" className="text-xs tabular-nums">
+                        {b.rawPercent.toFixed(0)}%
+                      </Text>
+                    </div>
+                  }
+                  footer={
+                    <Flex align="center" gap="small" wrap="wrap">
+                      <Progress
+                        percent={b.percent}
+                        showInfo={false}
+                        strokeColor={progressColor}
+                        className="!mb-0 flex-1 min-w-[120px]"
+                      />
+                      <Popconfirm
+                        title="حذف بودجه"
+                        description="این بودجه حذف شود؟"
+                        okText="حذف"
+                        cancelText="انصراف"
+                        okButtonProps={{ danger: true }}
+                        onConfirm={() => deleteMutation.mutate(b.id)}
+                      >
+                        <Button
+                          type="default"
+                          danger
+                          icon={<DeleteOutlined />}
+                          loading={deleteMutation.isPending}
+                          aria-label="حذف"
+                        />
+                      </Popconfirm>
+                    </Flex>
+                  }
+                />
+              </SoftListItem>
+            );
+          })}
+        </SoftList>
       ) : null}
-    </Space>
+    </PageShell>
   );
 }

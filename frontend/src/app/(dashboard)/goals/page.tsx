@@ -30,10 +30,13 @@ import { JalaliDateInput } from "@/components/ui/jalali-date-input";
 import { GoalsListSkeleton, KpiRowSkeleton } from "@/components/skeletons";
 import { EmptyState } from "@/components/ui/empty-state";
 import { QueryError } from "@/components/ui/query-error";
+import { PageShell } from "@/components/ui/page-shell";
+import { PageHeader } from "@/components/ui/page-header";
+import { SoftAvatar, SoftList, SoftListItem, SoftListRow } from "@/components/ui/soft-list";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { cn } from "@/lib/cn";
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 export default function GoalsPage() {
   const screens = Grid.useBreakpoint();
@@ -44,6 +47,7 @@ export default function GoalsPage() {
   const [targetAmount, setTargetAmount] = useState("");
   const [deadline, setDeadline] = useState("");
   const [color, setColor] = useState(CATEGORY_COLORS[0]!);
+  const [formOpen, setFormOpen] = useState(false);
   const [contributeAmounts, setContributeAmounts] = useState<Record<string, string>>({});
   const [contributeAccounts, setContributeAccounts] = useState<Record<string, string>>({});
   const selectedAccountId = useAccountFilterStore((s) => s.selectedAccountId);
@@ -69,6 +73,7 @@ export default function GoalsPage() {
       setTitle("");
       setTargetAmount("");
       setDeadline("");
+      setFormOpen(false);
       void queryClient.invalidateQueries({ queryKey: ["goals"] });
     },
     onError: (err: unknown) => {
@@ -119,16 +124,21 @@ export default function GoalsPage() {
   const summary = q.data?.summary;
 
   return (
-    <Space orientation="vertical" size="large" className="w-full max-w-3xl">
-      <div>
-        <Title level={4} className="!m-0">
-          <Space>
-            <AimOutlined />
-            اهداف پس‌انداز
-          </Space>
-        </Title>
-        <Text type="secondary">برای سفر، خرید یا اضطراری هدف بگذارید و پیشرفت را دنبال کنید.</Text>
-      </div>
+    <PageShell width="form">
+      <PageHeader
+        icon={<AimOutlined />}
+        title="اهداف پس‌انداز"
+        description="برای سفر، خرید یا اضطراری هدف بگذارید و پیشرفت را دنبال کنید."
+        actions={
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => setFormOpen((o) => !o)}
+          >
+            افزودن
+          </Button>
+        }
+      />
 
       {q.isLoading ? (
         <KpiRowSkeleton count={3} colProps={{ xs: 24, md: 8 }} />
@@ -156,186 +166,202 @@ export default function GoalsPage() {
         </Row>
       ) : null}
 
-      <Card
-        title={
-          <Space>
-            <PlusOutlined />
-            هدف جدید
-          </Space>
-        }
-      >
-        <Space orientation="vertical" size="middle" className="w-full">
-          <Input
-            placeholder="مثلاً سفر شمال"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-          <Text type="secondary" className="text-xs">
-            پیشرفت هدف فقط با «افزودن» از حساب بانکی ثبت می‌شود تا موجودی نقد دوبار شمرده نشود.
-          </Text>
-          <Row gutter={[12, 12]}>
-            <Col xs={24} sm={12}>
-              <AmountInput
-                placeholder="مبلغ هدف (تومان)"
-                value={targetAmount}
-                onChange={setTargetAmount}
-              />
-            </Col>
-            <Col xs={24} sm={12}>
-              <JalaliDateInput
-                placeholder="مهلت YYYY/MM/DD"
-                value={deadline}
-                onChange={setDeadline}
-              />
-            </Col>
-            <Col xs={24}>
-              <Flex gap={8} wrap="wrap" align="center">
-                {CATEGORY_COLORS.slice(0, 6).map((c) => (
-                  <Button
-                    key={c}
-                    type="text"
-                    aria-label={c}
-                    onClick={() => setColor(c)}
-                    className={cn(
-                      "w-8 h-8 min-w-8 p-0 rounded-xl",
-                      color === c
-                        ? "border-2 border-white ring-2 ring-brand-500"
-                        : "border border-slate-400/20"
-                    )}
-                    style={{ background: c }}
-                  />
-                ))}
-              </Flex>
-            </Col>
-          </Row>
-          <Button
-            type="primary"
-            loading={createMutation.isPending}
-            onClick={() => createMutation.mutate()}
-          >
-            {createMutation.isPending ? "در حال ذخیره..." : "ایجاد هدف"}
-          </Button>
+      {formOpen ? (
+        <Card title="هدف جدید">
+          <Space orientation="vertical" size="middle" className="w-full">
+            <Input
+              placeholder="مثلاً سفر شمال"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+            <Text type="secondary" className="text-xs">
+              پیشرفت هدف فقط با «افزودن» از حساب بانکی ثبت می‌شود تا موجودی نقد دوبار شمرده نشود.
+            </Text>
+            <Row gutter={[12, 12]}>
+              <Col xs={24} sm={12}>
+                <AmountInput
+                  placeholder="مبلغ هدف (تومان)"
+                  value={targetAmount}
+                  onChange={setTargetAmount}
+                />
+              </Col>
+              <Col xs={24} sm={12}>
+                <JalaliDateInput
+                  placeholder="مهلت YYYY/MM/DD"
+                  value={deadline}
+                  onChange={setDeadline}
+                />
+              </Col>
+              <Col xs={24}>
+                <Flex gap={8} wrap="wrap" align="center">
+                  {CATEGORY_COLORS.slice(0, 6).map((c) => (
+                    <Button
+                      key={c}
+                      type="text"
+                      aria-label={c}
+                      onClick={() => setColor(c)}
+                      className={cn(
+                        "w-8 h-8 min-w-8 p-0 rounded-xl",
+                        color === c
+                          ? "border-2 border-white ring-2 ring-brand-500"
+                          : "border border-slate-400/20"
+                      )}
+                      style={{ background: c }}
+                    />
+                  ))}
+                </Flex>
+              </Col>
+            </Row>
+            <Button
+              type="primary"
+              loading={createMutation.isPending}
+              onClick={() => createMutation.mutate()}
+            >
+              {createMutation.isPending ? "در حال ذخیره..." : "ایجاد هدف"}
+            </Button>
         </Space>
       </Card>
+      ) : null}
 
       {q.isLoading ? <GoalsListSkeleton /> : null}
       {q.error ? (
         <QueryError message="خطا در دریافت اهداف." onRetry={() => void q.refetch()} />
       ) : null}
 
-      <Space orientation="vertical" size="middle" className="w-full">
-        {items.map((goal) => (
-          <Card key={goal.id} className={cn(goal.completed && "border-emerald-400/40")}>
-            <Flex justify="space-between" align="flex-start" gap="middle" wrap="wrap">
-              <Flex align="center" gap="middle" className="min-w-0 flex-1 mb-3">
-                <div className="w-10 h-10 rounded-xl shrink-0" style={{ background: goal.color }} />
-                <div className="min-w-0">
-                  <Text strong ellipsis>
-                    {goal.title}
-                    {goal.completed ? (
-                      <Tag color="green" className="!ms-2">
-                        تکمیل
-                      </Tag>
-                    ) : null}
-                  </Text>
-                  <div>
-                    <Text type="secondary">
-                      {formatToman(goal.currentAmount)} از {formatToman(goal.targetAmount)}
-                      {goal.deadline ? ` · مهلت ${formatJalaliDate(goal.deadline)}` : ""}
-                    </Text>
-                  </div>
-                </div>
-              </Flex>
-              <Popconfirm
-                title="حذف هدف"
-                description="این هدف حذف شود؟"
-                okText="حذف"
-                cancelText="انصراف"
-                okButtonProps={{ danger: true }}
-                onConfirm={() => deleteMutation.mutate(goal.id)}
-              >
-                <Button type="default" danger icon={<DeleteOutlined />} aria-label="حذف" />
-              </Popconfirm>
-            </Flex>
-
-            <Progress
-              percent={goal.percent}
-              showInfo={false}
-              strokeColor={goal.color}
-              className="mt-3"
-            />
-            <Text type="secondary" className="text-xs">
-              {goal.percent.toFixed(0)}% · باقیمانده {formatToman(goal.remaining)}
-            </Text>
-
-            {!goal.completed ? (
-              <Flex
-                gap="small"
-                wrap="wrap"
-                vertical={isMobile}
-                className={cn("mt-3", isMobile && "w-full")}
-              >
-                <Select
-                  className={cn(isMobile ? "w-full" : "min-w-[160px]")}
-                  placeholder="از حساب"
-                  value={
-                    contributeAccounts[goal.id] ||
-                    selectedAccountId ||
-                    accountsQ.data?.[0]?.id
-                  }
-                  onChange={(v) =>
-                    setContributeAccounts((s) => ({ ...s, [goal.id]: v }))
-                  }
-                  options={(accountsQ.data ?? []).map((a) => ({
-                    value: a.id,
-                    label: a.name,
-                  }))}
-                />
-                <div className={cn("flex-1", isMobile ? "min-w-full" : "min-w-[120px]")}>
-                  <AmountInput
-                    placeholder="مبلغ افزودنی"
-                    value={contributeAmounts[goal.id] ?? ""}
-                    onChange={(v) =>
-                      setContributeAmounts((s) => ({ ...s, [goal.id]: v }))
-                    }
-                  />
-                </div>
-                <Button
-                  type="primary"
-                  block={isMobile}
-                  loading={contributeMutation.isPending}
-                  onClick={() => {
-                    const value = parseAmountInput(contributeAmounts[goal.id] ?? "");
-                    const accountId =
-                      contributeAccounts[goal.id] ||
-                      selectedAccountId ||
-                      accountsQ.data?.[0]?.id ||
-                      "";
-                    if (!Number.isFinite(value) || value <= 0) {
-                      message.error("مبلغ معتبر نیست");
-                      return;
-                    }
-                    if (!accountId) {
-                      message.error("حساب بانکی را انتخاب کنید");
-                      return;
-                    }
-                    contributeMutation.mutate({ id: goal.id, amount: value, accountId });
-                  }}
-                >
-                  افزودن از حساب
-                </Button>
-              </Flex>
-            ) : null}
-          </Card>
-        ))}
-      </Space>
-
       {!q.isLoading && items.length === 0 ? (
         <EmptyState
           title="هنوز هدفی تعریف نشده"
           description="برای سفر، خرید یا اضطراری یک هدف پس‌انداز بسازید."
         />
+      ) : items.length > 0 ? (
+        <SoftList>
+          {items.map((goal) => (
+            <SoftListItem
+              key={goal.id}
+              className={cn(goal.completed && "bg-emerald-500/5")}
+            >
+              <SoftListRow
+                leading={
+                  <SoftAvatar color={goal.color} className="!h-10 !w-10 !rounded-xl" />
+                }
+                title={
+                  <Space size={4} wrap>
+                    <span>{goal.title}</span>
+                    {goal.completed ? (
+                      <Tag color="green" className="!m-0">
+                        تکمیل
+                      </Tag>
+                    ) : null}
+                  </Space>
+                }
+                subtitle={
+                  <>
+                    {formatToman(goal.currentAmount)} از {formatToman(goal.targetAmount)}
+                    {goal.deadline ? ` · مهلت ${formatJalaliDate(goal.deadline)}` : ""}
+                  </>
+                }
+                trailing={
+                  <div className="text-left">
+                    <Text type="secondary" className="text-xs">
+                      باقیمانده
+                    </Text>
+                    <div>
+                      <Text strong className="tabular-nums">
+                        {formatToman(goal.remaining)}
+                      </Text>
+                    </div>
+                    <Text type="secondary" className="text-xs tabular-nums">
+                      {goal.percent.toFixed(0)}%
+                    </Text>
+                  </div>
+                }
+                footer={
+                  <>
+                    <Progress
+                      percent={goal.percent}
+                      showInfo={false}
+                      strokeColor={goal.color}
+                      className="!mb-2"
+                    />
+                    <Flex justify="space-between" align="flex-start" gap="small" wrap="wrap">
+                      {!goal.completed ? (
+                        <Flex
+                          gap="small"
+                          wrap="wrap"
+                          vertical={isMobile}
+                          className={cn("flex-1", isMobile && "w-full")}
+                        >
+                          <Select
+                            className={cn(isMobile ? "w-full" : "min-w-[160px]")}
+                            placeholder="از حساب"
+                            value={
+                              contributeAccounts[goal.id] ||
+                              selectedAccountId ||
+                              accountsQ.data?.[0]?.id
+                            }
+                            onChange={(v) =>
+                              setContributeAccounts((s) => ({ ...s, [goal.id]: v }))
+                            }
+                            options={(accountsQ.data ?? []).map((a) => ({
+                              value: a.id,
+                              label: a.name,
+                            }))}
+                          />
+                          <div className={cn("flex-1", isMobile ? "min-w-full" : "min-w-[120px]")}>
+                            <AmountInput
+                              placeholder="مبلغ افزودنی"
+                              value={contributeAmounts[goal.id] ?? ""}
+                              onChange={(v) =>
+                                setContributeAmounts((s) => ({ ...s, [goal.id]: v }))
+                              }
+                            />
+                          </div>
+                          <Button
+                            type="primary"
+                            block={isMobile}
+                            loading={contributeMutation.isPending}
+                            onClick={() => {
+                              const value = parseAmountInput(contributeAmounts[goal.id] ?? "");
+                              const accountId =
+                                contributeAccounts[goal.id] ||
+                                selectedAccountId ||
+                                accountsQ.data?.[0]?.id ||
+                                "";
+                              if (!Number.isFinite(value) || value <= 0) {
+                                message.error("مبلغ معتبر نیست");
+                                return;
+                              }
+                              if (!accountId) {
+                                message.error("حساب بانکی را انتخاب کنید");
+                                return;
+                              }
+                              contributeMutation.mutate({ id: goal.id, amount: value, accountId });
+                            }}
+                          >
+                            افزودن از حساب
+                          </Button>
+                        </Flex>
+                      ) : (
+                        <div className="flex-1" />
+                      )}
+                      <Popconfirm
+                        title="حذف هدف"
+                        description="این هدف حذف شود؟"
+                        okText="حذف"
+                        cancelText="انصراف"
+                        okButtonProps={{ danger: true }}
+                        onConfirm={() => deleteMutation.mutate(goal.id)}
+                      >
+                        <Button type="default" danger icon={<DeleteOutlined />} aria-label="حذف" />
+                      </Popconfirm>
+                    </Flex>
+                  </>
+                }
+              />
+            </SoftListItem>
+          ))}
+        </SoftList>
       ) : null}
-    </Space>
+    </PageShell>
   );
 }
