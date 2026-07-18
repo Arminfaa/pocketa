@@ -51,7 +51,7 @@ function ChartCardSkeleton({
   );
 }
 
-/** Dashboard content placeholder — matches hero + section cards. */
+/** Dashboard content placeholder — hero, quick links, recent list. */
 export function DashboardSkeleton() {
   return (
     <div className="w-full space-y-4" aria-busy="true">
@@ -66,19 +66,30 @@ export function DashboardSkeleton() {
         <Sk className="h-12 w-full rounded-2xl" />
       </div>
       <div className="surface-card space-y-3 p-4 sm:p-5">
-        <Sk className="h-4 w-32" />
-        <Sk className="h-3 w-full" />
-        <Sk className="h-3 w-5/6" />
-        <Sk className="h-3 w-2/3" />
+        <Sk className="h-4 w-28" />
+        <div className="grid grid-cols-4 gap-2">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Sk key={i} className="h-16 w-full rounded-2xl" />
+          ))}
+        </div>
       </div>
-      <Row gutter={[16, 16]}>
-        <Col xs={24} lg={12}>
-          <ChartCardSkeleton titleWidth="55%" />
-        </Col>
-        <Col xs={24} lg={12}>
-          <ChartCardSkeleton titleWidth="45%" />
-        </Col>
-      </Row>
+      <div className="surface-card overflow-hidden">
+        <div className="border-b border-app-border px-4 py-3">
+          <Sk className="h-4 w-40" />
+        </div>
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div
+            key={i}
+            className="flex items-center justify-between gap-3 border-b border-app-border px-4 py-3.5 last:border-b-0"
+          >
+            <div className="min-w-0 flex-1 space-y-2">
+              <Sk className="h-3.5 w-2/3" />
+              <Sk className="h-3 w-1/3" />
+            </div>
+            <Sk className="h-4 w-20" />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

@@ -103,6 +103,15 @@ export function todayJalali(): string {
   return formatJalali(j.jy, j.jm, j.jd);
 }
 
+/** Jalali date string for `days` calendar days before today (0 = today). */
+export function jalaliDaysBefore(days: number, from = new Date()): string {
+  const d = new Date(from);
+  d.setHours(12, 0, 0, 0);
+  d.setDate(d.getDate() - Math.max(0, Math.floor(days)));
+  const j = jalaali.toJalaali(d.getFullYear(), d.getMonth() + 1, d.getDate());
+  return formatJalali(j.jy, j.jm, j.jd);
+}
+
 /** YYYY/MM from a Jalali date string. */
 export function jalaliYearMonth(date: string): string {
   return normalizeJalaliDate(toEnglishDigits(date)).slice(0, 7);
