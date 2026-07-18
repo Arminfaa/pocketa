@@ -13,16 +13,10 @@ import {
   defaultTitle,
   ensureBankSmsCategories,
   findExistingHashes,
-} from "../services/bank-sms-import.service";
-import {
-  findLatestSmsBalance,
-  syncInitialBalanceToTarget,
-} from "../services/account.service";
-import { suggestCategoryForTitle } from "../services/category-suggest.service";
-import {
   findNearDuplicateImportKeys,
   nearDuplicateKey,
 } from "../services/bank-sms-import.service";
+import { suggestCategoryForTitle } from "../services/category-suggest.service";
 
 async function loadUserName(userId: string): Promise<string> {
   const user = await UserModel.findById(userId).select("name").lean();
@@ -97,7 +91,7 @@ export const confirm = asyncHandler(async (req: Request, res: Response) => {
   const parsed = BankSmsConfirmSchema.safeParse(req.body);
   if (!parsed.success) throw new AppError(400, "خطا در اعتبارسنجی داده‌ها", parsed.error.flatten());
 
-  const { rawText, accountId, selectedHashes, syncBalance } = parsed.data;
+  const { rawText, accountId, selectedHashes } = parsed.data;
   const jalaliYear = parsed.data.jalaliYear ?? currentJalaliYear();
 
   const account = await BankAccountModel.findOne({ _id: accountId, userId, isActive: true });
@@ -206,34 +200,12 @@ export const confirm = asyncHandler(async (req: Request, res: Response) => {
     bankHint,
   });
 
-  let balanceSync: {
-    previousBalance: number;
-    balance: number;
-    smsBalance: number;
-  } | null = null;
-
-  if (syncBalance) {
-    // Use chronologically latest مانده on the account (date + SMS time),
-    // not merely the latest row inside this paste — older batches must not
-    // overwrite a newer SMS balance already stored.
-    const latest = await findLatestSmsBalance(userId, accountId);
-    if (typeof latest === "number") {
-      const synced = await syncInitialBalanceToTarget(userId, accountId, latest);
-      balanceSync = {
-        previousBalance: synced.previousBalance,
-        balance: synced.balance,
-        smsBalance: latest,
-      };
-    }
-  }
-
   return sendSuccess(
     res,
     {
       importedCount,
       skippedDuplicateCount: selected.length - toImport.length,
       parsedCount: selected.length,
-      balanceSync,
     },
     `${importedCount} تراکنش از پیامک وارد شد`
   );

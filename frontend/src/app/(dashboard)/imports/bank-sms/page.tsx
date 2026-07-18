@@ -62,7 +62,6 @@ export default function BankSmsImportPage() {
   const [items, setItems] = useState<ParsedImportItem[]>([]);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [failedBlocks, setFailedBlocks] = useState<string[]>([]);
-  const [syncBalance, setSyncBalance] = useState(true);
   const [previewMeta, setPreviewMeta] = useState<{
     bankHint: string;
     duplicateCount: number;
@@ -106,16 +105,10 @@ export default function BankSmsImportPage() {
         accountId: effectiveAccountId,
         jalaliYear: Number(jalaliYear),
         selectedHashes,
-        syncBalance,
       });
     },
     onSuccess: (data) => {
       message.success(`${data.importedCount} تراکنش وارد شد`);
-      if (data.balanceSync) {
-        message.info(
-          `موجودی حساب همگام شد: ${formatToman(data.balanceSync.previousBalance)} → ${formatToman(data.balanceSync.balance)}`
-        );
-      }
       void queryClient.invalidateQueries({ queryKey: ["transactions"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       void queryClient.invalidateQueries({ queryKey: ["accounts"] });
@@ -284,9 +277,6 @@ export default function BankSmsImportPage() {
                     <Text type="secondary" className="text-sm">
                       {formatJalaliDate(item.date)}
                       {item.time ? ` · ${item.time}` : ""}
-                      {item.balanceAfter !== undefined
-                        ? ` · مانده ${formatToman(item.balanceAfter)}`
-                        : ""}
                     </Text>
                     {item.isDuplicate ? (
                       <div className="mt-1">
@@ -312,10 +302,6 @@ export default function BankSmsImportPage() {
               </Card>
             ))}
           </Space>
-
-          <Checkbox checked={syncBalance} onChange={(e) => setSyncBalance(e.target.checked)}>
-            همگام‌سازی موجودی حساب با جدیدترین «مانده» پیامک این حساب (بر اساس تاریخ و ساعت)
-          </Checkbox>
 
           <Button
             type="primary"

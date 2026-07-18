@@ -17,7 +17,7 @@ const TransactionSchema = new Schema(
 
     source: {
       type: String,
-      enum: ["manual", "bank_sms"],
+      enum: ["manual", "bank_sms", "balance_adjustment"],
       default: "manual",
     },
     needsReview: { type: Boolean, default: false, index: true },

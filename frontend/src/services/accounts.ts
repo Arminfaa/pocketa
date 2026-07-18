@@ -6,6 +6,12 @@ import type { BankAccount } from "@/types/account";
 type AccountsResponse = { items: BankAccount[] };
 type AccountResponse = { item: BankAccount };
 
+export type BalanceAdjustment = {
+  type: "income" | "expense";
+  amount: number;
+  id: string;
+};
+
 function normalize(item: Record<string, unknown>): BankAccount {
   return {
     id: String(item.id ?? item._id),
@@ -46,7 +52,6 @@ export async function updateAccount(
     bankName: string;
     color: string;
     icon: string;
-    initialBalance: number;
     isActive: boolean;
   }>
 ): Promise<BankAccount> {
@@ -59,20 +64,27 @@ export async function deleteAccount(id: string): Promise<void> {
   await api.delete(`/api/accounts/${id}`);
 }
 
-export async function syncAccountBalance(
+/** Set book balance by creating an adjustment income/expense for the delta. */
+export async function adjustAccountBalance(
   id: string,
-  balanceAfter?: number
-): Promise<BankAccount & { previousBalance?: number; smsBalance?: number }> {
-  const res = await api.post(`/api/accounts/${id}/sync-balance`, {
-    ...(balanceAfter !== undefined ? { balanceAfter } : {}),
-  });
-  const data = res.data?.data as AccountResponse & {
-    item: Record<string, unknown> & { previousBalance?: number; smsBalance?: number };
+  targetBalance: number
+): Promise<
+  BankAccount & {
+    previousBalance?: number;
+    adjustment?: BalanceAdjustment | null;
+  }
+> {
+  const res = await api.post(`/api/accounts/${id}/adjust-balance`, { targetBalance });
+  const data = res.data?.data as {
+    item: Record<string, unknown> & {
+      previousBalance?: number;
+      adjustment?: BalanceAdjustment | null;
+    };
   };
   return {
     ...normalize(data.item as unknown as Record<string, unknown>),
     previousBalance:
       data.item.previousBalance !== undefined ? Number(data.item.previousBalance) : undefined,
-    smsBalance: data.item.smsBalance !== undefined ? Number(data.item.smsBalance) : undefined,
+    adjustment: data.item.adjustment ?? null,
   };
 }

@@ -85,16 +85,8 @@ export const getDashboard = asyncHandler(async (req: Request, res: Response) => 
   const incomeTotal = totalByType.get("income") ?? 0;
   const expenseTotal = totalByType.get("expense") ?? 0;
 
-  let initialBalance = 0;
-  if (accountId) {
-    const account = await BankAccountModel.findById(accountId);
-    initialBalance = account?.initialBalance ?? 0;
-  } else {
-    const accounts = await BankAccountModel.find({ userId, isActive: true });
-    initialBalance = accounts.reduce((sum, a) => sum + (a.initialBalance ?? 0), 0);
-  }
-
-  const balance = initialBalance + incomeTotal - expenseTotal;
+  // Accounting identity: موجودی = درآمد − هزینه (no hidden initialBalance plug)
+  const balance = incomeTotal - expenseTotal;
 
   const savings = incomeThis - expenseThis;
   const savingsPercent = incomeThis > 0 ? Math.max(0, (savings / incomeThis) * 100) : 0;

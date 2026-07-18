@@ -7,9 +7,24 @@ import {
   refreshCurrencyIfNeeded,
   refreshGoldIfNeeded,
 } from "./services/market-prices.service";
+import { migrateLegacyInitialBalances } from "./services/account.service";
 
 async function start() {
   await connectDb();
+
+  try {
+    const migrated = await migrateLegacyInitialBalances();
+    if (migrated.accountsUpdated > 0) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[accounting] migrated legacy initialBalance on ${migrated.accountsUpdated} account(s)`
+      );
+    }
+  } catch (err: unknown) {
+    // eslint-disable-next-line no-console
+    console.warn("[accounting] initialBalance migration skipped/failed", err);
+  }
+
   startReminderCron();
   startMarketPricesCron();
 
