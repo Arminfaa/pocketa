@@ -59,6 +59,7 @@ import { SoftList, SoftListItem, SoftListRow } from "@/components/ui/soft-list";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { SectionCard } from "@/components/ui/section-card";
 import { AmountText } from "@/components/ui/amount-text";
+import { FilterBar, FilterField } from "@/components/ui/filter-bar";
 
 const { Text } = Typography;
 
@@ -326,7 +327,21 @@ export default function InvestmentsPage() {
         title="سرمایه‌گذاری / پس‌انداز"
         icon={<FundOutlined />}
         description="طلا، دلار و ریال جدا از حساب بانکی — ارزش روز، سود دوره‌ای و محاسبه‌گر"
-        extra={
+        actions={
+          tab === "investments" ? (
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => setFormOpen(true)}
+            >
+              افزودن
+            </Button>
+          ) : undefined
+        }
+      />
+
+      <FilterBar>
+        <FilterField className="sm:min-w-[14rem] sm:flex-[2]">
           <Segmented
             block
             value={tab}
@@ -344,19 +359,8 @@ export default function InvestmentsPage() {
               },
             ]}
           />
-        }
-        actions={
-          tab === "investments" ? (
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => setFormOpen(true)}
-            >
-              افزودن
-            </Button>
-          ) : undefined
-        }
-      />
+        </FilterField>
+      </FilterBar>
 
       {tab === "calculator" ? <AssetCalculator /> : null}
 
