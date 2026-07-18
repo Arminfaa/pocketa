@@ -50,9 +50,11 @@ import { QueryError } from "@/components/ui/query-error";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TransactionFormModal } from "@/features/transactions/TransactionFormModal";
 import { TransferFormModal } from "@/features/transactions/TransferFormModal";
+import { PageShell } from "@/components/ui/page-shell";
+import { PageHeader } from "@/components/ui/page-header";
 
 const { useBreakpoint } = Grid;
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 type Filters = {
   search: string;
@@ -402,49 +404,49 @@ export default function TransactionsPage() {
   ];
 
   return (
-    <Space orientation="vertical" size="middle" className="w-full">
-      <Flex justify="space-between" align="flex-end" gap="middle" wrap="wrap">
-        <div>
-          <Title level={4} className="!m-0">
-            تراکنش‌ها
-          </Title>
-          <Text type="secondary">
+    <PageShell width="full" gap="middle">
+      <PageHeader
+        title="تراکنش‌ها"
+        description={
+          <>
             {selectedAccountId ? "فیلتر یک حساب از هدر فعال است" : "نمایش همه حساب‌ها"} · {total}{" "}
             مورد
-          </Text>
-        </div>
-        <Space wrap>
-          {selectedIds.length > 0 ? (
-            <Popconfirm
-              title={`${toPersianDigits(String(selectedIds.length))} تراکنش انتخاب‌شده حذف شود؟`}
-              okText="حذف همه"
-              cancelText="انصراف"
-              okButtonProps={{ danger: true, loading: bulkDeleteMutation.isPending }}
-              onConfirm={() => bulkDeleteMutation.mutate(selectedIds)}
+          </>
+        }
+        actions={
+          <Space wrap>
+            {selectedIds.length > 0 ? (
+              <Popconfirm
+                title={`${toPersianDigits(String(selectedIds.length))} تراکنش انتخاب‌شده حذف شود؟`}
+                okText="حذف همه"
+                cancelText="انصراف"
+                okButtonProps={{ danger: true, loading: bulkDeleteMutation.isPending }}
+                onConfirm={() => bulkDeleteMutation.mutate(selectedIds)}
+              >
+                <Button danger icon={<DeleteOutlined />} loading={bulkDeleteMutation.isPending}>
+                  حذف انتخاب‌شده‌ها ({toPersianDigits(String(selectedIds.length))})
+                </Button>
+              </Popconfirm>
+            ) : null}
+            <Button icon={<DownloadOutlined />} onClick={() => void handleExport()}>
+              خروجی CSV
+            </Button>
+            <Button icon={<SwapOutlined />} onClick={() => setTransferOpen(true)}>
+              انتقال بین حساب
+            </Button>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => {
+                setEditing(null);
+                setModalOpen(true);
+              }}
             >
-              <Button danger icon={<DeleteOutlined />} loading={bulkDeleteMutation.isPending}>
-                حذف انتخاب‌شده‌ها ({toPersianDigits(String(selectedIds.length))})
-              </Button>
-            </Popconfirm>
-          ) : null}
-          <Button icon={<DownloadOutlined />} onClick={() => void handleExport()}>
-            خروجی CSV
-          </Button>
-          <Button icon={<SwapOutlined />} onClick={() => setTransferOpen(true)}>
-            انتقال بین حساب
-          </Button>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => {
-              setEditing(null);
-              setModalOpen(true);
-            }}
-          >
-            تراکنش جدید
-          </Button>
-        </Space>
-      </Flex>
+              تراکنش جدید
+            </Button>
+          </Space>
+        }
+      />
 
       <Card size="small">
         <Space orientation="vertical" size="middle" className="w-full">
@@ -695,6 +697,6 @@ export default function TransactionsPage() {
           await transferMutation.mutateAsync(values);
         }}
       />
-    </Space>
+    </PageShell>
   );
 }
