@@ -8,8 +8,8 @@ function toObjectId(id: string | mongoose.Types.ObjectId) {
   return typeof id === "string" ? new mongoose.Types.ObjectId(id) : id;
 }
 
-const OPENING_CATEGORY_NAME = "موجودی اولیه";
-const ADJUSTMENT_CATEGORY_NAME = "تعدیل موجودی";
+export const OPENING_CATEGORY_NAME = "موجودی اولیه";
+export const ADJUSTMENT_CATEGORY_NAME = "تعدیل موجودی";
 
 /** Find or create the income category used for account opening balances. */
 export async function ensureOpeningBalanceCategory(

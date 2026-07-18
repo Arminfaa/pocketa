@@ -35,6 +35,7 @@ import {
   type ProfitFrequency,
   type ProfitMode,
 } from "@/services/investments";
+import { fetchAccounts } from "@/services/accounts";
 import { formatJalaliDate, formatToman } from "@/lib/format";
 import { normalizeJalaliDateInput, parseAmountInput } from "@/lib/amount";
 import { AmountInput } from "@/components/ui/amount-input";
@@ -47,6 +48,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { QueryError } from "@/components/ui/query-error";
 import { AssetCalculator } from "@/components/investments/AssetCalculator";
 import { MarketPriceTicker } from "@/components/dashboard/MarketPriceTicker";
+import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { cn } from "@/lib/cn";
 import type { ReactNode } from "react";
 import api from "@/services/api";
@@ -132,6 +134,8 @@ export default function InvestmentsPage() {
   const [quantity, setQuantity] = useState("");
   const [purchasePrice, setPurchasePrice] = useState("");
   const [purchaseDate, setPurchaseDate] = useState("");
+  const selectedAccountId = useAccountFilterStore((s) => s.selectedAccountId);
+  const [accountId, setAccountId] = useState("");
   const [hasProfit, setHasProfit] = useState(false);
   const [profitMode, setProfitMode] = useState<ProfitMode>("percent");
   const [profitValue, setProfitValue] = useState("");
@@ -147,6 +151,14 @@ export default function InvestmentsPage() {
     queryFn: fetchInvestments,
     enabled: tab === "investments",
   });
+
+  const accountsQ = useQuery({
+    queryKey: ["accounts"],
+    queryFn: fetchAccounts,
+    enabled: tab === "investments",
+  });
+
+  const effectiveAccountId = accountId || selectedAccountId || accountsQ.data?.[0]?.id || "";
 
   const marketQ = useQuery({
     queryKey: ["market-prices"],
@@ -183,6 +195,7 @@ export default function InvestmentsPage() {
     setQuantity("");
     setPurchasePrice("");
     setPurchaseDate("");
+    setAccountId("");
     setHasProfit(false);
     setProfitMode("percent");
     setProfitValue("");
@@ -210,6 +223,7 @@ export default function InvestmentsPage() {
         throw new Error("قیمت خرید معتبر نیست");
       }
       if (!purchaseDate.trim()) throw new Error("تاریخ خرید را وارد کنید");
+      if (!effectiveAccountId) throw new Error("حساب بانکی خرید را انتخاب کنید");
       if (assetType === "gold" && !goldKind) throw new Error("نوع طلا را انتخاب کنید");
 
       const payload: Parameters<typeof createInvestment>[0] = {
@@ -221,6 +235,7 @@ export default function InvestmentsPage() {
         purchaseDate: normalizeJalaliDateInput(purchaseDate),
         hasProfit,
         notes: notes.trim() || null,
+        accountId: effectiveAccountId,
       };
 
       if (hasProfit) {
@@ -241,12 +256,15 @@ export default function InvestmentsPage() {
     onSuccess: () => {
       message.success(
         hasProfit
-          ? "سرمایه‌گذاری ثبت شد و درآمد سود در جریان دوره‌ای / سررسید‌ها اضافه شد"
-          : "سرمایه‌گذاری ثبت شد"
+          ? "سرمایه‌گذاری ثبت شد؛ مبلغ خرید از حساب کم شد و سود در سررسیدها اضافه شد"
+          : "سرمایه‌گذاری ثبت شد و مبلغ خرید از حساب کم شد"
       );
       resetForm();
       void queryClient.invalidateQueries({ queryKey: ["investments"] });
       void queryClient.invalidateQueries({ queryKey: ["recurring"] });
+      void queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      void queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
     onError: (err: unknown) => {
       const msg =
@@ -461,6 +479,22 @@ export default function InvestmentsPage() {
                   تاریخ خرید
                 </Text>
                 <JalaliDateInput value={purchaseDate} onChange={setPurchaseDate} />
+              </div>
+
+              <div>
+                <Text type="secondary" className="text-xs">
+                  حساب بانکی خرید (کسر نقد)
+                </Text>
+                <Select
+                  className="mt-1 w-full"
+                  value={effectiveAccountId || undefined}
+                  onChange={setAccountId}
+                  placeholder="انتخاب حساب"
+                  options={(accountsQ.data ?? []).map((a) => ({
+                    value: a.id,
+                    label: `${a.name} · ${formatToman(a.balance)}`,
+                  }))}
+                />
               </div>
 
               <Flex align="center" gap="middle">

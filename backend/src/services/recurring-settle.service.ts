@@ -8,6 +8,18 @@ import {
   type Frequency,
 } from "../utils/jalaliDate";
 
+export type SettleSnapshot = {
+  recurringId: string;
+  previousAmount: number;
+  previousBaseAmount: number;
+  previousNextPaymentDate: string;
+  previousActive: boolean;
+  previousPaymentsMade: number;
+  previousLastPaymentDate: string | null;
+  deferredDebtId: string | null;
+  settleMode: "full" | "partial";
+};
+
 function resolveBaseAmount(recurring: { amount: number; baseAmount?: number | null }) {
   return recurring.baseAmount ?? recurring.amount;
 }
@@ -123,6 +135,18 @@ export async function settleRecurringWithExistingTransaction(input: {
   const kind = recurring.kind ?? "recurring";
   const baseAmount = resolveBaseAmount(recurring);
 
+  const snapshot: SettleSnapshot = {
+    recurringId: String(recurring._id),
+    previousAmount: recurring.amount,
+    previousBaseAmount: baseAmount,
+    previousNextPaymentDate: recurring.nextPaymentDate,
+    previousActive: recurring.active,
+    previousPaymentsMade: recurring.paymentsMade ?? 0,
+    previousLastPaymentDate: recurring.lastPaymentDate ?? null,
+    deferredDebtId: null,
+    settleMode: input.mode,
+  };
+
   if (input.mode === "full") {
     if (Math.round(paid) !== Math.round(dueAmount)) {
       throw new AppError(
@@ -142,6 +166,7 @@ export async function settleRecurringWithExistingTransaction(input: {
       recurring,
       deferredDebt: null,
       settled: "full" as const,
+      snapshot,
       message:
         kind === "one_time" || !recurring.active
           ? "تراکنش ثبت و سررسید تسویه کامل شد"
@@ -169,6 +194,7 @@ export async function settleRecurringWithExistingTransaction(input: {
     remainder,
     remainderDate
   );
+  snapshot.deferredDebtId = String(deferredDebt._id);
 
   recurring.paymentsMade = (recurring.paymentsMade ?? 0) + 1;
   recurring.lastPaymentDate = todayJalali();
@@ -182,6 +208,38 @@ export async function settleRecurringWithExistingTransaction(input: {
     deferredDebt,
     settled: "partial" as const,
     remainder,
+    snapshot,
     message: `پرداخت جزئی ثبت شد؛ مانده ${Math.round(remainder).toLocaleString("en-US")} تومان تا ${remainderDate} به‌صورت سررسید جدا ثبت شد`,
   };
+}
+
+/** Reverse a settle applied by a transaction that is being deleted. */
+export async function unwindSettleFromSnapshot(
+  userId: string,
+  snapshot: SettleSnapshot
+): Promise<void> {
+  const recurring = await RecurringTransactionModel.findOne({
+    _id: snapshot.recurringId,
+    userId,
+  });
+  if (recurring) {
+    recurring.amount = snapshot.previousAmount;
+    recurring.baseAmount = snapshot.previousBaseAmount;
+    recurring.nextPaymentDate = snapshot.previousNextPaymentDate;
+    recurring.active = snapshot.previousActive;
+    recurring.paymentsMade = snapshot.previousPaymentsMade;
+    recurring.lastPaymentDate = snapshot.previousLastPaymentDate ?? undefined;
+    await recurring.save();
+  }
+
+  if (snapshot.deferredDebtId) {
+    const deferred = await RecurringTransactionModel.findOne({
+      _id: snapshot.deferredDebtId,
+      userId,
+    });
+    // Only remove if never paid
+    if (deferred && (deferred.paymentsMade ?? 0) === 0) {
+      await RecurringTransactionModel.deleteOne({ _id: deferred._id });
+    }
+  }
 }
