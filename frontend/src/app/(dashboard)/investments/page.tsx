@@ -48,7 +48,10 @@ import {
 import { EmptyState } from "@/components/ui/empty-state";
 import { QueryError } from "@/components/ui/query-error";
 import { AssetCalculator } from "@/components/investments/AssetCalculator";
-import { MarketPriceTicker } from "@/components/dashboard/MarketPriceTicker";
+import {
+  MarketPriceTicker,
+  type MarketTickerData,
+} from "@/components/dashboard/MarketPriceTicker";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
 import type { ReactNode } from "react";
 import api from "@/services/api";
@@ -179,14 +182,15 @@ export default function InvestmentsPage() {
     queryKey: ["market-prices"],
     queryFn: async () => {
       try {
-        return (await api.get("/api/market-prices")).data.data;
+        return (await api.get("/api/market-prices")).data.data as MarketTickerData;
       } catch (err: unknown) {
         const ax = err as { response?: { data?: { message?: string } } };
         const msg = ax.response?.data?.message;
         throw new Error(msg || (err instanceof Error ? err.message : "خطا در دریافت قیمت‌ها"));
       }
     },
-    staleTime: 5 * 60_000,
+    staleTime: 60_000,
+    refetchInterval: (q) => (q.state.data?.stale ? 2 * 60_000 : false),
     retry: 1,
   });
 
