@@ -11,9 +11,6 @@ import {
   FormOutlined,
   FundOutlined,
   ImportOutlined,
-  PieChartOutlined,
-  PlusCircleOutlined,
-  TransactionOutlined,
   WalletOutlined,
 } from "@ant-design/icons";
 import { QueryError } from "@/components/ui/query-error";
@@ -27,6 +24,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { MarketPriceTicker } from "@/components/dashboard/MarketPriceTicker";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { enablePushNotifications, fetchPushStatus } from "@/lib/push";
+import { formatTransactionDateTime } from "@/lib/transaction-time";
 import { cn } from "@/lib/cn";
 
 const { Text } = Typography;
@@ -66,21 +64,12 @@ type RecentWeekTx = {
   amount: number;
   title: string;
   date: string;
+  time?: string;
   needsReview?: boolean;
   categoryName?: string;
 };
 
 const QUICK_LINKS = [
-  {
-    href: "/transactions?new=1",
-    label: "تراکنش جدید",
-    icon: <PlusCircleOutlined />,
-  },
-  {
-    href: "/transactions",
-    label: "تراکنش‌ها",
-    icon: <TransactionOutlined />,
-  },
   {
     href: "/imports/bank-sms",
     label: "ایمپورت",
@@ -105,11 +94,6 @@ const QUICK_LINKS = [
     href: "/budgets",
     label: "بودجه",
     icon: <WalletOutlined />,
-  },
-  {
-    href: "/reports",
-    label: "گزارش‌ها",
-    icon: <PieChartOutlined />,
   },
 ] as const;
 
@@ -372,7 +356,10 @@ export default function DashboardPage() {
                     }
                     subtitle={
                       <>
-                        {formatJalaliDate(tx.date)}
+                        {formatTransactionDateTime(
+                          formatJalaliDate(tx.date),
+                          tx.time || undefined
+                        )}
                         {tx.categoryName ? ` · ${tx.categoryName}` : ""}
                       </>
                     }
