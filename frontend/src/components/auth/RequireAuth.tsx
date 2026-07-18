@@ -1,29 +1,19 @@
 "use client";
 
 import { useEffect } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import api from "@/services/api";
 import { useAuthStore } from "@/stores/auth.store";
 import { AppShellSkeleton } from "@/components/skeletons";
 
-function loginUrlWithNext(pathname: string, search: string): string {
-  const next = `${pathname}${search}`;
-  if (!next || next === "/" || next.startsWith("/login")) return "/login";
-  return `/login?next=${encodeURIComponent(next)}`;
-}
-
 export function RequireAuth({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const hydrated = useAuthStore((s) => s.hydrated);
   const sessionChecked = useAuthStore((s) => s.sessionChecked);
   const user = useAuthStore((s) => s.user);
   const hydrate = useAuthStore((s) => s.hydrate);
   const setUser = useAuthStore((s) => s.setUser);
   const setSessionChecked = useAuthStore((s) => s.setSessionChecked);
-
-  const search = searchParams?.toString() ? `?${searchParams.toString()}` : "";
 
   useEffect(() => {
     if (!hydrated) hydrate();
@@ -39,20 +29,20 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
         const nextUser = res.data?.data?.user ?? null;
         setUser(nextUser);
         setSessionChecked(true);
-        if (!nextUser) router.replace(loginUrlWithNext(pathname, search));
+        if (!nextUser) router.replace("/login");
       } catch {
         useAuthStore.getState().logout();
-        router.replace(loginUrlWithNext(pathname, search));
+        router.replace("/login");
       }
     }
     void run();
-  }, [hydrated, pathname, router, search, sessionChecked, setSessionChecked, setUser]);
+  }, [hydrated, router, sessionChecked, setSessionChecked, setUser]);
 
   useEffect(() => {
     if (hydrated && sessionChecked && !user) {
-      router.replace(loginUrlWithNext(pathname, search));
+      router.replace("/login");
     }
-  }, [hydrated, pathname, search, sessionChecked, user, router]);
+  }, [hydrated, sessionChecked, user, router]);
 
   // Optimistic: cached user → render app shell immediately while /me revalidates
   if (user && !sessionChecked) {
