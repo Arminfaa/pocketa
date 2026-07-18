@@ -46,6 +46,8 @@ import { PageShell } from "@/components/ui/page-shell";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { AmountText } from "@/components/ui/amount-text";
+import { AmountInput } from "@/components/ui/amount-input";
+import { formatAmountInputValue, parseAmountInput } from "@/lib/amount";
 
 const { Text } = Typography;
 
@@ -53,6 +55,8 @@ type Draft = {
   title: string;
   categoryId: string;
   tags: string[];
+  /** کارمزد کارت‌به‌کارت (رشته ورودی مبلغ) */
+  feeAmount: string;
   registerAsDebt: boolean;
   debtDueDate: string;
   linkToRecurring: boolean;
@@ -61,14 +65,31 @@ type Draft = {
   remainderDueDate: string;
 };
 
+function requiresFee(tx: Transaction): boolean {
+  return tx.type === "expense" && Boolean(tx.bankMeta?.needsFee);
+}
+
+function transferBaseAmount(tx: Transaction): number {
+  if (tx.bankMeta?.transferAmount != null && tx.bankMeta.transferAmount > 0) {
+    return Math.round(tx.bankMeta.transferAmount);
+  }
+  if (tx.bankMeta?.feeAmount && tx.bankMeta.feeAmount > 0) {
+    return Math.round(tx.amount - tx.bankMeta.feeAmount);
+  }
+  return Math.round(tx.amount);
+}
+
 const AUTO_REVIEW_TITLE_INCOME = "واریز بررسی‌شده";
 const AUTO_REVIEW_TITLE_EXPENSE = "برداشت بررسی‌شده";
 
 function defaultDraft(tx: Transaction): Draft {
+  const knownFee =
+    tx.bankMeta?.feeAmount && tx.bankMeta.feeAmount > 0 ? tx.bankMeta.feeAmount : undefined;
   return {
     title: tx.title.includes("بدون عنوان") ? "" : tx.title,
     categoryId: categoryIdValue(tx.categoryId),
     tags: tx.tags ?? [],
+    feeAmount: knownFee != null ? formatAmountInputValue(knownFee) : "",
     registerAsDebt: false,
     debtDueDate: "",
     linkToRecurring: false,
@@ -159,6 +180,16 @@ export default function ReviewPage() {
     const draft = getDraft(tx);
     const title = resolveSaveTitle(tx, draft, opts);
 
+    let feeAmount: number | undefined;
+    let finalAmount = Math.round(tx.amount);
+    if (requiresFee(tx)) {
+      feeAmount = parseAmountInput(draft.feeAmount);
+      if (!Number.isFinite(feeAmount) || feeAmount <= 0) {
+        throw new Error(`برای «${title}» کارمزد تراکنش را وارد کنید`);
+      }
+      finalAmount = transferBaseAmount(tx) + Math.round(feeAmount);
+    }
+
     if (draft.registerAsDebt && draft.linkToRecurring) {
       throw new Error(`برای «${title}» فقط یکی از بدهی/طلب جدید یا تسویه سررسید را انتخاب کنید`);
     }
@@ -174,12 +205,12 @@ export default function ReviewPage() {
       if (item.type !== tx.type) {
         throw new Error("نوع سررسید با نوع تراکنش همخوانی ندارد");
       }
-      if (draft.settleMode === "full" && Math.round(tx.amount) !== Math.round(item.amount)) {
+      if (draft.settleMode === "full" && Math.round(finalAmount) !== Math.round(item.amount)) {
         throw new Error(
-          `تسویه کامل نیست؛ مبلغ تراکنش (${formatToman(tx.amount)}) با مبلغ سررسید (${formatToman(item.amount)}) یکی نیست`
+          `تسویه کامل نیست؛ مبلغ تراکنش (${formatToman(finalAmount)}) با مبلغ سررسید (${formatToman(item.amount)}) یکی نیست`
         );
       }
-      if (draft.settleMode === "partial" && tx.amount >= item.amount) {
+      if (draft.settleMode === "partial" && finalAmount >= item.amount) {
         throw new Error("برای مبلغ مساوی یا بیشتر، تسویه کامل را انتخاب کنید");
       }
       if (draft.settleMode === "partial" && !draft.remainderDueDate.trim()) {
@@ -192,6 +223,7 @@ export default function ReviewPage() {
       categoryId: draft.categoryId || categoryIdValue(tx.categoryId),
       tags: draft.tags,
       needsReview: false,
+      ...(feeAmount != null ? { feeAmount: Math.round(feeAmount), amount: finalAmount } : {}),
       registerAsDebt: draft.registerAsDebt,
       debtDueDate: draft.registerAsDebt
         ? normalizeJalaliDateInput(draft.debtDueDate)
@@ -252,6 +284,15 @@ export default function ReviewPage() {
     mutationFn: async (ids: string[]) => {
       const selected = items.filter((tx) => ids.includes(tx._id));
       if (selected.length === 0) throw new Error("موردی انتخاب نشده");
+
+      const missingFee = selected.find((tx) => {
+        if (!requiresFee(tx)) return false;
+        const fee = parseAmountInput(getDraft(tx).feeAmount);
+        return !Number.isFinite(fee) || fee <= 0;
+      });
+      if (missingFee) {
+        throw new Error("برای رسیدهای کارت‌به‌کارت، کارمزد را وارد کنید");
+      }
 
       const invalidDebt = selected.find(
         (tx) => getDraft(tx).registerAsDebt && !getDraft(tx).debtDueDate.trim()
@@ -352,7 +393,7 @@ export default function ReviewPage() {
       <PageHeader
         title="نام‌گذاری تراکنش‌های ایمپورت‌شده"
         icon={<WarningOutlined />}
-        description="موارد را تکی یا گروهی انتخاب کنید، عنوان بگذارید، سپس ذخیره و خروج از بررسی کنید."
+        description="موارد را تکی یا گروهی انتخاب کنید، عنوان بگذارید. برای رسید کارت‌به‌کارت، کارمزد اجباری است و به مبلغ انتقال اضافه می‌شود."
       />
 
       {listQ.isLoading ? <ReviewListSkeleton /> : null}
@@ -396,6 +437,15 @@ export default function ReviewPage() {
           const draft = getDraft(tx);
           const cats = (categoriesQ.data ?? []).filter((c) => c.type === tx.type);
           const checked = selectedIds.includes(tx._id);
+          const feeRequired = requiresFee(tx);
+          const baseTransfer = transferBaseAmount(tx);
+          const draftFee = parseAmountInput(draft.feeAmount);
+          const previewTotal =
+            feeRequired && Number.isFinite(draftFee) && draftFee > 0
+              ? baseTransfer + Math.round(draftFee)
+              : feeRequired
+                ? baseTransfer
+                : Math.round(tx.amount);
 
           return (
             <SectionCard
@@ -429,7 +479,21 @@ export default function ReviewPage() {
                       {" · "}
                       {categoryName(tx.categoryId)}
                     </Text>
-                    {tx.bankMeta?.feeAmount && tx.bankMeta.feeAmount > 0 ? (
+                    {feeRequired ? (
+                      <Text type="secondary" className="text-xs block">
+                        مبلغ انتقال: {formatToman(baseTransfer)}
+                        {Number.isFinite(draftFee) && draftFee > 0 ? (
+                          <>
+                            {" · کارمزد: "}
+                            {formatToman(draftFee)}
+                            {" · مجموع: "}
+                            {formatToman(previewTotal)}
+                          </>
+                        ) : (
+                          " · کارمزد را وارد کنید"
+                        )}
+                      </Text>
+                    ) : tx.bankMeta?.feeAmount && tx.bankMeta.feeAmount > 0 ? (
                       <Text type="secondary" className="text-xs block">
                         مبلغ انتقال:{" "}
                         {formatToman(tx.bankMeta.transferAmount ?? tx.amount - tx.bankMeta.feeAmount)}
@@ -445,12 +509,16 @@ export default function ReviewPage() {
                     size="sm"
                     prefix={tx.type === "income" ? "+" : "-"}
                     caption={
-                      tx.bankMeta?.feeAmount && tx.bankMeta.feeAmount > 0
-                        ? "مبلغ + کارمزد"
-                        : undefined
+                      feeRequired
+                        ? Number.isFinite(draftFee) && draftFee > 0
+                          ? "مبلغ + کارمزد"
+                          : "مبلغ انتقال"
+                        : tx.bankMeta?.feeAmount && tx.bankMeta.feeAmount > 0
+                          ? "مبلغ + کارمزد"
+                          : undefined
                     }
                   >
-                    {formatToman(tx.amount)}
+                    {formatToman(previewTotal)}
                   </AmountText>
                 </Flex>
 
@@ -466,6 +534,28 @@ export default function ReviewPage() {
                     }
                   }}
                 />
+
+                {feeRequired ? (
+                  <div>
+                    <Text type="secondary" className="mb-1 block text-xs">
+                      کارمزد تراکنش (اجباری)
+                    </Text>
+                    <AmountInput
+                      value={draft.feeAmount}
+                      onChange={(feeAmount) => setDraft(tx._id, { ...draft, feeAmount })}
+                      placeholder="مثلاً ۷۲۰"
+                      status={
+                        draft.feeAmount.trim() &&
+                        (!Number.isFinite(draftFee) || draftFee <= 0)
+                          ? "error"
+                          : undefined
+                      }
+                    />
+                    <Text type="secondary" className="mt-1 block text-xs">
+                      مبلغ نهایی ثبت‌شده = مبلغ انتقال ({formatToman(baseTransfer)}) + کارمزد
+                    </Text>
+                  </div>
+                ) : null}
 
                 <Row gutter={[12, 12]}>
                   <Col xs={24} md={14}>

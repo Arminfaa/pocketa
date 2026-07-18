@@ -27,6 +27,11 @@ export type ParsedBankSms = {
   transferAmount?: number;
   /** Fee amount in تومان (added into `amount` for expense card transfers) */
   feeAmount?: number;
+  /**
+   * Expense card receipts almost always have a fee that is NOT in the paste text.
+   * When true, naming/review must collect fee before leaving needsReview.
+   */
+  needsFee?: boolean;
 };
 
 /** بانک‌ها مبلغ را به ریال می‌فرستند؛ واحد اپ تومان است. */
@@ -423,7 +428,8 @@ export function parseFeeAmountFromText(text: string): number {
 /**
  * رسید کارت به کارت — مبلغ ممکن است تومان یا ریال باشد (واحد در متن آمده).
  * فقط وضعیت «موفق»؛ جهت از تطبیق نام مبدا/مقصد با نام کاربر.
- * کارمزد (اگر در متن باشد) برای برداشت به مبلغ اضافه می‌شود؛ مورد به صف نام‌گذاری می‌رود.
+ * کارمزد معمولاً در متن رسید نیست؛ برای برداشت در نام‌گذاری اجباری گرفته می‌شود.
+ * اگر کارمزد در متن/پیامک جدا باشد، پیش‌پر می‌شود ولی باز هم در نام‌گذاری تأیید می‌شود.
  */
 export function parseCardTransferBlock(
   block: string,
@@ -442,7 +448,7 @@ export function parseCardTransferBlock(
   if (!parsedAmount) return null;
   const transferAmount = parsedAmount.toman;
   const amountRial = parsedAmount.rial;
-  const feeAmount = parseFeeAmountFromText(block);
+  const parsedFee = parseFeeAmountFromText(block);
 
   // Names from soft text (keep آ); map Arabic ي/ك → Persian for titles
   const soft = softNormalizeSms(block);
@@ -482,16 +488,19 @@ export function parseCardTransferBlock(
     return null;
   }
 
-  // کارمزد معمولاً روی حساب مبدا کم می‌شود → فقط به برداشت اضافه می‌شود
-  const appliedFee = type === "expense" ? feeAmount : 0;
-  const amount = transferAmount + appliedFee;
+  // کارمزد روی حساب مبدا است → فقط برداشت؛ تا نام‌گذاری مبلغ = فقط انتقال
+  // (کارمزد بعداً اضافه می‌شود مگر اینکه از قبل در متن آمده باشد)
+  const knownFee = type === "expense" && parsedFee > 0 ? parsedFee : 0;
+  const needsFee = type === "expense";
+  const amount = transferAmount + knownFee;
 
   return {
     type,
     amount,
     amountRial,
     transferAmount,
-    feeAmount: appliedFee || feeAmount || undefined,
+    feeAmount: knownFee > 0 ? knownFee : undefined,
+    needsFee,
     date,
     time,
     bankName: "کارت به کارت",
@@ -500,7 +509,7 @@ export function parseCardTransferBlock(
     importHash: "",
     parser: "card_transfer",
     suggestedTitle,
-    // باید در «نام‌گذاری» دیده شوند تا عنوان نهایی را کاربر بگذارد
+    // باید در «نام‌گذاری» دیده شوند تا عنوان و کارمزد نهایی را کاربر بگذارد
     skipReview: false,
     hashExtra: tracking || `${sourceName}|${destName}`,
   };
@@ -597,6 +606,8 @@ function attachStandaloneFees(items: ParsedBankSms[], fees: number[]): ParsedBan
       transferAmount,
       feeAmount: fee,
       amount: transferAmount + fee,
+      // هنوز در نام‌گذاری باید تأیید/ویرایش شود
+      needsFee: true,
     };
   });
 }

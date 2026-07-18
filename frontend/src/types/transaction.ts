@@ -35,6 +35,8 @@ export type Transaction = {
     rawSnippet?: string;
     feeAmount?: number;
     transferAmount?: number;
+    /** برداشت کارت‌به‌کارت — کارمزد باید در نام‌گذاری وارد شود */
+    needsFee?: boolean;
   };
   categoryId: TransactionCategoryRef | string;
   accountId: TransactionAccountRef | string;
@@ -61,6 +63,8 @@ export type TransactionInput = {
   settleMode?: "full" | "partial" | null;
   /** تاریخ تسویه مانده (برای پرداخت جزئی) */
   remainderDueDate?: string | null;
+  /** کارمزد کارت‌به‌کارت (تومان) — مبلغ نهایی = انتقال + کارمزد */
+  feeAmount?: number;
 };
 
 export type TransactionsListResponse = {
