@@ -98,8 +98,16 @@ export function BottomNav({
                       )}
                     />
                   </button>
-                  {/* Spacer keeps tab slot height aligned with labeled neighbors */}
-                  <span className="mt-[2.15rem] h-[11px]" aria-hidden />
+                  <span
+                    className={cn(
+                      "mt-[2.15rem] truncate text-[11px] font-medium leading-none",
+                      addOpen
+                        ? "text-brand-600 dark:text-brand-300"
+                        : "text-slate-500 dark:text-slate-400"
+                    )}
+                  >
+                    {item.label}
+                  </span>
                 </div>
               );
             }
