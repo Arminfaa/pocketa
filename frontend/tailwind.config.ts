@@ -58,11 +58,11 @@ const config: Config = {
           "radial-gradient(circle at top right, rgba(6,182,212,0.08), transparent 28%), radial-gradient(circle at bottom left, rgba(139,92,246,0.1), transparent 24%)",
       },
       boxShadow: {
-        soft: "0 10px 30px rgba(0,0,0,0.12)",
+        soft: "0 10px 32px rgba(15, 23, 42, 0.06)",
         glow: "0 0 40px rgba(6, 182, 212, 0.18)",
       },
       borderRadius: {
-        antd: "12px",
+        antd: "16px",
       },
       maxWidth: {
         page: "56rem",

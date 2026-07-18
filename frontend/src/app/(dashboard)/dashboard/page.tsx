@@ -4,13 +4,16 @@ import api from "@/services/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import { formatToman } from "@/lib/format";
-import { App, Button, Card, Col, Flex, Grid, Row, Statistic, Typography } from "antd";
-import { ArrowDownOutlined, ArrowUpOutlined, BellOutlined, PlusOutlined } from "@ant-design/icons";
-import Link from "next/link";
+import { App, Button, Col, Flex, Grid, Row, Typography } from "antd";
+import { BellOutlined } from "@ant-design/icons";
 import { QueryError } from "@/components/ui/query-error";
 import { DashboardSkeleton } from "@/components/skeletons";
 import { Sk } from "@/components/ui/skeleton";
 import { PageShell } from "@/components/ui/page-shell";
+import { HeroBalanceCard } from "@/components/ui/hero-balance-card";
+import { SectionCard } from "@/components/ui/section-card";
+import { SoftList, SoftListItem, SoftListRow } from "@/components/ui/soft-list";
+import { AmountText } from "@/components/ui/amount-text";
 import { MarketPriceTicker } from "@/components/dashboard/MarketPriceTicker";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { enablePushNotifications, fetchPushStatus } from "@/lib/push";
@@ -24,7 +27,7 @@ const DashboardIncomeExpenseChart = dynamic(
     ),
   {
     ssr: false,
-    loading: () => <Sk className="h-[300px] w-full rounded-2xl md:h-[260px]" />,
+    loading: () => <Sk className="h-[300px] w-full rounded-3xl md:h-[260px]" />,
   }
 );
 
@@ -35,7 +38,7 @@ const DashboardCategoryBarChart = dynamic(
     ),
   {
     ssr: false,
-    loading: () => <Sk className="h-[300px] w-full rounded-2xl md:h-[260px]" />,
+    loading: () => <Sk className="h-[300px] w-full rounded-3xl md:h-[260px]" />,
   }
 );
 
@@ -102,7 +105,6 @@ export default function DashboardPage() {
 
   const dashboardReady = dashboardQ.isSuccess;
 
-  // Defer secondary work until KPIs are on screen
   const categoriesQ = useQuery({
     queryKey: ["reports-categories", selectedAccountId],
     queryFn: async () => {
@@ -156,11 +158,11 @@ export default function DashboardPage() {
       />
 
       {showPushPrompt ? (
-        <Card size="small">
+        <SectionCard>
           <Flex justify="space-between" align="center" gap="middle" wrap="wrap">
             <div className="min-w-0">
               <Text strong>
-                <BellOutlined className="me-1" />
+                <BellOutlined className="me-1 text-brand-500" />
                 یادآوری پوش
               </Text>
               <div>
@@ -170,6 +172,7 @@ export default function DashboardPage() {
               </div>
             </div>
             <Button
+              type="primary"
               icon={<BellOutlined />}
               loading={pushMutation.isPending}
               onClick={() => pushMutation.mutate()}
@@ -177,7 +180,7 @@ export default function DashboardPage() {
               فعال‌سازی روی این دستگاه
             </Button>
           </Flex>
-        </Card>
+        </SectionCard>
       ) : null}
 
       {dashboardQ.isLoading ? (
@@ -189,156 +192,90 @@ export default function DashboardPage() {
         />
       ) : dashboard ? (
         <>
-          <Card className="!overflow-hidden !border-brand-500/15 bg-gradient-to-b from-white to-brand-50/60 dark:from-slate-900 dark:to-slate-900">
-            <Flex vertical gap="middle" className="text-center sm:text-start">
-              <div>
-                <Text type="secondary" className="!text-sm">
-                  موجودی کل
-                </Text>
-                <div className="mt-1 text-3xl font-bold tracking-tight text-brand-600 tabular-nums dark:text-brand-300 sm:text-4xl">
-                  {formatToman(dashboard.totals.balance)}
-                </div>
-                <Text type="secondary" className="!mt-1 !block !text-xs">
-                  پس‌انداز عملیاتی این ماه: {dashboard.totals.savingsPercent.toFixed(1)}٪
-                </Text>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex items-center gap-2.5 rounded-2xl bg-emerald-500/10 px-3 py-2.5 text-start">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-600">
-                    <ArrowDownOutlined />
-                  </span>
-                  <div className="min-w-0">
-                    <Text type="secondary" className="!block !text-xs">
-                      درآمد
-                    </Text>
-                    <Text strong className="!text-emerald-600 tabular-nums">
-                      {formatToman(dashboard.totals.incomeThisMonth)}
-                    </Text>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2.5 rounded-2xl bg-red-500/10 px-3 py-2.5 text-start">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-500/15 text-red-500">
-                    <ArrowUpOutlined />
-                  </span>
-                  <div className="min-w-0">
-                    <Text type="secondary" className="!block !text-xs">
-                      هزینه
-                    </Text>
-                    <Text strong className="!text-red-500 tabular-nums">
-                      {formatToman(dashboard.totals.expenseThisMonth)}
-                    </Text>
-                  </div>
-                </div>
-              </div>
-
-              <Link href="/transactions?new=1" className="block">
-                <Button type="primary" size="large" block icon={<PlusOutlined />} className="!h-12 !rounded-2xl">
-                  تراکنش جدید
-                </Button>
-              </Link>
-            </Flex>
-          </Card>
+          <HeroBalanceCard
+            balance={formatToman(dashboard.totals.balance)}
+            hint={`پس‌انداز عملیاتی این ماه: ${dashboard.totals.savingsPercent.toFixed(1)}٪`}
+            incomeValue={formatToman(dashboard.totals.incomeThisMonth)}
+            expenseValue={formatToman(dashboard.totals.expenseThisMonth)}
+          />
 
           {dashboard.netWorth && !selectedAccountId ? (
-            <Card title="ارزش خالص (خلاصه تراز)">
-              {isMobile ? (
-                <div className="flex flex-col gap-3">
-                  {[
-                    { label: "نقد", value: dashboard.netWorth.cash, valueClassName: "" },
-                    {
-                      label: "سرمایه‌گذاری",
-                      value: dashboard.netWorth.investmentsValue,
-                      valueClassName: "",
-                    },
-                    {
-                      label: "بدهی‌ها",
-                      value: dashboard.netWorth.liabilities,
-                      valueClassName: "text-red-500",
-                    },
-                    {
-                      label: "طلب‌ها",
-                      value: dashboard.netWorth.receivables,
-                      valueClassName: "text-emerald-500",
-                    },
-                    {
-                      label: "ارزش خالص",
-                      value: dashboard.netWorth.netWorth,
-                      valueClassName: "text-brand-500 font-semibold",
-                    },
-                  ].map((row) => (
-                    <Flex
-                      key={row.label}
-                      justify="space-between"
-                      align="center"
-                      gap="middle"
-                      className="border-b border-app-border/50 pb-3 last:border-b-0 last:pb-0"
-                    >
-                      <Text type="secondary" className="shrink-0">
-                        {row.label}
-                      </Text>
-                      <Text className={`min-w-0 text-left tabular-nums ${row.valueClassName}`}>
-                        {formatToman(row.value)}
-                      </Text>
-                    </Flex>
-                  ))}
-                </div>
-              ) : (
-                <Row gutter={[16, 16]}>
-                  <Col sm={8} md={4}>
-                    <Statistic title="نقد" value={formatToman(dashboard.netWorth.cash)} />
-                  </Col>
-                  <Col sm={8} md={5}>
-                    <Statistic
-                      title="سرمایه‌گذاری"
-                      value={formatToman(dashboard.netWorth.investmentsValue)}
+            <SectionCard
+              title="ارزش خالص"
+              description="نقد + سرمایه‌گذاری − بدهی + طلب (سررسیدهای فعال)"
+            >
+              <SoftList className="!border-0 !shadow-none !rounded-2xl bg-brand-50/30 dark:bg-brand-500/5">
+                {[
+                  { label: "نقد", value: dashboard.netWorth.cash, tone: "default" as const },
+                  {
+                    label: "سرمایه‌گذاری",
+                    value: dashboard.netWorth.investmentsValue,
+                    tone: "violet" as const,
+                  },
+                  {
+                    label: "بدهی‌ها",
+                    value: dashboard.netWorth.liabilities,
+                    tone: "expense" as const,
+                  },
+                  {
+                    label: "طلب‌ها",
+                    value: dashboard.netWorth.receivables,
+                    tone: "income" as const,
+                  },
+                  {
+                    label: "ارزش خالص",
+                    value: dashboard.netWorth.netWorth,
+                    tone: "brand" as const,
+                  },
+                ].map((row) => (
+                  <SoftListItem key={row.label}>
+                    <SoftListRow
+                      title={
+                        <span className={row.tone === "brand" ? "text-brand-600" : undefined}>
+                          {row.label}
+                        </span>
+                      }
+                      trailing={
+                        <AmountText
+                          tone={
+                            row.tone === "violet"
+                              ? "brand"
+                              : row.tone === "expense"
+                                ? "expense"
+                                : row.tone === "income"
+                                  ? "income"
+                                  : row.tone === "brand"
+                                    ? "brand"
+                                    : "default"
+                          }
+                          size={row.tone === "brand" ? "md" : "sm"}
+                        >
+                          {formatToman(row.value)}
+                        </AmountText>
+                      }
                     />
-                  </Col>
-                  <Col sm={8} md={5}>
-                    <Statistic
-                      title="بدهی‌ها"
-                      value={formatToman(dashboard.netWorth.liabilities)}
-                      className="[&_.ant-statistic-content-value]:text-red-500"
-                    />
-                  </Col>
-                  <Col sm={8} md={5}>
-                    <Statistic
-                      title="طلب‌ها"
-                      value={formatToman(dashboard.netWorth.receivables)}
-                      className="[&_.ant-statistic-content-value]:text-emerald-500"
-                    />
-                  </Col>
-                  <Col sm={16} md={5}>
-                    <Statistic
-                      title="ارزش خالص"
-                      value={formatToman(dashboard.netWorth.netWorth)}
-                      className="[&_.ant-statistic-content-value]:text-brand-500"
-                    />
-                  </Col>
-                </Row>
-              )}
-              <Text type="secondary" className="mt-3 block text-xs">
-                ارزش خالص = نقد + سرمایه‌گذاری − بدهی + طلب (سررسیدهای فعال)
-              </Text>
-            </Card>
+                  </SoftListItem>
+                ))}
+              </SoftList>
+            </SectionCard>
           ) : null}
 
           <Row gutter={[16, 16]}>
             <Col xs={24} lg={12}>
-              <Card title="نمودار درآمد و هزینه (این ماه)">
+              <SectionCard title="درآمد و هزینه این ماه">
                 <DashboardIncomeExpenseChart
                   income={dashboard.totals.incomeThisMonth}
                   expense={dashboard.totals.expenseThisMonth}
                   height={chartHeight}
                   tickFontSize={isMobile ? 10 : 12}
                 />
-              </Card>
+              </SectionCard>
             </Col>
 
             <Col xs={24} lg={12}>
-              <Card title="بیشترین دسته‌های هزینه">
+              <SectionCard title="بیشترین دسته‌های هزینه">
                 {categoriesQ.isLoading || !dashboardReady ? (
-                  <Sk className="h-[300px] w-full rounded-2xl md:h-[260px]" />
+                  <Sk className="h-[300px] w-full rounded-3xl md:h-[260px]" />
                 ) : categoriesQ.data ? (
                   <DashboardCategoryBarChart
                     data={categoriesQ.data.expense.map(
@@ -353,7 +290,7 @@ export default function DashboardPage() {
                 ) : (
                   <Text type="secondary">اطلاعات کافی نیست.</Text>
                 )}
-              </Card>
+              </SectionCard>
             </Col>
           </Row>
         </>

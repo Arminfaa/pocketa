@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import {
-  Card,
   Col,
   Flex,
   Grid,
@@ -12,22 +11,27 @@ import {
   Row,
   Segmented,
   Select,
-  Statistic,
   Typography,
 } from "antd";
-import { PieChartOutlined } from "@ant-design/icons";
+import {
+  FallOutlined,
+  LineChartOutlined,
+  PieChartOutlined,
+  RiseOutlined,
+} from "@ant-design/icons";
 import { PageShell } from "@/components/ui/page-shell";
 import { PageHeader } from "@/components/ui/page-header";
 import { SoftList, SoftListItem, SoftListRow } from "@/components/ui/soft-list";
+import { KpiCard } from "@/components/ui/kpi-card";
+import { SectionCard } from "@/components/ui/section-card";
+import { FilterBar, FilterField } from "@/components/ui/filter-bar";
+import { AmountText } from "@/components/ui/amount-text";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { fetchCategoryReport, fetchMonthlyReport } from "@/services/reports";
 import { formatJalaliDate, formatToman } from "@/lib/format";
 import { getJalaliMonthYear, MONTH_LABELS } from "@/lib/finance-ui";
 import { Sk } from "@/components/ui/skeleton";
 import { QueryError } from "@/components/ui/query-error";
-
-const CARD_EXTRA_STACK =
-  "[&_.ant-card-head]:flex-wrap [&_.ant-card-head]:gap-2 [&_.ant-card-extra]:!ms-0 [&_.ant-card-extra]:w-full [&_.ant-card-extra_.ant-select]:w-full";
 
 const { Text } = Typography;
 
@@ -108,31 +112,40 @@ export default function ReportsPage() {
     }));
   }, [categoriesQ.data]);
 
-  const monthPicker = (
-    <Row gutter={[12, 12]}>
-      <Col xs={24} sm={12}>
-        <Text type="secondary">ماه</Text>
-        <Select
-          className="w-full mt-2"
-          value={month}
-          onChange={setMonth}
-          options={MONTH_LABELS.map((label, idx) => ({
-            value: idx + 1,
-            label,
-          }))}
-        />
-      </Col>
-      <Col xs={24} sm={12}>
-        <Text type="secondary">سال</Text>
-        <Input
-          className="mt-2"
-          dir="ltr"
-          value={year}
-          onChange={(e) => setYear(Number(e.target.value) || current.year)}
-        />
-      </Col>
-    </Row>
-  );
+  const incomeValue =
+    mode === "monthly"
+      ? categoriesQ.isLoading
+        ? "—"
+        : formatToman(categoriesQ.data?.incomeTotal ?? 0)
+      : monthlyQ.isLoading
+        ? "—"
+        : formatToman(monthlyQ.data?.summary.totalIncome ?? 0);
+
+  const expenseValue =
+    mode === "monthly"
+      ? categoriesQ.isLoading
+        ? "—"
+        : formatToman(categoriesQ.data?.expenseTotal ?? 0)
+      : monthlyQ.isLoading
+        ? "—"
+        : formatToman(monthlyQ.data?.summary.totalExpense ?? 0);
+
+  const netValue =
+    mode === "monthly"
+      ? categoriesQ.isLoading
+        ? "—"
+        : formatToman(
+            (categoriesQ.data?.incomeTotal ?? 0) - (categoriesQ.data?.expenseTotal ?? 0)
+          )
+      : monthlyQ.isLoading
+        ? "—"
+        : formatToman(monthlyQ.data?.summary.totalNet ?? 0);
+
+  const monthOptions = [
+    { value: 3, label: "۳ ماه" },
+    { value: 6, label: "۶ ماه" },
+    { value: 12, label: "۱۲ ماه" },
+  ];
 
   return (
     <PageShell width="full">
@@ -144,113 +157,83 @@ export default function ReportsPage() {
             ? "گزارش‌ها بر اساس حساب انتخاب‌شده در هدر فیلتر شده‌اند."
             : "نمایش گزارش همه حساب‌ها. از هدر می‌توانید یک حساب را انتخاب کنید."
         }
-        extra={
-          <>
-            <Segmented
-              block
-              value={mode}
-              onChange={(v) => setMode(v as ReportMode)}
-              options={[
-                { value: "monthly", label: "گزارش ماهانه" },
-                { value: "range", label: "روند چندماهه" },
-              ]}
-            />
-            {mode === "monthly" ? <div className="mt-3">{monthPicker}</div> : null}
-          </>
-        }
       />
+
+      <FilterBar>
+        <FilterField className="sm:min-w-[14rem] sm:flex-[2]">
+          <Segmented
+            block
+            value={mode}
+            onChange={(v) => setMode(v as ReportMode)}
+            options={[
+              { value: "monthly", label: "گزارش ماهانه" },
+              { value: "range", label: "روند چندماهه" },
+            ]}
+          />
+        </FilterField>
+        {mode === "monthly" ? (
+          <>
+            <FilterField label="ماه">
+              <Select
+                className="w-full"
+                value={month}
+                onChange={setMonth}
+                options={MONTH_LABELS.map((label, idx) => ({
+                  value: idx + 1,
+                  label,
+                }))}
+              />
+            </FilterField>
+            <FilterField label="سال" className="sm:max-w-[8rem]">
+              <Input
+                dir="ltr"
+                value={year}
+                onChange={(e) => setYear(Number(e.target.value) || current.year)}
+              />
+            </FilterField>
+          </>
+        ) : null}
+      </FilterBar>
 
       <Row gutter={[12, 12]}>
         <Col xs={24} md={8}>
-          <Card>
-            <Statistic
-              title={mode === "monthly" ? "درآمد ماه" : "مجموع درآمد بازه"}
-              value={
-                mode === "monthly"
-                  ? categoriesQ.isLoading
-                    ? "—"
-                    : formatToman(categoriesQ.data?.incomeTotal ?? 0)
-                  : monthlyQ.isLoading
-                    ? "—"
-                    : formatToman(monthlyQ.data?.summary.totalIncome ?? 0)
-              }
-              className="[&_.ant-statistic-content-value]:text-emerald-500 [&_.ant-statistic-content-value]:text-xl"
-              loading={mode === "monthly" ? categoriesQ.isLoading : monthlyQ.isLoading}
-            />
-          </Card>
+          <KpiCard
+            label={mode === "monthly" ? "درآمد ماه" : "مجموع درآمد بازه"}
+            value={incomeValue}
+            tone="success"
+            icon={<RiseOutlined />}
+          />
         </Col>
         <Col xs={24} md={8}>
-          <Card>
-            <Statistic
-              title={mode === "monthly" ? "هزینه ماه" : "مجموع هزینه بازه"}
-              value={
-                mode === "monthly"
-                  ? categoriesQ.isLoading
-                    ? "—"
-                    : formatToman(categoriesQ.data?.expenseTotal ?? 0)
-                  : monthlyQ.isLoading
-                    ? "—"
-                    : formatToman(monthlyQ.data?.summary.totalExpense ?? 0)
-              }
-              className="[&_.ant-statistic-content-value]:text-red-500 [&_.ant-statistic-content-value]:text-xl"
-              loading={mode === "monthly" ? categoriesQ.isLoading : monthlyQ.isLoading}
-            />
-          </Card>
+          <KpiCard
+            label={mode === "monthly" ? "هزینه ماه" : "مجموع هزینه بازه"}
+            value={expenseValue}
+            tone="danger"
+            icon={<FallOutlined />}
+          />
         </Col>
         <Col xs={24} md={8}>
-          <Card>
-            <Statistic
-              title="خالص"
-              value={
-                mode === "monthly"
-                  ? categoriesQ.isLoading
-                    ? "—"
-                    : formatToman(
-                        (categoriesQ.data?.incomeTotal ?? 0) -
-                          (categoriesQ.data?.expenseTotal ?? 0)
-                      )
-                  : monthlyQ.isLoading
-                    ? "—"
-                    : formatToman(monthlyQ.data?.summary.totalNet ?? 0)
-              }
-              className="[&_.ant-statistic-content-value]:text-brand-500 [&_.ant-statistic-content-value]:text-xl"
-              loading={mode === "monthly" ? categoriesQ.isLoading : monthlyQ.isLoading}
-            />
-          </Card>
+          <KpiCard
+            label="خالص"
+            value={netValue}
+            tone="brand"
+            icon={<LineChartOutlined />}
+          />
         </Col>
       </Row>
 
       {mode === "range" ? (
-        <Card
+        <SectionCard
           title="روند ماهانه درآمد و هزینه"
-          className={isMobile ? CARD_EXTRA_STACK : undefined}
           extra={
-            !isMobile ? (
-              <Select
-                value={months}
-                onChange={setMonths}
-                className="w-[120px]"
-                options={[
-                  { value: 3, label: "۳ ماه" },
-                  { value: 6, label: "۶ ماه" },
-                  { value: 12, label: "۱۲ ماه" },
-                ]}
-              />
-            ) : undefined
-          }
-        >
-          {isMobile ? (
             <Select
               value={months}
               onChange={setMonths}
-              className="w-full mb-3"
-              options={[
-                { value: 3, label: "۳ ماه" },
-                { value: 6, label: "۶ ماه" },
-                { value: 12, label: "۱۲ ماه" },
-              ]}
+              className={isMobile ? "w-full" : "w-[120px]"}
+              options={monthOptions}
             />
-          ) : null}
+          }
+        >
           {monthlyQ.isLoading ? <ChartSk /> : null}
           {monthlyQ.error ? (
             <QueryError
@@ -265,9 +248,9 @@ export default function ReportsPage() {
               isMobile={isMobile}
             />
           ) : null}
-        </Card>
+        </SectionCard>
       ) : (
-        <Card title={`درآمد و هزینه ${MONTH_LABELS[month - 1]} ${year}`}>
+        <SectionCard title={`درآمد و هزینه ${MONTH_LABELS[month - 1]} ${year}`}>
           {categoriesQ.isLoading ? <ChartSk /> : null}
           {categoriesQ.error ? (
             <QueryError
@@ -282,14 +265,14 @@ export default function ReportsPage() {
               isMobile={isMobile}
             />
           ) : null}
-        </Card>
+        </SectionCard>
       )}
 
       {mode === "monthly" ? (
         <>
           <Row gutter={[16, 16]}>
             <Col xs={24} lg={12}>
-              <Card title="هزینه به تفکیک دسته">
+              <SectionCard title="هزینه به تفکیک دسته">
                 {categoriesQ.isLoading ? <ChartSkSm /> : null}
                 {categoriesQ.data && expensePie.length > 0 ? (
                   <ReportsExpensePieChart data={expensePie} />
@@ -298,11 +281,11 @@ export default function ReportsPage() {
                     <Text type="secondary">هزینه‌ای در این ماه ثبت نشده است.</Text>
                   </Flex>
                 ) : null}
-              </Card>
+              </SectionCard>
             </Col>
 
             <Col xs={24} lg={12}>
-              <Card title="مقایسه دسته‌های هزینه">
+              <SectionCard title="مقایسه دسته‌های هزینه">
                 {categoriesQ.isLoading ? <ChartSkSm /> : null}
                 {categoriesQ.data && (categoriesQ.data.expense?.length ?? 0) > 0 ? (
                   <ReportsCategoryCompareChart
@@ -317,7 +300,7 @@ export default function ReportsPage() {
                     <Text type="secondary">داده‌ای برای نمودار نیست.</Text>
                   </Flex>
                 ) : null}
-              </Card>
+              </SectionCard>
             </Col>
           </Row>
 
@@ -357,9 +340,9 @@ export default function ReportsPage() {
                       title={tx.title}
                       subtitle={`${formatJalaliDate(tx.date)} · ${tx.category} · ${tx.account}`}
                       trailing={
-                        <Text strong className="text-red-500 whitespace-nowrap">
+                        <AmountText tone="expense" size="sm">
                           {formatToman(tx.amount)}
-                        </Text>
+                        </AmountText>
                       }
                     />
                   </SoftListItem>

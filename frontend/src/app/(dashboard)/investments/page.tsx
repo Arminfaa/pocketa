@@ -5,7 +5,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   App,
   Button,
-  Card,
   Col,
   Flex,
   Grid,
@@ -15,7 +14,6 @@ import {
   Segmented,
   Select,
   Space,
-  Statistic,
   Switch,
   Tag,
   Typography,
@@ -23,8 +21,11 @@ import {
 import {
   CalculatorOutlined,
   DeleteOutlined,
+  DollarOutlined,
   FundOutlined,
+  LineChartOutlined,
   PlusOutlined,
+  WalletOutlined,
 } from "@ant-design/icons";
 import {
   createInvestment,
@@ -49,12 +50,14 @@ import { QueryError } from "@/components/ui/query-error";
 import { AssetCalculator } from "@/components/investments/AssetCalculator";
 import { MarketPriceTicker } from "@/components/dashboard/MarketPriceTicker";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
-import { cn } from "@/lib/cn";
 import type { ReactNode } from "react";
 import api from "@/services/api";
 import { PageShell } from "@/components/ui/page-shell";
 import { PageHeader } from "@/components/ui/page-header";
 import { SoftList, SoftListItem, SoftListRow } from "@/components/ui/soft-list";
+import { KpiCard } from "@/components/ui/kpi-card";
+import { SectionCard } from "@/components/ui/section-card";
+import { AmountText } from "@/components/ui/amount-text";
 
 const { Text } = Typography;
 
@@ -85,20 +88,26 @@ const frequencyOptions = [
 function DetailRow({
   label,
   value,
-  valueClassName,
+  amountTone,
 }: {
   label: string;
   value: ReactNode;
-  valueClassName?: string;
+  amountTone?: "default" | "income" | "expense" | "brand" | "muted";
 }) {
   return (
     <div className="flex items-baseline justify-between gap-3 border-b border-app-border/60 py-2 last:border-b-0">
       <Text type="secondary" className="shrink-0 text-xs">
         {label}
       </Text>
-      <Text strong className={cn("min-w-0 text-end text-sm tabular-nums", valueClassName)}>
-        {value}
-      </Text>
+      {amountTone && typeof value === "string" ? (
+        <AmountText tone={amountTone} size="sm" className="text-end">
+          {value}
+        </AmountText>
+      ) : (
+        <Text strong className="min-w-0 text-end text-sm tabular-nums">
+          {value}
+        </Text>
+      )}
     </div>
   );
 }
@@ -367,43 +376,45 @@ export default function InvestmentsPage() {
         <>
           <Row gutter={[16, 16]}>
             <Col xs={24} sm={8}>
-              <Card>
-                <Statistic
-                  title="ارزش فعلی"
-                  value={
-                    summary?.totalValue != null ? formatToman(summary.totalValue) : "—"
-                  }
-                />
-              </Card>
+              <KpiCard
+                label="ارزش فعلی"
+                value={
+                  summary?.totalValue != null ? formatToman(summary.totalValue) : "—"
+                }
+                tone="brand"
+                icon={<WalletOutlined />}
+              />
             </Col>
             <Col xs={24} sm={8}>
-              <Card>
-                <Statistic title="هزینه خرید" value={formatToman(summary?.totalCost ?? 0)} />
-              </Card>
+              <KpiCard
+                label="هزینه خرید"
+                value={formatToman(summary?.totalCost ?? 0)}
+                tone="violet"
+                icon={<DollarOutlined />}
+              />
             </Col>
             <Col xs={24} sm={8}>
-              <Card>
-                <Statistic
-                  title="سود / زیان"
-                  value={
-                    summary?.totalUnrealizedPnl != null
-                      ? formatToman(summary.totalUnrealizedPnl)
-                      : "—"
-                  }
-                  className={
-                    summary?.totalUnrealizedPnl != null && summary.totalUnrealizedPnl >= 0
-                      ? "[&_.ant-statistic-content-value]:text-emerald-500"
-                      : summary?.totalUnrealizedPnl != null
-                        ? "[&_.ant-statistic-content-value]:text-red-500"
-                        : undefined
-                  }
-                />
-              </Card>
+              <KpiCard
+                label="سود / زیان"
+                value={
+                  summary?.totalUnrealizedPnl != null
+                    ? formatToman(summary.totalUnrealizedPnl)
+                    : "—"
+                }
+                tone={
+                  summary?.totalUnrealizedPnl != null && summary.totalUnrealizedPnl >= 0
+                    ? "success"
+                    : summary?.totalUnrealizedPnl != null
+                      ? "danger"
+                      : "default"
+                }
+                icon={<LineChartOutlined />}
+              />
             </Col>
           </Row>
 
           {formOpen ? (
-            <Card title="افزودن سرمایه‌گذاری">
+            <SectionCard title="افزودن سرمایه‌گذاری">
             <Flex vertical gap="middle">
               <Input
                 placeholder="عنوان (مثلاً طلای خونه)"
@@ -517,7 +528,7 @@ export default function InvestmentsPage() {
               </Flex>
 
               {hasProfit ? (
-                <Card size="small" className="bg-transparent">
+                <SectionCard title="سود دوره‌ای" className="!shadow-none">
                   <Flex vertical gap="middle">
                     <Row gutter={[12, 12]}>
                       <Col xs={24} sm={8}>
@@ -583,7 +594,7 @@ export default function InvestmentsPage() {
                       </Text>
                     ) : null}
                   </Flex>
-                </Card>
+                </SectionCard>
               ) : null}
 
               <Input.TextArea
@@ -602,7 +613,7 @@ export default function InvestmentsPage() {
                 ذخیره
               </Button>
             </Flex>
-          </Card>
+          </SectionCard>
           ) : null}
 
           {items.length === 0 ? (
@@ -655,21 +666,23 @@ export default function InvestmentsPage() {
                         <DetailRow
                           label="قیمت خرید"
                           value={formatToman(item.purchasePricePerUnit)}
+                          amountTone="muted"
                         />
                         <DetailRow
                           label="ارزش فعلی"
                           value={item.currentValue != null ? formatToman(item.currentValue) : "—"}
+                          amountTone="brand"
                         />
                         <DetailRow
                           label="سود / زیان"
                           value={
                             item.unrealizedPnl != null ? formatToman(item.unrealizedPnl) : "—"
                           }
-                          valueClassName={
+                          amountTone={
                             item.unrealizedPnl != null && item.unrealizedPnl >= 0
-                              ? "text-emerald-500"
+                              ? "income"
                               : item.unrealizedPnl != null
-                                ? "text-red-500"
+                                ? "expense"
                                 : undefined
                           }
                         />

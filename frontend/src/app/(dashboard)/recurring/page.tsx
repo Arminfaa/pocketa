@@ -6,7 +6,6 @@ import {
   Alert,
   App,
   Button,
-  Card,
   Checkbox,
   Col,
   Flex,
@@ -40,7 +39,6 @@ import {
 import { fetchAccounts } from "@/services/accounts";
 import { fetchCategories } from "@/services/categories";
 import type { Category } from "@/services/categories";
-import type { BankAccount } from "@/types/account";
 import { formatJalaliDate, formatToman, toPersianDigits } from "@/lib/format";
 import { normalizeJalaliDateInput } from "@/lib/amount";
 import { getTodayJalali } from "@/lib/transaction-helpers";
@@ -63,6 +61,8 @@ import { cn } from "@/lib/cn";
 import { PageShell } from "@/components/ui/page-shell";
 import { PageHeader } from "@/components/ui/page-header";
 import { SoftList, SoftListItem, SoftListRow } from "@/components/ui/soft-list";
+import { SectionCard } from "@/components/ui/section-card";
+import { AmountText } from "@/components/ui/amount-text";
 
 const { Text } = Typography;
 
@@ -258,7 +258,7 @@ export default function RecurringPage() {
       ) : null}
 
       {monthChecklist.length > 0 ? (
-        <Card
+        <SectionCard
           title={
             <Space>
               <CheckSquareOutlined />
@@ -276,10 +276,8 @@ export default function RecurringPage() {
               {toPersianDigits(String(monthChecklist.length))} پرداخت شده
             </Text>
           }
+          description="تیک‌نخورده‌ها با «ثبت تراکنش الان» تیک می‌خورند."
         >
-          <Text type="secondary" className="mb-3 block text-xs">
-            تیک‌نخورده‌ها با «ثبت تراکنش الان» تیک می‌خورند.
-          </Text>
           <Space orientation="vertical" size="small" className="w-full">
             {monthChecklist.map((item: RecurringItem) => (
               <Flex
@@ -288,7 +286,7 @@ export default function RecurringPage() {
                 justify="space-between"
                 gap="middle"
                 className={cn(
-                  "rounded-lg px-2 py-1.5",
+                  "rounded-xl px-3 py-2",
                   item.paidThisMonth ? "bg-emerald-500/5" : "bg-app-muted/30"
                 )}
               >
@@ -301,166 +299,164 @@ export default function RecurringPage() {
                     {item.title}
                   </span>
                 </Checkbox>
-                <Text
-                  className={cn(
-                    "shrink-0 text-sm font-semibold",
-                    financeTypeTextClass(item.type),
-                    item.paidThisMonth && "opacity-60"
-                  )}
+                <AmountText
+                  tone={item.type === "income" ? "income" : "expense"}
+                  size="sm"
+                  className={cn(item.paidThisMonth && "opacity-60")}
                 >
                   {formatToman(item.amount)}
-                </Text>
+                </AmountText>
               </Flex>
             ))}
           </Space>
-        </Card>
+        </SectionCard>
       ) : null}
 
       {formOpen ? (
-        <Card title="افزودن مورد جدید">
-        <Space orientation="vertical" size="middle" className="w-full">
-          <FinanceTypeToggle
-            value={type}
-            onChange={(e) => {
-              setType(e.target.value);
-              setCategoryId("");
-            }}
-          />
+        <SectionCard title="افزودن مورد جدید">
+          <Space orientation="vertical" size="middle" className="w-full">
+            <FinanceTypeToggle
+              value={type}
+              onChange={(e) => {
+                setType(e.target.value);
+                setCategoryId("");
+              }}
+            />
 
-          <Input
-            placeholder={
-              kind === "one_time" ? "عنوان (مثلاً بدهی به علی)" : "عنوان (مثلاً قسط وام)"
-            }
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
+            <Input
+              placeholder={
+                kind === "one_time" ? "عنوان (مثلاً بدهی به علی)" : "عنوان (مثلاً قسط وام)"
+              }
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
 
-          <Row gutter={[12, 12]}>
-            <Col xs={24} md={12}>
-              <Text type="secondary" className="mb-1 block text-xs">
-                نوع بدهی
-              </Text>
-              <Select
-                className="w-full"
-                value={kind}
-                onChange={setKind}
-                options={[
-                  { value: "recurring", label: "تکرارشونده (قسط ماهانه)" },
-                  { value: "one_time", label: "بدهی یک‌باره" },
-                ]}
-              />
-            </Col>
-            <Col xs={24} md={12}>
-              <Text type="secondary" className="mb-1 block text-xs">
-                مبلغ
-              </Text>
-              <MarketUnitAmountInput
-                value={amount}
-                onChange={setAmount}
-                unit={amountUnit}
-                onUnitChange={setAmountUnit}
-                inputClassName={cn(financeTypeTextClass(type))}
-              />
-            </Col>
-            <Col xs={24} md={12}>
-              <Text type="secondary" className="mb-1 block text-xs">
-                دسته‌بندی
-              </Text>
-              <Select
-                className="w-full"
-                placeholder="انتخاب دسته"
-                value={categoryId || undefined}
-                onChange={setCategoryId}
-                options={categories.map((c: Category) => ({
-                  value: c._id,
-                  label: c.name,
-                }))}
-              />
-            </Col>
-            <Col xs={24} md={12}>
-              <Text type="secondary" className="mb-1 block text-xs">
-                ساعت یادآوری پوش (۳ روز قبل)
-              </Text>
-              <Select
-                className="w-full"
-                value={reminderHour}
-                onChange={setReminderHour}
-                options={HOUR_OPTIONS}
-              />
-            </Col>
+            <Row gutter={[12, 12]}>
+              <Col xs={24} md={12}>
+                <Text type="secondary" className="mb-1 block text-xs">
+                  نوع بدهی
+                </Text>
+                <Select
+                  className="w-full"
+                  value={kind}
+                  onChange={setKind}
+                  options={[
+                    { value: "recurring", label: "تکرارشونده (قسط ماهانه)" },
+                    { value: "one_time", label: "بدهی یک‌باره" },
+                  ]}
+                />
+              </Col>
+              <Col xs={24} md={12}>
+                <Text type="secondary" className="mb-1 block text-xs">
+                  مبلغ
+                </Text>
+                <MarketUnitAmountInput
+                  value={amount}
+                  onChange={setAmount}
+                  unit={amountUnit}
+                  onUnitChange={setAmountUnit}
+                  inputClassName={cn(financeTypeTextClass(type))}
+                />
+              </Col>
+              <Col xs={24} md={12}>
+                <Text type="secondary" className="mb-1 block text-xs">
+                  دسته‌بندی
+                </Text>
+                <Select
+                  className="w-full"
+                  placeholder="انتخاب دسته"
+                  value={categoryId || undefined}
+                  onChange={setCategoryId}
+                  options={categories.map((c: Category) => ({
+                    value: c._id,
+                    label: c.name,
+                  }))}
+                />
+              </Col>
+              <Col xs={24} md={12}>
+                <Text type="secondary" className="mb-1 block text-xs">
+                  ساعت یادآوری پوش (۳ روز قبل)
+                </Text>
+                <Select
+                  className="w-full"
+                  value={reminderHour}
+                  onChange={setReminderHour}
+                  options={HOUR_OPTIONS}
+                />
+              </Col>
 
-            {kind === "recurring" ? (
-              <>
-                <Col xs={24} md={12}>
-                  <Text type="secondary" className="mb-1 block text-xs">
-                    روز موعد هر ماه
-                  </Text>
-                  <Space.Compact className="w-full">
-                    <NumberInput
-                      className="!w-full"
-                      min={1}
-                      max={31}
-                      value={dayOfMonth}
-                      onChange={(v) => setDayOfMonth(v ?? 1)}
-                    />
-                    <Input className="!w-[7.5rem]" value="ام هر ماه" disabled />
-                  </Space.Compact>
-                </Col>
-                <Col xs={24} md={12}>
-                  <Text type="secondary" className="mb-1 block text-xs">
-                    مدت تکرار
-                  </Text>
-                  <Select
-                    className="w-full"
-                    value={endMode}
-                    onChange={setEndMode}
-                    options={[
-                      { value: "forever", label: "همیشگی (هر ماه)" },
-                      { value: "months", label: "تا چند ماه مشخص" },
-                    ]}
-                  />
-                </Col>
-                {endMode === "months" ? (
+              {kind === "recurring" ? (
+                <>
                   <Col xs={24} md={12}>
                     <Text type="secondary" className="mb-1 block text-xs">
-                      تعداد ماه‌ها
+                      روز موعد هر ماه
                     </Text>
                     <Space.Compact className="w-full">
                       <NumberInput
                         className="!w-full"
                         min={1}
-                        max={600}
-                        value={endMonths}
-                        onChange={setEndMonths}
+                        max={31}
+                        value={dayOfMonth}
+                        onChange={(v) => setDayOfMonth(v ?? 1)}
                       />
-                      <Input className="!w-16" value="ماه" disabled />
+                      <Input className="!w-[7.5rem]" value="ام هر ماه" disabled />
                     </Space.Compact>
                   </Col>
-                ) : null}
-              </>
-            ) : (
-              <Col xs={24} md={12}>
-                <Text type="secondary" className="mb-1 block text-xs">
-                  تاریخ سررسید
-                </Text>
-                <JalaliDateInput
-                  value={dueDate}
-                  onChange={setDueDate}
-                  placeholder="1405/04/25"
-                />
-              </Col>
-            )}
-          </Row>
+                  <Col xs={24} md={12}>
+                    <Text type="secondary" className="mb-1 block text-xs">
+                      مدت تکرار
+                    </Text>
+                    <Select
+                      className="w-full"
+                      value={endMode}
+                      onChange={setEndMode}
+                      options={[
+                        { value: "forever", label: "همیشگی (هر ماه)" },
+                        { value: "months", label: "تا چند ماه مشخص" },
+                      ]}
+                    />
+                  </Col>
+                  {endMode === "months" ? (
+                    <Col xs={24} md={12}>
+                      <Text type="secondary" className="mb-1 block text-xs">
+                        تعداد ماه‌ها
+                      </Text>
+                      <Space.Compact className="w-full">
+                        <NumberInput
+                          className="!w-full"
+                          min={1}
+                          max={600}
+                          value={endMonths}
+                          onChange={setEndMonths}
+                        />
+                        <Input className="!w-16" value="ماه" disabled />
+                      </Space.Compact>
+                    </Col>
+                  ) : null}
+                </>
+              ) : (
+                <Col xs={24} md={12}>
+                  <Text type="secondary" className="mb-1 block text-xs">
+                    تاریخ سررسید
+                  </Text>
+                  <JalaliDateInput
+                    value={dueDate}
+                    onChange={setDueDate}
+                    placeholder="1405/04/25"
+                  />
+                </Col>
+              )}
+            </Row>
 
-          <Button
-            type="primary"
-            loading={createMutation.isPending}
-            onClick={() => createMutation.mutate()}
-          >
-            {createMutation.isPending ? "در حال ذخیره..." : "ثبت"}
-          </Button>
-        </Space>
-      </Card>
+            <Button
+              type="primary"
+              loading={createMutation.isPending}
+              onClick={() => createMutation.mutate()}
+            >
+              {createMutation.isPending ? "در حال ذخیره..." : "ثبت"}
+            </Button>
+          </Space>
+        </SectionCard>
       ) : null}
 
       {listQ.isLoading ? <RecurringListSkeleton /> : null}
@@ -502,19 +498,17 @@ export default function RecurringPage() {
                     </>
                   }
                   trailing={
-                    <div className="text-left">
-                      <Text
-                        strong
-                        className={cn(financeTypeTextClass(item.type), "font-semibold block")}
-                      >
-                        {formatToman(item.amount)}
-                      </Text>
-                      {item.baseAmount != null && item.amount !== item.baseAmount ? (
-                        <Text type="secondary" className="text-xs">
-                          پایه {formatToman(item.baseAmount)}
-                        </Text>
-                      ) : null}
-                    </div>
+                    <AmountText
+                      tone={item.type === "income" ? "income" : "expense"}
+                      size="sm"
+                      caption={
+                        item.baseAmount != null && item.amount !== item.baseAmount
+                          ? `پایه ${formatToman(item.baseAmount)}`
+                          : undefined
+                      }
+                    >
+                      {formatToman(item.amount)}
+                    </AmountText>
                   }
                   footer={
                     <Flex

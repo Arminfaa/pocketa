@@ -31,18 +31,18 @@ export function PageHeader({
     <div className={cn("w-full", className)}>
       <Flex justify="space-between" align="flex-start" gap="middle" wrap="wrap">
         <div className="min-w-0 flex-1">
-          <Flex align="center" gap="small" className="min-w-0">
+          <Flex align="center" gap={12} className="min-w-0">
             {icon ? (
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-500/10 text-lg text-brand-600 dark:text-brand-300">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500/15 to-brandViolet-500/15 text-xl text-brand-600 shadow-[inset_0_0_0_1px_rgba(6,182,212,0.12)] dark:text-brand-300">
                 {icon}
               </span>
             ) : null}
             <div className="min-w-0">
-              <Title level={4} className="!m-0 !leading-tight">
+              <Title level={3} className="!m-0 !text-xl !leading-tight sm:!text-2xl">
                 {title}
               </Title>
               {description ? (
-                <Text type="secondary" className="!mt-1 !block !text-sm">
+                <Text type="secondary" className="!mt-1 !block !text-sm !leading-relaxed">
                   {description}
                 </Text>
               ) : null}
@@ -51,19 +51,18 @@ export function PageHeader({
         </div>
 
         {(meta || actions) && (
-          <Flex
-            align="center"
-            gap="small"
-            wrap="wrap"
-            className="shrink-0 ms-auto"
-          >
-            {meta}
+          <Flex align="center" gap="small" wrap="wrap" className="shrink-0 ms-auto">
+            {meta ? (
+              <div className="rounded-2xl border border-app-border/70 bg-app-card/80 px-3 py-2 shadow-sm backdrop-blur-sm">
+                {meta}
+              </div>
+            ) : null}
             {actions}
           </Flex>
         )}
       </Flex>
 
-      {extra ? <div className="mt-3 w-full">{extra}</div> : null}
+      {extra ? <div className="mt-4 w-full">{extra}</div> : null}
     </div>
   );
 }

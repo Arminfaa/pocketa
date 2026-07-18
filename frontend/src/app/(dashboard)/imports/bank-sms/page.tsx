@@ -7,13 +7,10 @@ import {
   Alert,
   App,
   Button,
-  Card,
   Checkbox,
-  Col,
   Flex,
   Grid,
   Input,
-  Row,
   Select,
   Space,
   Tag,
@@ -33,6 +30,9 @@ import { cn } from "@/lib/cn";
 import { PageShell } from "@/components/ui/page-shell";
 import { PageHeader } from "@/components/ui/page-header";
 import { SoftList, SoftListItem, SoftListRow } from "@/components/ui/soft-list";
+import { SectionCard } from "@/components/ui/section-card";
+import { FilterBar, FilterField } from "@/components/ui/filter-bar";
+import { AmountText } from "@/components/ui/amount-text";
 
 const { Text } = Typography;
 const { TextArea } = Input;
@@ -145,16 +145,15 @@ export default function BankSmsImportPage() {
         }
       />
 
-      <Card>
+      <SectionCard title="ورود متن پیامک">
         <Space orientation="vertical" size="middle" className="w-full">
-          <Row gutter={[12, 12]}>
-            <Col xs={24} md={16}>
-              <Text type="secondary">حساب مقصد</Text>
+          <FilterBar className="!p-0 !shadow-none !bg-transparent !border-0">
+            <FilterField label="حساب مقصد" className="sm:flex-[2]">
               {accountsQ.isLoading ? (
-                <Sk className="mt-2 h-11 w-full rounded-lg" />
+                <Sk className="h-11 w-full rounded-lg" />
               ) : (
                 <Select
-                  className="w-full mt-2"
+                  className="w-full"
                   value={effectiveAccountId}
                   onChange={setAccountId}
                   options={(accountsQ.data ?? []).map((a) => ({
@@ -163,21 +162,19 @@ export default function BankSmsImportPage() {
                   }))}
                 />
               )}
-            </Col>
+            </FilterField>
 
-            <Col xs={24} md={8}>
-              <Text type="secondary">سال شمسی (برای تاریخ‌های بدون سال)</Text>
+            <FilterField label="سال شمسی (برای تاریخ‌های بدون سال)" className="sm:max-w-[10rem]">
               <Input
-                className="mt-2"
                 dir="ltr"
                 value={jalaliYear}
                 onChange={(e) => setJalaliYear(e.target.value)}
               />
-            </Col>
-          </Row>
+            </FilterField>
+          </FilterBar>
 
           <div>
-            <Text type="secondary">متن پیامک‌ها</Text>
+            <Text type="secondary" className="text-xs font-medium">متن پیامک‌ها</Text>
             <TextArea
               className="mt-2 font-mono"
               dir="ltr"
@@ -197,7 +194,7 @@ export default function BankSmsImportPage() {
             پیش‌نمایش
           </Button>
         </Space>
-      </Card>
+      </SectionCard>
 
       {previewMeta ? (
         <Space wrap>
@@ -266,15 +263,13 @@ export default function BankSmsImportPage() {
                         </>
                       }
                       trailing={
-                        <Text
-                          strong
-                          className={cn(
-                            item.type === "income" ? "text-emerald-500" : "text-red-500"
-                          )}
+                        <AmountText
+                          tone={item.type === "income" ? "income" : "expense"}
+                          size="sm"
+                          prefix={item.type === "income" ? "+" : "-"}
                         >
-                          {item.type === "income" ? "+" : "-"}
                           {formatToman(item.amount)}
-                        </Text>
+                        </AmountText>
                       }
                       footer={
                         item.isDuplicate ? (

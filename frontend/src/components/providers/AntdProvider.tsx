@@ -8,7 +8,7 @@ import { useThemeStore } from "@/stores/theme.store";
 
 const brand = {
   colorPrimary: "#06b6d4",
-  borderRadius: 12,
+  borderRadius: 16,
   fontFamily: "var(--font-vazir), Tahoma, Arial, sans-serif",
 };
 
@@ -34,36 +34,50 @@ export function AntdProvider({ children }: { children: React.ReactNode }) {
           components: {
             Layout: {
               siderBg: isDark ? "#0f1a2e" : "#ffffff",
-              headerBg: isDark ? "#0f1a2e" : "#ffffff",
+              headerBg: isDark ? "#0f1a2e" : "rgba(255,255,255,0.92)",
               bodyBg: "transparent",
             },
             Menu: {
-              itemBorderRadius: 12,
+              itemBorderRadius: 14,
               itemBg: "transparent",
               subMenuItemBg: "transparent",
               darkItemBg: "transparent",
               darkSubMenuItemBg: "transparent",
+              itemSelectedBg: isDark ? "rgba(34,211,238,0.14)" : "rgba(6,182,212,0.12)",
+              itemSelectedColor: isDark ? "#22d3ee" : "#0891b2",
             },
             Drawer: {
               colorBgElevated: isDark ? "#0f1a2e" : "#ffffff",
             },
             Card: {
-              borderRadiusLG: 16,
+              borderRadiusLG: 24,
             },
             Button: {
-              controlHeight: 40,
+              controlHeight: 42,
+              borderRadius: 16,
             },
             Input: {
-              controlHeight: 40,
-              borderRadius: 12,
+              controlHeight: 42,
+              borderRadius: 16,
             },
             Select: {
-              controlHeight: 40,
-              borderRadius: 12,
+              controlHeight: 42,
+              borderRadius: 16,
             },
             DatePicker: {
-              controlHeight: 40,
-              borderRadius: 12,
+              controlHeight: 42,
+              borderRadius: 16,
+            },
+            Segmented: {
+              borderRadius: 16,
+              borderRadiusSM: 12,
+              itemSelectedBg: isDark ? "#0f1a2e" : "#ffffff",
+            },
+            Tag: {
+              borderRadiusSM: 8,
+            },
+            Modal: {
+              borderRadiusLG: 24,
             },
           },
         }}
