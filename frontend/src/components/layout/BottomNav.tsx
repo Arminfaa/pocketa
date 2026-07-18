@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BOTTOM_NAV_ITEMS, type NavItem } from "./nav-items";
@@ -7,6 +8,7 @@ import { BOTTOM_NAV_ITEMS, type NavItem } from "./nav-items";
 interface BottomNavProps {
   onMore?: () => void;
   moreOpen?: boolean;
+  onHeightChange?: (height: number) => void;
 }
 
 function isItemActive(pathname: string, item: NavItem, moreOpen?: boolean) {
@@ -15,11 +17,33 @@ function isItemActive(pathname: string, item: NavItem, moreOpen?: boolean) {
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
 
-export function BottomNav({ onMore, moreOpen }: BottomNavProps) {
+export function BottomNav({ onMore, moreOpen, onHeightChange }: BottomNavProps) {
   const pathname = usePathname();
+  const navRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const el = navRef.current;
+    if (!el) return;
+
+    const publish = () => {
+      const height = Math.ceil(el.getBoundingClientRect().height);
+      onHeightChange?.(height);
+      document.documentElement.style.setProperty("--bottom-nav-height", `${height}px`);
+    };
+
+    publish();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(publish) : null;
+    ro?.observe(el);
+    window.addEventListener("resize", publish);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener("resize", publish);
+    };
+  }, [onHeightChange]);
 
   return (
     <nav
+      ref={navRef}
       className="fixed bottom-0 inset-x-0 z-40 lg:hidden"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       aria-label="ناوبری اصلی"

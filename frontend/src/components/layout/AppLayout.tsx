@@ -1,8 +1,8 @@
 "use client";
 
-import { PropsWithChildren, useEffect, useState } from "react";
+import { PropsWithChildren, useCallback, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { App, Button, Drawer, Flex, Grid, Layout, Select, Typography } from "antd";
+import { App, Button, Flex, Grid, Layout, Select, Typography } from "antd";
 import { cn } from "@/lib/cn";
 import {
   MenuFoldOutlined,
@@ -12,6 +12,7 @@ import {
 } from "@ant-design/icons";
 import { Sidebar } from "./Sidebar";
 import { BottomNav } from "./BottomNav";
+import { MoreActionSheet } from "./MoreActionSheet";
 import { useUiStore } from "@/stores/ui.store";
 import { useThemeStore } from "@/stores/theme.store";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
@@ -26,12 +27,14 @@ const { Header, Sider, Content } = Layout;
 const { useBreakpoint } = Grid;
 const { Text } = Typography;
 
+const DEFAULT_BOTTOM_NAV_HEIGHT = 88;
+
 export default function AppLayout({ children }: PropsWithChildren) {
   const pathname = usePathname();
   const router = useRouter();
   const { message } = App.useApp();
   const screens = useBreakpoint();
-  /** Below Ant Design `lg` (~992px): bottom nav + overflow drawer */
+  /** Below Ant Design `lg` (~992px): bottom nav + more action sheet */
   const isMobileShell = !screens.lg;
 
   const collapsed = useUiStore((s) => s.sidebarCollapsed);
@@ -42,8 +45,9 @@ export default function AppLayout({ children }: PropsWithChildren) {
   const user = useAuthStore((s) => s.user);
   const selectedAccountId = useAccountFilterStore((s) => s.selectedAccountId);
   const setSelectedAccountId = useAccountFilterStore((s) => s.setSelectedAccountId);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [bottomNavHeight, setBottomNavHeight] = useState(DEFAULT_BOTTOM_NAV_HEIGHT);
 
   const accountsQ = useQuery({
     queryKey: ["accounts"],
@@ -52,8 +56,19 @@ export default function AppLayout({ children }: PropsWithChildren) {
   });
 
   useEffect(() => {
-    if (!isMobileShell) setDrawerOpen(false);
+    if (!isMobileShell) {
+      setMoreOpen(false);
+      document.documentElement.style.removeProperty("--bottom-nav-height");
+    }
   }, [isMobileShell]);
+
+  useEffect(() => {
+    setMoreOpen(false);
+  }, [pathname]);
+
+  const onBottomNavHeightChange = useCallback((height: number) => {
+    if (height > 0) setBottomNavHeight(height);
+  }, []);
 
   async function onLogout() {
     setLoggingOut(true);
@@ -66,6 +81,7 @@ export default function AppLayout({ children }: PropsWithChildren) {
       message.success("خارج شدید");
       router.replace("/login");
       setLoggingOut(false);
+      setMoreOpen(false);
     }
   }
 
@@ -84,44 +100,16 @@ export default function AppLayout({ children }: PropsWithChildren) {
         </Sider>
       ) : null}
 
-      <Drawer
-        placement="right"
-        open={isMobileShell && drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        size={300}
-        classNames={{
-          body: "!p-0 !bg-app-card",
-          header: "!border-0 !bg-app-card",
-        }}
-        title={
-          <div className="flex items-center gap-2.5 min-w-0">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="Pocketa" className="h-8 w-8 object-contain shrink-0" />
-            <span className="font-semibold text-app-fg truncate">Pocketa</span>
-          </div>
-        }
-        destroyOnHidden
-      >
-        <Sidebar forceExpanded hideBrand onNavigate={() => setDrawerOpen(false)} />
-        <div className="bg-brand-500/[0.04] p-3 flex gap-2">
-          <Button
-            block
-            icon={<BulbOutlined />}
-            onClick={toggleTheme}
-          >
-            {mode === "dark" ? "حالت روشن" : "حالت تاریک"}
-          </Button>
-          <Button
-            block
-            danger
-            icon={<LogoutOutlined />}
-            onClick={onLogout}
-            loading={loggingOut}
-          >
-            خروج
-          </Button>
-        </div>
-      </Drawer>
+      {isMobileShell ? (
+        <MoreActionSheet
+          open={moreOpen}
+          onClose={() => setMoreOpen(false)}
+          mode={mode}
+          onToggleTheme={toggleTheme}
+          onLogout={onLogout}
+          loggingOut={loggingOut}
+        />
+      ) : null}
 
       <Layout className="!bg-transparent min-w-0 max-w-full flex-1 h-dvh max-h-dvh overflow-hidden flex flex-col">
         <Header
@@ -208,16 +196,22 @@ export default function AppLayout({ children }: PropsWithChildren) {
         </Header>
 
         <Content
-          className={cn(
-            "flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6",
-            isMobileShell && "pb-[6.75rem]"
-          )}
+          className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6"
+          style={
+            isMobileShell
+              ? { paddingBottom: `calc(${bottomNavHeight}px + 0.75rem)` }
+              : undefined
+          }
         >
           <PageMotion key={pathname}>{children}</PageMotion>
         </Content>
 
         {isMobileShell ? (
-          <BottomNav moreOpen={drawerOpen} onMore={() => setDrawerOpen((open) => !open)} />
+          <BottomNav
+            moreOpen={moreOpen}
+            onMore={() => setMoreOpen((open) => !open)}
+            onHeightChange={onBottomNavHeightChange}
+          />
         ) : null}
       </Layout>
     </Layout>
