@@ -62,11 +62,19 @@ export function nearDuplicateKey(parts: {
 export async function findNearDuplicateImportKeys(
   userId: string,
   accountId: string,
-  items: Array<{ type: string; amount: number; date: string }>
+  items: Array<{ type: string; amount: number; date: string; transferAmount?: number }>
 ): Promise<Set<string>> {
   if (items.length === 0) return new Set();
 
-  const amounts = [...new Set(items.map((i) => Math.round(i.amount)))];
+  const amounts = [
+    ...new Set(
+      items.flatMap((i) => {
+        const vals = [Math.round(i.amount)];
+        if (i.transferAmount != null) vals.push(Math.round(i.transferAmount));
+        return vals;
+      })
+    ),
+  ];
   const dates = [...new Set(items.map((i) => i.date))];
 
   const existing = await TransactionModel.find({
@@ -75,19 +83,43 @@ export async function findNearDuplicateImportKeys(
     date: { $in: dates },
     amount: { $in: amounts },
   })
-    .select("type amount date")
+    .select("type amount date bankMeta")
     .lean();
 
   return new Set(
-    existing.map((t) =>
-      nearDuplicateKey({
-        accountId,
-        type: String(t.type),
-        amount: Number(t.amount),
-        date: String(t.date),
-      })
-    )
+    existing.flatMap((t) => {
+      const keys = [
+        nearDuplicateKey({
+          accountId,
+          type: String(t.type),
+          amount: Number(t.amount),
+          date: String(t.date),
+        }),
+      ];
+      const transferAmount = Number(
+        (t as { bankMeta?: { transferAmount?: number } }).bankMeta?.transferAmount
+      );
+      if (Number.isFinite(transferAmount) && transferAmount > 0) {
+        keys.push(
+          nearDuplicateKey({
+            accountId,
+            type: String(t.type),
+            amount: transferAmount,
+            date: String(t.date),
+          })
+        );
+      }
+      return keys;
+    })
   );
+}
+
+/** Near-dupe check amount: prefer base transfer (بدون کارمزد) when present. */
+export function nearDuplicateAmount(item: {
+  amount: number;
+  transferAmount?: number;
+}): number {
+  return Math.round(item.transferAmount ?? item.amount);
 }
 
 export function defaultTitle(item: ParsedBankSms): string {

@@ -72,26 +72,35 @@ const cardFail = `رسید کارت به کارت
 نام مبدا: آرمین فاتحی
 تاریخ و ساعت: 00:11:54 1405/04/27`;
 
-const r3 = parseBankSmsText(cardSample, 1405, "acc1", { userName: "آرمین فاتحی" });
+const r3 = parseBankSmsText(cardSample, 1405, "acc1", {
+  userName: "آرمین فاتحی",
+  mode: "card_receipt",
+});
 if (r3.items.length !== 1) throw new Error(`card: expected 1, got ${r3.items.length}`);
 const c = r3.items[0]!;
 if (c.type !== "expense") throw new Error(`card: expected expense, got ${c.type}`);
 if (c.amount !== 1_000_000) throw new Error(`card: expected 1e6 toman, got ${c.amount}`);
 if (c.date !== "1405/04/27" || c.time !== "00:11") throw new Error(`card: bad date/time ${c.date} ${c.time}`);
-if (!c.skipReview) throw new Error("card: skipReview expected");
+if (c.skipReview) throw new Error("card: should need naming review");
 if (c.suggestedTitle !== "واریز به لیلا پویانژاد") {
   throw new Error(`card: bad title ${c.suggestedTitle}`);
 }
-console.log("OK: card-to-card expense titled and skipReview");
+console.log("OK: card-to-card expense titled and needs review");
 
-const r4 = parseBankSmsText(cardSample, 1405, "acc1", { userName: "لیلا پویانژاد" });
+const r4 = parseBankSmsText(cardSample, 1405, "acc1", {
+  userName: "لیلا پویانژاد",
+  mode: "card_receipt",
+});
 if (r4.items[0]?.type !== "income") throw new Error("card reverse: expected income");
 if (r4.items[0]?.suggestedTitle !== "واریز از آرمین فاتحی") {
   throw new Error(`card reverse: bad title ${r4.items[0]?.suggestedTitle}`);
 }
 console.log("OK: card-to-card income when user is destination");
 
-const r5 = parseBankSmsText(cardFail, 1405, "acc1", { userName: "آرمین فاتحی" });
+const r5 = parseBankSmsText(cardFail, 1405, "acc1", {
+  userName: "آرمین فاتحی",
+  mode: "card_receipt",
+});
 if (r5.items.length !== 0) throw new Error(`failed status should skip, got ${r5.items.length}`);
 console.log("OK: unsuccessful card transfer skipped");
 
@@ -101,7 +110,10 @@ const cardRial = `رسید کارت به کارت
  مبلغ: 10,000,000ریال
 نام مبدا: آرمین فاتحی
 تاریخ و ساعت: 00:11:54 1405/04/27`;
-const r6 = parseBankSmsText(cardRial, 1405, "acc1", { userName: "آرمین فاتحی" });
+const r6 = parseBankSmsText(cardRial, 1405, "acc1", {
+  userName: "آرمین فاتحی",
+  mode: "card_receipt",
+});
 if (r6.items[0]?.amount !== 1_000_000) {
   throw new Error(`card rial: expected 1e6 toman after ÷10, got ${r6.items[0]?.amount}`);
 }
@@ -109,3 +121,40 @@ if (r6.items[0]?.amountRial !== 10_000_000) {
   throw new Error(`card rial: expected amountRial 1e7, got ${r6.items[0]?.amountRial}`);
 }
 console.log("OK: card-to-card rial amount converted to toman");
+
+const cardWithFee = `رسید کارت به کارت
+ وضعیت تراکنش: موفق
+ کارت مقصد: 7317 - ∗∗∗∗ - ∗∗86 - 6219
+ نام مقصد: محدثه کشانی
+ مبلغ: 642,500تومان
+شماره پیگیری: 737795
+شماره ارجاع: 72261566541
+کارت مبدا: 8281 - ∗∗∗∗ - ∗∗29 - 5022
+نام مبدا: آرمین فاتحی
+تاریخ و ساعت: 19:31:12 1405/04/27
+کارمزد: 720تومان`;
+const r7 = parseBankSmsText(cardWithFee, 1405, "acc1", {
+  userName: "آرمین فاتحی",
+  mode: "card_receipt",
+});
+if (r7.items.length !== 1) throw new Error(`fee card: expected 1, got ${r7.items.length}`);
+if (r7.items[0]?.transferAmount !== 642_500) {
+  throw new Error(`fee card: transferAmount expected 642500, got ${r7.items[0]?.transferAmount}`);
+}
+if (r7.items[0]?.feeAmount !== 720) {
+  throw new Error(`fee card: feeAmount expected 720, got ${r7.items[0]?.feeAmount}`);
+}
+if (r7.items[0]?.amount !== 643_220) {
+  throw new Error(`fee card: amount expected 643220, got ${r7.items[0]?.amount}`);
+}
+if (r7.items[0]?.type !== "expense") throw new Error("fee card: expected expense");
+console.log("OK: card receipt fee added into expense amount");
+
+const smsModeIgnoresCard = parseBankSmsText(cardSample, 1405, "acc1", {
+  userName: "آرمین فاتحی",
+  mode: "sms",
+});
+if (smsModeIgnoresCard.items.some((i) => i.parser === "card_transfer")) {
+  throw new Error("sms mode should not parse card receipts");
+}
+console.log("OK: sms mode ignores card receipts");
