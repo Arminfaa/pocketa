@@ -6,7 +6,6 @@ import {
   Alert,
   App,
   Button,
-  Card,
   Col,
   Flex,
   Input,
@@ -15,17 +14,25 @@ import {
   Row,
   Select,
   Space,
-  Statistic,
   Tag,
   Typography,
 } from "antd";
-import { DeleteOutlined, FundOutlined, PlusOutlined, WarningOutlined } from "@ant-design/icons";
+import {
+  DeleteOutlined,
+  FundOutlined,
+  PlusOutlined,
+  WarningOutlined,
+} from "@ant-design/icons";
 import { deleteBudget, fetchBudgets, upsertBudget } from "@/services/budgets";
 import { fetchCategories } from "@/services/categories";
-import { formatToman } from "@/lib/format";
+import { formatToman, toPersianDigits } from "@/lib/format";
 import { parseAmountInput } from "@/lib/amount";
 import { getJalaliMonthYear, MONTH_LABELS } from "@/lib/finance-ui";
 import { AmountInput } from "@/components/ui/amount-input";
+import { AmountText } from "@/components/ui/amount-text";
+import { FilterBar, FilterField } from "@/components/ui/filter-bar";
+import { KpiCard } from "@/components/ui/kpi-card";
+import { SectionCard } from "@/components/ui/section-card";
 import { BudgetsListSkeleton, KpiRowSkeleton } from "@/components/skeletons";
 import { QueryError } from "@/components/ui/query-error";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -36,6 +43,8 @@ import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { cn } from "@/lib/cn";
 
 const { Text } = Typography;
+
+const actionBtnClass = "!rounded-xl";
 
 export default function BudgetsPage() {
   const { message } = App.useApp();
@@ -103,6 +112,7 @@ export default function BudgetsPage() {
 
   const items = budgetsQ.data?.items ?? [];
   const summary = budgetsQ.data?.summary;
+  const alertCount = (summary?.warningCount ?? 0) + (summary?.dangerCount ?? 0);
 
   return (
     <PageShell width="form">
@@ -119,11 +129,10 @@ export default function BudgetsPage() {
           />
         }
         extra={
-          <Row gutter={[12, 12]}>
-            <Col xs={24} sm={12}>
-              <Text type="secondary">ماه</Text>
+          <FilterBar>
+            <FilterField label="ماه" className="sm:max-w-[12rem]">
               <Select
-                className="w-full mt-2"
+                className="w-full"
                 value={month}
                 onChange={setMonth}
                 options={MONTH_LABELS.map((label, idx) => ({
@@ -131,17 +140,15 @@ export default function BudgetsPage() {
                   label,
                 }))}
               />
-            </Col>
-            <Col xs={24} sm={12}>
-              <Text type="secondary">سال</Text>
+            </FilterField>
+            <FilterField label="سال" className="sm:max-w-[8rem]">
               <Input
-                className="mt-2"
                 dir="ltr"
                 value={year}
                 onChange={(e) => setYear(Number(e.target.value) || current.year)}
               />
-            </Col>
-          </Row>
+            </FilterField>
+          </FilterBar>
         }
       />
 
@@ -150,28 +157,33 @@ export default function BudgetsPage() {
       ) : summary ? (
         <Row gutter={[12, 12]}>
           <Col xs={24} md={8}>
-            <Card>
-              <Statistic title="کل بودجه" value={formatToman(summary.totalBudget)} />
-            </Card>
+            <KpiCard
+              label="کل بودجه"
+              value={formatToman(summary.totalBudget)}
+              icon={<FundOutlined />}
+              tone="brand"
+            />
           </Col>
           <Col xs={24} md={8}>
-            <Card>
-              <Statistic title="مصرف‌شده" value={formatToman(summary.totalConsumed)} />
-            </Card>
+            <KpiCard
+              label="مصرف‌شده"
+              value={formatToman(summary.totalConsumed)}
+              tone="warning"
+            />
           </Col>
           <Col xs={24} md={8}>
-            <Card>
-              <Statistic
-                title="هشدارها"
-                value={`${summary.warningCount} نزدیک · ${summary.dangerCount} رد شده`}
-                className="[&_.ant-statistic-content-value]:text-base"
-              />
-            </Card>
+            <KpiCard
+              label="هشدارها"
+              value={`${toPersianDigits(String(summary.warningCount))} نزدیک · ${toPersianDigits(String(summary.dangerCount))} رد شده`}
+              icon={<WarningOutlined />}
+              tone={alertCount > 0 ? "danger" : "default"}
+              size="sm"
+            />
           </Col>
         </Row>
       ) : null}
 
-      {(summary?.warningCount ?? 0) + (summary?.dangerCount ?? 0) > 0 ? (
+      {alertCount > 0 ? (
         <Alert
           type="warning"
           showIcon
@@ -181,13 +193,9 @@ export default function BudgetsPage() {
       ) : null}
 
       {formOpen ? (
-        <Card
-          title={
-            <Space>
-              <PlusOutlined />
-              تنظیم / به‌روزرسانی بودجه
-            </Space>
-          }
+        <SectionCard
+          title="تنظیم / به‌روزرسانی بودجه"
+          description={`برای ${MONTH_LABELS[month - 1]} ${toPersianDigits(String(year))}`}
         >
           <Space orientation="vertical" size="middle" className="w-full">
             <Row gutter={[12, 12]}>
@@ -223,7 +231,7 @@ export default function BudgetsPage() {
               {saveMutation.isPending ? "در حال ذخیره..." : "ذخیره بودجه"}
             </Button>
           </Space>
-        </Card>
+        </SectionCard>
       ) : null}
 
       {budgetsQ.isLoading ? <BudgetsListSkeleton /> : null}
@@ -237,7 +245,14 @@ export default function BudgetsPage() {
           description="برای دسته‌های هزینه سقف ماهانه تعریف کنید."
         />
       ) : items.length > 0 ? (
-        <SoftList>
+        <SoftList
+          header={
+            <Text type="secondary" className="text-xs font-medium">
+              {toPersianDigits(String(items.length))} بودجه · {MONTH_LABELS[month - 1]}{" "}
+              {toPersianDigits(String(year))}
+            </Text>
+          }
+        >
           {items.map((b) => {
             const statusColor =
               b.status === "danger" ? "red" : b.status === "warning" ? "orange" : "blue";
@@ -277,19 +292,19 @@ export default function BudgetsPage() {
                     </Flex>
                   }
                   trailing={
-                    <div className="text-left">
-                      <Text type="secondary" className="text-xs">
-                        باقیمانده
-                      </Text>
-                      <div>
-                        <Text strong className="tabular-nums">
-                          {formatToman(b.remaining)}
-                        </Text>
-                      </div>
-                      <Text type="secondary" className="text-xs tabular-nums">
-                        {b.rawPercent.toFixed(0)}%
-                      </Text>
-                    </div>
+                    <AmountText
+                      tone={
+                        b.status === "danger"
+                          ? "expense"
+                          : b.status === "warning"
+                            ? "default"
+                            : "brand"
+                      }
+                      size="sm"
+                      caption={`${toPersianDigits(b.rawPercent.toFixed(0))}٪`}
+                    >
+                      {formatToman(b.remaining)}
+                    </AmountText>
                   }
                   footer={
                     <Flex align="center" gap="small" wrap="wrap">
@@ -309,6 +324,8 @@ export default function BudgetsPage() {
                       >
                         <Button
                           type="default"
+                          size="small"
+                          className={actionBtnClass}
                           danger
                           icon={<DeleteOutlined />}
                           loading={deleteMutation.isPending}

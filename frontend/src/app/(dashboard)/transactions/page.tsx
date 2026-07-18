@@ -5,15 +5,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Button,
-  Card,
   Checkbox,
-  Col,
   Flex,
   Grid,
   Input,
   Pagination,
   Popconfirm,
-  Row,
   Select,
   Space,
   Table,
@@ -48,6 +45,10 @@ import { useAppMessage } from "@/lib/antd-app";
 import { TransactionsListSkeleton } from "@/components/skeletons";
 import { QueryError } from "@/components/ui/query-error";
 import { EmptyState } from "@/components/ui/empty-state";
+import { AmountText } from "@/components/ui/amount-text";
+import { FilterBar, FilterField } from "@/components/ui/filter-bar";
+import { SectionCard } from "@/components/ui/section-card";
+import { SoftList, SoftListItem, SoftListRow } from "@/components/ui/soft-list";
 import { TransactionFormModal } from "@/features/transactions/TransactionFormModal";
 import { TransferFormModal } from "@/features/transactions/TransferFormModal";
 import { PageShell } from "@/components/ui/page-shell";
@@ -55,6 +56,8 @@ import { PageHeader } from "@/components/ui/page-header";
 
 const { useBreakpoint } = Grid;
 const { Text } = Typography;
+
+const actionBtnClass = "!rounded-xl";
 
 type Filters = {
   search: string;
@@ -365,14 +368,13 @@ export default function TransactionsPage() {
       key: "amount",
       width: 130,
       render: (amount: number, tx) => (
-        <Text
-          strong
-          type={tx.type === "income" ? "success" : "danger"}
-          className="whitespace-nowrap"
+        <AmountText
+          tone={tx.type === "income" ? "income" : "expense"}
+          size="sm"
+          prefix={tx.type === "income" ? "+" : "-"}
         >
-          {tx.type === "income" ? "+" : "-"}
           {formatToman(amount)}
-        </Text>
+        </AmountText>
       ),
     },
     {
@@ -385,6 +387,7 @@ export default function TransactionsPage() {
           <Button
             type="text"
             size="small"
+            className={actionBtnClass}
             icon={<EditOutlined />}
             aria-label="ویرایش"
             onClick={() => openEdit(tx)}
@@ -396,7 +399,14 @@ export default function TransactionsPage() {
             okButtonProps={{ danger: true }}
             onConfirm={() => deleteMutation.mutate(tx._id)}
           >
-            <Button type="text" size="small" danger icon={<DeleteOutlined />} aria-label="حذف" />
+            <Button
+              type="text"
+              size="small"
+              className={actionBtnClass}
+              danger
+              icon={<DeleteOutlined />}
+              aria-label="حذف"
+            />
           </Popconfirm>
         </Space>
       ),
@@ -409,8 +419,8 @@ export default function TransactionsPage() {
         title="تراکنش‌ها"
         description={
           <>
-            {selectedAccountId ? "فیلتر یک حساب از هدر فعال است" : "نمایش همه حساب‌ها"} · {total}{" "}
-            مورد
+            {selectedAccountId ? "فیلتر یک حساب از هدر فعال است" : "نمایش همه حساب‌ها"} ·{" "}
+            {toPersianDigits(String(total))} مورد
           </>
         }
         actions={
@@ -423,19 +433,37 @@ export default function TransactionsPage() {
                 okButtonProps={{ danger: true, loading: bulkDeleteMutation.isPending }}
                 onConfirm={() => bulkDeleteMutation.mutate(selectedIds)}
               >
-                <Button danger icon={<DeleteOutlined />} loading={bulkDeleteMutation.isPending}>
+                <Button
+                  danger
+                  size="small"
+                  className={actionBtnClass}
+                  icon={<DeleteOutlined />}
+                  loading={bulkDeleteMutation.isPending}
+                >
                   حذف انتخاب‌شده‌ها ({toPersianDigits(String(selectedIds.length))})
                 </Button>
               </Popconfirm>
             ) : null}
-            <Button icon={<DownloadOutlined />} onClick={() => void handleExport()}>
+            <Button
+              size="small"
+              className={actionBtnClass}
+              icon={<DownloadOutlined />}
+              onClick={() => void handleExport()}
+            >
               خروجی CSV
             </Button>
-            <Button icon={<SwapOutlined />} onClick={() => setTransferOpen(true)}>
+            <Button
+              size="small"
+              className={actionBtnClass}
+              icon={<SwapOutlined />}
+              onClick={() => setTransferOpen(true)}
+            >
               انتقال بین حساب
             </Button>
             <Button
               type="primary"
+              size="small"
+              className={actionBtnClass}
               icon={<PlusOutlined />}
               onClick={() => {
                 setEditing(null);
@@ -448,8 +476,8 @@ export default function TransactionsPage() {
         }
       />
 
-      <Card size="small">
-        <Space orientation="vertical" size="middle" className="w-full">
+      <FilterBar>
+        <FilterField label="جستجو" className="sm:min-w-[14rem] sm:flex-[2]">
           <Input.Search
             className="w-full"
             placeholder="جستجو در عنوان یا توضیحات..."
@@ -458,75 +486,75 @@ export default function TransactionsPage() {
             onSearch={applySearch}
             enterButton="جستجو"
           />
+        </FilterField>
 
-          <Row gutter={[12, 12]} align="middle">
-            <Col xs={24} sm={12} md={6}>
-              <Select
-                className="w-full"
-                value={filters.type}
-                onChange={(value) => {
-                  setPage(1);
-                  setFilters((f) => ({
-                    ...f,
-                    type: value as Filters["type"],
-                    categoryId: "",
-                  }));
-                }}
-                options={[
-                  { value: "", label: "همه انواع" },
-                  { value: "income", label: "درآمد" },
-                  { value: "expense", label: "هزینه" },
-                ]}
-              />
-            </Col>
+        <FilterField label="نوع" className="sm:max-w-[10rem]">
+          <Select
+            className="w-full"
+            value={filters.type}
+            onChange={(value) => {
+              setPage(1);
+              setFilters((f) => ({
+                ...f,
+                type: value as Filters["type"],
+                categoryId: "",
+              }));
+            }}
+            options={[
+              { value: "", label: "همه انواع" },
+              { value: "income", label: "درآمد" },
+              { value: "expense", label: "هزینه" },
+            ]}
+          />
+        </FilterField>
 
-            <Col xs={24} sm={12} md={6}>
-              <Select
-                className="w-full"
-                value={filters.categoryId || undefined}
-                placeholder="همه دسته‌ها"
-                allowClear
-                onChange={(value) => {
-                  setPage(1);
-                  setFilters((f) => ({ ...f, categoryId: value ?? "" }));
-                }}
-                options={filteredCategories.map((c) => ({
-                  value: c._id,
-                  label: c.name,
-                }))}
-              />
-            </Col>
+        <FilterField label="دسته" className="sm:max-w-[12rem]">
+          <Select
+            className="w-full"
+            value={filters.categoryId || undefined}
+            placeholder="همه دسته‌ها"
+            allowClear
+            onChange={(value) => {
+              setPage(1);
+              setFilters((f) => ({ ...f, categoryId: value ?? "" }));
+            }}
+            options={filteredCategories.map((c) => ({
+              value: c._id,
+              label: c.name,
+            }))}
+          />
+        </FilterField>
 
-            <Col xs={24} sm={12} md={5}>
-              <Input
-                className="w-full"
-                placeholder="فیلتر تگ"
-                value={filters.tag}
-                onChange={(e) => {
-                  setPage(1);
-                  setFilters((f) => ({ ...f, tag: e.target.value.trim() }));
-                }}
-              />
-            </Col>
+        <FilterField label="تگ" className="sm:max-w-[10rem]">
+          <Input
+            className="w-full"
+            placeholder="فیلتر تگ"
+            value={filters.tag}
+            onChange={(e) => {
+              setPage(1);
+              setFilters((f) => ({ ...f, tag: e.target.value.trim() }));
+            }}
+          />
+        </FilterField>
 
-            <Col xs={24} sm={12} md={7}>
-              <Flex gap="small" wrap="wrap" align="center">
-                <Checkbox
-                  checked={filters.needsReviewOnly}
-                  className="!items-center"
-                  onChange={(e) => {
-                    setPage(1);
-                    setFilters((f) => ({ ...f, needsReviewOnly: e.target.checked }));
-                  }}
-                >
-                  فقط نیاز به بررسی
-                </Checkbox>
-                <Button onClick={clearFilters}>پاک کردن فیلترها</Button>
-              </Flex>
-            </Col>
-          </Row>
-        </Space>
-      </Card>
+        <FilterField className="sm:min-w-[12rem]">
+          <Flex gap="small" wrap="wrap" align="center" className="h-full pt-1 sm:pt-5">
+            <Checkbox
+              checked={filters.needsReviewOnly}
+              className="!items-center"
+              onChange={(e) => {
+                setPage(1);
+                setFilters((f) => ({ ...f, needsReviewOnly: e.target.checked }));
+              }}
+            >
+              فقط نیاز به بررسی
+            </Checkbox>
+            <Button size="small" className={actionBtnClass} onClick={clearFilters}>
+              پاک کردن فیلترها
+            </Button>
+          </Flex>
+        </FilterField>
+      </FilterBar>
 
       {listQ.isLoading ? <TransactionsListSkeleton /> : null}
       {listQ.error ? (
@@ -541,44 +569,48 @@ export default function TransactionsPage() {
       ) : null}
 
       {isMobile && items.length > 0 ? (
-        <Card className="!overflow-hidden !p-0" styles={{ body: { padding: 0 } }}>
-          <Flex align="center" gap="small" className="border-b border-app-border/60 px-3 py-2.5">
-            <Checkbox
-              checked={allPageSelected}
-              indeterminate={somePageSelected && !allPageSelected}
-              onChange={(e) => toggleSelectAllPage(e.target.checked)}
-            >
-              انتخاب همه در این صفحه
-            </Checkbox>
-          </Flex>
+        <SoftList
+          header={
+            <Flex align="center" gap="small">
+              <Checkbox
+                checked={allPageSelected}
+                indeterminate={somePageSelected && !allPageSelected}
+                onChange={(e) => toggleSelectAllPage(e.target.checked)}
+              >
+                <Text type="secondary" className="text-xs">
+                  انتخاب همه در این صفحه ({toPersianDigits(String(items.length))})
+                </Text>
+              </Checkbox>
+            </Flex>
+          }
+        >
           {items.map((tx, index) => (
-            <div
-              key={tx._id}
-              className="border-b border-app-border/50 px-3 py-3 last:border-b-0"
-            >
-              <Flex justify="space-between" align="flex-start" gap="middle">
-                <Flex align="flex-start" gap="small" className="min-w-0 flex-1">
+            <SoftListItem key={tx._id}>
+              <SoftListRow
+                leading={
                   <Checkbox
                     className="mt-1"
                     checked={selectedIds.includes(tx._id)}
                     onChange={(e) => toggleSelect(tx._id, e.target.checked)}
                   />
-                  <div className="min-w-0 flex-1">
-                    <Space size={4} wrap>
-                      <Text type="secondary" className="tabular-nums text-xs">
-                        #{rowOffset + index + 1}
-                      </Text>
-                      <Text strong ellipsis className="!text-[15px]">
-                        {tx.title}
-                      </Text>
-                      {tx.needsReview ? (
-                        <Tag icon={<ExclamationCircleOutlined />} color="warning">
-                          بررسی
-                        </Tag>
-                      ) : null}
-                    </Space>
+                }
+                title={
+                  <Space size={4} wrap>
+                    <Text type="secondary" className="tabular-nums text-xs">
+                      #{rowOffset + index + 1}
+                    </Text>
+                    <span>{tx.title}</span>
+                    {tx.needsReview ? (
+                      <Tag icon={<ExclamationCircleOutlined />} color="warning">
+                        بررسی
+                      </Tag>
+                    ) : null}
+                  </Space>
+                }
+                subtitle={
+                  <>
                     {(tx.tags?.length ?? 0) > 0 ? (
-                      <Flex gap={4} wrap="wrap" className="mt-1">
+                      <Flex gap={4} wrap="wrap" className="mb-1">
                         {tx.tags!.map((tag) => (
                           <Tag
                             key={tag}
@@ -591,62 +623,75 @@ export default function TransactionsPage() {
                         ))}
                       </Flex>
                     ) : null}
-                    <div className="mt-1">
-                      <Text type="secondary" className="text-xs">
-                        {formatJalaliDate(tx.date)} · {categoryName(tx.categoryId)} ·{" "}
-                        {accountName(tx.accountId)}
-                      </Text>
-                    </div>
-                  </div>
-                </Flex>
-                <div className="shrink-0 text-left">
-                  <Text
-                    strong
-                    type={tx.type === "income" ? "success" : "danger"}
-                    className="!block whitespace-nowrap tabular-nums"
+                    <span>
+                      {formatJalaliDate(tx.date)} · {categoryName(tx.categoryId)} ·{" "}
+                      {accountName(tx.accountId)}
+                    </span>
+                  </>
+                }
+                trailing={
+                  <AmountText
+                    tone={tx.type === "income" ? "income" : "expense"}
+                    size="sm"
+                    prefix={tx.type === "income" ? "+" : "-"}
+                    caption={tx.type === "income" ? "دریافتی" : "پرداختی"}
                   >
-                    {tx.type === "income" ? "+" : "-"}
                     {formatToman(tx.amount)}
-                  </Text>
-                  <Text type="secondary" className="!text-[11px]">
-                    {tx.type === "income" ? "دریافتی" : "پرداختی"}
-                  </Text>
-                </div>
-              </Flex>
-              <Flex gap="small" className="mt-2.5 ps-7">
-                <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(tx)}>
-                  ویرایش
-                </Button>
-                <Popconfirm
-                  title="این تراکنش حذف شود؟"
-                  okText="حذف"
-                  cancelText="انصراف"
-                  okButtonProps={{ danger: true }}
-                  onConfirm={() => deleteMutation.mutate(tx._id)}
-                >
-                  <Button size="small" danger icon={<DeleteOutlined />}>
-                    حذف
-                  </Button>
-                </Popconfirm>
-              </Flex>
-            </div>
+                  </AmountText>
+                }
+                footer={
+                  <Flex gap="small">
+                    <Button
+                      size="small"
+                      className={actionBtnClass}
+                      icon={<EditOutlined />}
+                      onClick={() => openEdit(tx)}
+                    >
+                      ویرایش
+                    </Button>
+                    <Popconfirm
+                      title="این تراکنش حذف شود؟"
+                      okText="حذف"
+                      cancelText="انصراف"
+                      okButtonProps={{ danger: true }}
+                      onConfirm={() => deleteMutation.mutate(tx._id)}
+                    >
+                      <Button size="small" className={actionBtnClass} danger icon={<DeleteOutlined />}>
+                        حذف
+                      </Button>
+                    </Popconfirm>
+                  </Flex>
+                }
+              />
+            </SoftListItem>
           ))}
-        </Card>
+        </SoftList>
       ) : null}
 
       {!isMobile && items.length > 0 ? (
-        <Table<Transaction>
-          rowKey="_id"
-          columns={columns}
-          dataSource={items}
-          scroll={{ x: 960 }}
-          pagination={false}
-          size="middle"
-          rowSelection={{
-            selectedRowKeys: selectedIds,
-            onChange: (keys) => setSelectedIds(keys.map(String)),
-          }}
-        />
+        <SectionCard
+          title="لیست تراکنش‌ها"
+          extra={
+            <Text type="secondary" className="text-xs">
+              {toPersianDigits(String(total))} مورد
+            </Text>
+          }
+          flush
+          bodyClassName="!p-0"
+        >
+          <Table<Transaction>
+            rowKey="_id"
+            columns={columns}
+            dataSource={items}
+            scroll={{ x: 960 }}
+            pagination={false}
+            size="middle"
+            rowSelection={{
+              selectedRowKeys: selectedIds,
+              onChange: (keys) => setSelectedIds(keys.map(String)),
+            }}
+          />
+        </SectionCard>
       ) : null}
 
       {total > 0 ? (

@@ -5,7 +5,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   App,
   Button,
-  Card,
   Col,
   Flex,
   Grid,
@@ -15,18 +14,26 @@ import {
   Row,
   Select,
   Space,
-  Statistic,
   Tag,
   Typography,
 } from "antd";
-import { AimOutlined, DeleteOutlined, PlusOutlined } from "@ant-design/icons";
+import {
+  AimOutlined,
+  CheckCircleOutlined,
+  DeleteOutlined,
+  PlusOutlined,
+  TrophyOutlined,
+} from "@ant-design/icons";
 import { contributeGoal, createGoal, deleteGoal, fetchGoals } from "@/services/goals";
 import { fetchAccounts } from "@/services/accounts";
-import { formatJalaliDate, formatToman } from "@/lib/format";
+import { formatJalaliDate, formatToman, toPersianDigits } from "@/lib/format";
 import { normalizeJalaliDateInput, parseAmountInput } from "@/lib/amount";
 import { CATEGORY_COLORS } from "@/lib/finance-ui";
 import { AmountInput } from "@/components/ui/amount-input";
+import { AmountText } from "@/components/ui/amount-text";
 import { JalaliDateInput } from "@/components/ui/jalali-date-input";
+import { KpiCard } from "@/components/ui/kpi-card";
+import { SectionCard } from "@/components/ui/section-card";
 import { GoalsListSkeleton, KpiRowSkeleton } from "@/components/skeletons";
 import { EmptyState } from "@/components/ui/empty-state";
 import { QueryError } from "@/components/ui/query-error";
@@ -37,6 +44,8 @@ import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { cn } from "@/lib/cn";
 
 const { Text } = Typography;
+
+const actionBtnClass = "!rounded-xl";
 
 export default function GoalsPage() {
   const screens = Grid.useBreakpoint();
@@ -145,38 +154,42 @@ export default function GoalsPage() {
       ) : summary ? (
         <Row gutter={[12, 12]}>
           <Col xs={24} md={8}>
-            <Card>
-              <Statistic title="کل اهداف" value={formatToman(summary.totalTarget)} />
-            </Card>
+            <KpiCard
+              label="کل اهداف"
+              value={formatToman(summary.totalTarget)}
+              icon={<TrophyOutlined />}
+              tone="violet"
+            />
           </Col>
           <Col xs={24} md={8}>
-            <Card>
-              <Statistic
-                title="پس‌انداز شده"
-                value={formatToman(summary.totalSaved)}
-                className="[&_.ant-statistic-content-value]:text-brand-500"
-              />
-            </Card>
+            <KpiCard
+              label="پس‌انداز شده"
+              value={formatToman(summary.totalSaved)}
+              tone="brand"
+            />
           </Col>
           <Col xs={24} md={8}>
-            <Card>
-              <Statistic title="تکمیل‌شده" value={summary.completedCount} />
-            </Card>
+            <KpiCard
+              label="تکمیل‌شده"
+              value={toPersianDigits(String(summary.completedCount))}
+              icon={<CheckCircleOutlined />}
+              tone="success"
+            />
           </Col>
         </Row>
       ) : null}
 
       {formOpen ? (
-        <Card title="هدف جدید">
+        <SectionCard
+          title="هدف جدید"
+          description="پیشرفت هدف فقط با «افزودن» از حساب بانکی ثبت می‌شود تا موجودی نقد دوبار شمرده نشود."
+        >
           <Space orientation="vertical" size="middle" className="w-full">
             <Input
               placeholder="مثلاً سفر شمال"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
             />
-            <Text type="secondary" className="text-xs">
-              پیشرفت هدف فقط با «افزودن» از حساب بانکی ثبت می‌شود تا موجودی نقد دوبار شمرده نشود.
-            </Text>
             <Row gutter={[12, 12]}>
               <Col xs={24} sm={12}>
                 <AmountInput
@@ -219,8 +232,8 @@ export default function GoalsPage() {
             >
               {createMutation.isPending ? "در حال ذخیره..." : "ایجاد هدف"}
             </Button>
-        </Space>
-      </Card>
+          </Space>
+        </SectionCard>
       ) : null}
 
       {q.isLoading ? <GoalsListSkeleton /> : null}
@@ -234,7 +247,16 @@ export default function GoalsPage() {
           description="برای سفر، خرید یا اضطراری یک هدف پس‌انداز بسازید."
         />
       ) : items.length > 0 ? (
-        <SoftList>
+        <SoftList
+          header={
+            <Text type="secondary" className="text-xs font-medium">
+              {toPersianDigits(String(items.length))} هدف
+              {summary?.completedCount
+                ? ` · ${toPersianDigits(String(summary.completedCount))} تکمیل‌شده`
+                : ""}
+            </Text>
+          }
+        >
           {items.map((goal) => (
             <SoftListItem
               key={goal.id}
@@ -261,19 +283,13 @@ export default function GoalsPage() {
                   </>
                 }
                 trailing={
-                  <div className="text-left">
-                    <Text type="secondary" className="text-xs">
-                      باقیمانده
-                    </Text>
-                    <div>
-                      <Text strong className="tabular-nums">
-                        {formatToman(goal.remaining)}
-                      </Text>
-                    </div>
-                    <Text type="secondary" className="text-xs tabular-nums">
-                      {goal.percent.toFixed(0)}%
-                    </Text>
-                  </div>
+                  <AmountText
+                    tone={goal.completed ? "income" : "brand"}
+                    size="sm"
+                    caption={`${toPersianDigits(goal.percent.toFixed(0))}٪`}
+                  >
+                    {formatToman(goal.remaining)}
+                  </AmountText>
                 }
                 footer={
                   <>
@@ -318,6 +334,8 @@ export default function GoalsPage() {
                           </div>
                           <Button
                             type="primary"
+                            size="small"
+                            className={actionBtnClass}
                             block={isMobile}
                             loading={contributeMutation.isPending}
                             onClick={() => {
@@ -352,7 +370,14 @@ export default function GoalsPage() {
                         okButtonProps={{ danger: true }}
                         onConfirm={() => deleteMutation.mutate(goal.id)}
                       >
-                        <Button type="default" danger icon={<DeleteOutlined />} aria-label="حذف" />
+                        <Button
+                          type="default"
+                          size="small"
+                          className={actionBtnClass}
+                          danger
+                          icon={<DeleteOutlined />}
+                          aria-label="حذف"
+                        />
                       </Popconfirm>
                     </Flex>
                   </>

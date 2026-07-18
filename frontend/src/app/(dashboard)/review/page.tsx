@@ -5,7 +5,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   App,
   Button,
-  Card,
   Checkbox,
   Col,
   Flex,
@@ -45,6 +44,8 @@ import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { cn } from "@/lib/cn";
 import { PageShell } from "@/components/ui/page-shell";
 import { PageHeader } from "@/components/ui/page-header";
+import { SectionCard } from "@/components/ui/section-card";
+import { AmountText } from "@/components/ui/amount-text";
 
 const { Text } = Typography;
 
@@ -364,8 +365,8 @@ export default function ReviewPage() {
       ) : null}
 
       {items.length > 0 ? (
-        <Card size="small">
-          <Flex justify="space-between" align="center" gap="middle" wrap="wrap">
+        <SectionCard flush bodyClassName="p-0">
+          <Flex justify="space-between" align="center" gap="middle" wrap="wrap" className="px-4 py-3.5 sm:px-5">
             <Checkbox
               checked={allSelected}
               indeterminate={!allSelected && someSelected}
@@ -387,7 +388,7 @@ export default function ReviewPage() {
                 : ""}
             </Button>
           </Flex>
-        </Card>
+        </SectionCard>
       ) : null}
 
       <Space orientation="vertical" size="middle" className="w-full">
@@ -397,7 +398,7 @@ export default function ReviewPage() {
           const checked = selectedIds.includes(tx._id);
 
           return (
-            <Card
+            <SectionCard
               key={tx._id}
               className={cn(checked && "ring-1 ring-brand-500/40")}
               title={
@@ -427,16 +428,13 @@ export default function ReviewPage() {
                     {" · "}
                     {categoryName(tx.categoryId)}
                   </Text>
-                  <Text
-                    strong
-                    className={cn(
-                      tx.type === "income" ? "text-emerald-500" : "text-red-500",
-                      "font-semibold"
-                    )}
+                  <AmountText
+                    tone={tx.type === "income" ? "income" : "expense"}
+                    size="sm"
+                    prefix={tx.type === "income" ? "+" : "-"}
                   >
-                    {tx.type === "income" ? "+" : "-"}
                     {formatToman(tx.amount)}
-                  </Text>
+                  </AmountText>
                 </Flex>
 
                 <Input
@@ -604,7 +602,7 @@ export default function ReviewPage() {
                       : "ذخیره و خروج از بررسی"}
                 </Button>
               </Space>
-            </Card>
+            </SectionCard>
           );
         })}
       </Space>

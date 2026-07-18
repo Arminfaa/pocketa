@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { App, Button, Card, Col, Flex, Input, Popconfirm, Row, Space, Tag, Typography } from "antd";
+import { App, Button, Col, Flex, Input, Popconfirm, Row, Segmented, Space, Tag, Typography } from "antd";
 import { AppstoreOutlined, DeleteOutlined, EditOutlined, PlusOutlined } from "@ant-design/icons";
 import {
   createCategory,
@@ -12,16 +12,20 @@ import {
   type Category,
 } from "@/services/categories";
 import { CATEGORY_COLORS, CATEGORY_ICONS } from "@/lib/finance-ui";
+import { toPersianDigits } from "@/lib/format";
 import { CategoriesListSkeleton } from "@/components/skeletons";
 import { QueryError } from "@/components/ui/query-error";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FinanceTypeToggle } from "@/components/ui/finance-type-toggle";
+import { SectionCard } from "@/components/ui/section-card";
 import { PageShell } from "@/components/ui/page-shell";
 import { PageHeader } from "@/components/ui/page-header";
 import { SoftAvatar, SoftList, SoftListItem, SoftListRow } from "@/components/ui/soft-list";
 import { cn } from "@/lib/cn";
 
 const { Text } = Typography;
+
+const actionBtnClass = "!rounded-xl";
 
 type FormState = {
   name: string;
@@ -87,11 +91,11 @@ export default function CategoriesPage() {
     },
   });
 
+  const allCategories = q.data ?? [];
   const items = useMemo(() => {
-    const all = q.data ?? [];
-    if (filter === "all") return all;
-    return all.filter((c) => c.type === filter);
-  }, [q.data, filter]);
+    if (filter === "all") return allCategories;
+    return allCategories.filter((c) => c.type === filter);
+  }, [allCategories, filter]);
 
   function startEdit(c: Category) {
     setEditingId(c._id);
@@ -136,18 +140,23 @@ export default function CategoriesPage() {
           />
         }
         extra={
-          <FinanceTypeToggle withAll value={filter} onChange={(e) => setFilter(e.target.value)} />
+          <Segmented
+            block
+            value={filter}
+            onChange={(v) => setFilter(v as typeof filter)}
+            options={[
+              { value: "all", label: "همه" },
+              { value: "expense", label: "هزینه" },
+              { value: "income", label: "درآمد" },
+            ]}
+          />
         }
       />
 
       {formOpen || editingId ? (
-        <Card
-          title={
-            <Space>
-              <PlusOutlined />
-              {editingId ? "ویرایش دسته" : "افزودن دسته جدید"}
-            </Space>
-          }
+        <SectionCard
+          title={editingId ? "ویرایش دسته" : "افزودن دسته جدید"}
+          description="نام، نوع، رنگ و آیکون را انتخاب کنید."
         >
           <Space orientation="vertical" size="middle" className="w-full">
             <Row gutter={[12, 12]}>
@@ -198,6 +207,7 @@ export default function CategoriesPage() {
                   <Button
                     key={icon}
                     size="small"
+                    className="!rounded-xl"
                     type={form.icon === icon ? "primary" : "default"}
                     onClick={() => setForm((s) => ({ ...s, icon }))}
                   >
@@ -219,7 +229,7 @@ export default function CategoriesPage() {
               {editingId ? <Button onClick={cancelEdit}>انصراف</Button> : null}
             </Space>
           </Space>
-        </Card>
+        </SectionCard>
       ) : null}
 
       {q.isLoading ? <CategoriesListSkeleton /> : null}
@@ -233,7 +243,16 @@ export default function CategoriesPage() {
           description="یک دسته‌بندی جدید بسازید یا فیلتر نوع را تغییر دهید."
         />
       ) : items.length > 0 ? (
-        <SoftList>
+        <SoftList
+          header={
+            <Text type="secondary" className="text-xs font-medium">
+              {toPersianDigits(String(items.length))} دسته
+              {filter !== "all"
+                ? ` · ${filter === "income" ? "درآمد" : "هزینه"}`
+                : ""}
+            </Text>
+          }
+        >
           {items.map((c) => (
             <SoftListItem key={c._id}>
               <SoftListRow
@@ -255,6 +274,8 @@ export default function CategoriesPage() {
                   <Flex gap="small" wrap="wrap">
                     <Button
                       type="default"
+                      size="small"
+                      className={actionBtnClass}
                       icon={<EditOutlined />}
                       onClick={() => startEdit(c)}
                       aria-label="ویرایش"
@@ -269,6 +290,8 @@ export default function CategoriesPage() {
                     >
                       <Button
                         type="default"
+                        size="small"
+                        className={actionBtnClass}
                         danger
                         icon={<DeleteOutlined />}
                         loading={deleteMutation.isPending}
