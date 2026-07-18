@@ -56,7 +56,7 @@ const RECEIPT_PLACEHOLDER = `رسید کارت به کارت
 کارت مبدا: 8281 - ∗∗∗∗ - ∗∗29 - 5022
 نام مبدا: آرمین فاتحی
 تاریخ و ساعت: 19:31:12 1405/04/27
-کارمزد: 720تومان`;
+`;
 
 function currentJalaliYearGuess(): number {
   try {
@@ -176,9 +176,9 @@ export default function BankSmsImportPage() {
           isReceiptMode ? (
             <>
               ساختار <Text strong>رسید کارت‌به‌کارت</Text> را Paste کنید. جهت واریز/برداشت از{" "}
-              <Text strong>نام مبدا/مقصد</Text> نسبت به نام پروفایل شما تشخیص داده می‌شود. اگر{" "}
-              <Text strong>کارمزد</Text> در متن باشد، برای برداشت به مبلغ اضافه می‌شود و مورد به{" "}
-              <Text strong>نام‌گذاری</Text> می‌رود.
+              <Text strong>نام مبدا/مقصد</Text> نسبت به نام پروفایل شما تشخیص داده می‌شود. برای
+              برداشت، <Text strong>کارمزد</Text> در مرحله <Text strong>نام‌گذاری</Text> اجباری است
+              و به مبلغ انتقال اضافه می‌شود.
             </>
           ) : (
             <>
@@ -328,6 +328,8 @@ export default function BankSmsImportPage() {
                               {" + کارمزد "}
                               {formatToman(item.feeAmount)}
                             </>
+                          ) : item.needsFee ? (
+                            <> · کارمزد در نام‌گذاری</>
                           ) : null}
                         </>
                       }
@@ -337,7 +339,11 @@ export default function BankSmsImportPage() {
                           size="sm"
                           prefix={item.type === "income" ? "+" : "-"}
                           caption={
-                            item.feeAmount && item.feeAmount > 0 ? "مبلغ + کارمزد" : undefined
+                            item.feeAmount && item.feeAmount > 0
+                              ? "مبلغ + کارمزد"
+                              : item.needsFee
+                                ? "بدون کارمزد هنوز"
+                                : undefined
                           }
                         >
                           {formatToman(item.amount)}
@@ -350,7 +356,9 @@ export default function BankSmsImportPage() {
                           </Tag>
                         ) : (
                           <Tag icon={<CheckCircleOutlined />} color="success">
-                            آماده ورود · نیاز به نام‌گذاری بعداً
+                            {item.needsFee
+                              ? "آماده ورود · نام‌گذاری + کارمزد اجباری"
+                              : "آماده ورود · نیاز به نام‌گذاری بعداً"}
                           </Tag>
                         )
                       }
