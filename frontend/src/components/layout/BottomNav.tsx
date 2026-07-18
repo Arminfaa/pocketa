@@ -66,7 +66,7 @@ export function BottomNav({
     >
       {/* Top pad = half FAB so the raised button isn't clipped */}
       <div className="mx-auto max-w-lg px-3 pb-1.5 pt-7">
-        <div className="relative flex h-[3.25rem] items-center justify-between gap-0.5 rounded-[1.6rem] border border-[color-mix(in_srgb,var(--muted)_22%,transparent)] bg-app-card/95 px-1.5 shadow-soft backdrop-blur-xl dark:border-[color-mix(in_srgb,var(--muted)_32%,transparent)]">
+        <div className="relative flex h-[3.75rem] items-center justify-between gap-0.5 rounded-[1.6rem] border border-[color-mix(in_srgb,var(--muted)_22%,transparent)] bg-app-card/95 px-1.5 shadow-soft backdrop-blur-xl dark:border-[color-mix(in_srgb,var(--muted)_32%,transparent)]">
           {BOTTOM_NAV_ITEMS.map((item) => {
             const active = isItemActive(pathname, item, moreOpen, addOpen);
 
