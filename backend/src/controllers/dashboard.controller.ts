@@ -12,6 +12,7 @@ import {
   getActiveAccountIds,
   getNonOperatingCategoryIds,
 } from "../services/accounting.service";
+import { jalaliDaysBefore, todayJalali } from "../utils/jalaliDate";
 
 function currentJalaliMonthYear() {
   const now = new Date();
@@ -87,7 +88,10 @@ export const getDashboard = asyncHandler(async (req: Request, res: Response) => 
     accountId: accountScope,
   };
 
-  const [incomeThis, expenseThis, incomePrev, expensePrev, overall, netWorth] =
+  const weekFrom = jalaliDaysBefore(6);
+  const weekTo = todayJalali();
+
+  const [incomeThis, expenseThis, incomePrev, expensePrev, overall, netWorth, recentWeek] =
     await Promise.all([
       sumOperatingByTypeAndMonth(userId, "income", year, month, accountScope, nonOp),
       sumOperatingByTypeAndMonth(userId, "expense", year, month, accountScope, nonOp),
@@ -98,6 +102,17 @@ export const getDashboard = asyncHandler(async (req: Request, res: Response) => 
         { $group: { _id: "$type", sum: { $sum: "$amount" } } },
       ]),
       accountId ? null : computeNetWorth(userId),
+      TransactionModel.find({
+        userId: new mongoose.Types.ObjectId(userId),
+        accountId: accountScope,
+        date: { $gte: weekFrom, $lte: weekTo },
+        source: { $nin: ["transfer", "balance_adjustment"] },
+      })
+        .sort({ date: -1, createdAt: -1 })
+        .limit(20)
+        .select("type amount title date categoryId accountId source needsReview")
+        .populate("categoryId", "name type color")
+        .lean(),
     ]);
 
   const totalByType = new Map<string, number>();
@@ -135,5 +150,24 @@ export const getDashboard = asyncHandler(async (req: Request, res: Response) => 
           netWorth: netWorth.netWorth,
         }
       : null,
+    recentWeek: {
+      from: weekFrom,
+      to: weekTo,
+      items: recentWeek.map((tx) => {
+        const cat = tx.categoryId as
+          | { _id?: unknown; name?: string; type?: string; color?: string }
+          | null
+          | undefined;
+        return {
+          id: String(tx._id),
+          type: tx.type as "income" | "expense",
+          amount: Number(tx.amount),
+          title: String(tx.title ?? ""),
+          date: String(tx.date),
+          needsReview: Boolean(tx.needsReview),
+          categoryName: cat?.name ? String(cat.name) : "",
+        };
+      }),
+    },
   });
 });

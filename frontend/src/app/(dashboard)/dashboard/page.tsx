@@ -1,69 +1,54 @@
 "use client";
 
+import Link from "next/link";
 import api from "@/services/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import dynamic from "next/dynamic";
-import { formatToman } from "@/lib/format";
-import { App, Button, Col, Flex, Grid, Row, Typography } from "antd";
-import { BellOutlined } from "@ant-design/icons";
+import { formatJalaliDate, formatToman } from "@/lib/format";
+import { App, Button, Flex, Typography } from "antd";
+import {
+  AccountBookOutlined,
+  BellOutlined,
+  FormOutlined,
+  FundOutlined,
+  ImportOutlined,
+  PieChartOutlined,
+  PlusCircleOutlined,
+  TransactionOutlined,
+  WalletOutlined,
+} from "@ant-design/icons";
 import { QueryError } from "@/components/ui/query-error";
 import { DashboardSkeleton } from "@/components/skeletons";
-import { Sk } from "@/components/ui/skeleton";
 import { PageShell } from "@/components/ui/page-shell";
 import { HeroBalanceCard } from "@/components/ui/hero-balance-card";
 import { SectionCard } from "@/components/ui/section-card";
 import { SoftList, SoftListItem, SoftListRow } from "@/components/ui/soft-list";
 import { AmountText } from "@/components/ui/amount-text";
+import { EmptyState } from "@/components/ui/empty-state";
 import { MarketPriceTicker } from "@/components/dashboard/MarketPriceTicker";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { enablePushNotifications, fetchPushStatus } from "@/lib/push";
+import { cn } from "@/lib/cn";
 
 const { Text } = Typography;
 
-const DashboardIncomeExpenseChart = dynamic(
-  () =>
-    import("@/features/dashboard/DashboardCharts").then(
-      (m) => m.DashboardIncomeExpenseChart
-    ),
-  {
-    ssr: false,
-    loading: () => <Sk className="h-[300px] w-full rounded-3xl md:h-[260px]" />,
-  }
-);
-
-const DashboardCategoryBarChart = dynamic(
-  () =>
-    import("@/features/dashboard/DashboardCharts").then(
-      (m) => m.DashboardCategoryBarChart
-    ),
-  {
-    ssr: false,
-    loading: () => <Sk className="h-[300px] w-full rounded-3xl md:h-[260px]" />,
-  }
-);
-
 type MarketPrices = {
   gold: {
-    ounceUsd: number;
-    gram18kUsd: number;
-    gram24kUsd: number;
-    mesghal18kUsd: number;
-    mesghal24kUsd: number;
-    quarterCoinUsd?: number;
     gram18kToman: number | null;
     gram24kToman: number | null;
     mesghal18kToman: number | null;
     mesghal24kToman: number | null;
     quarterCoinToman?: number | null;
-    changePercent: number;
+    gram18kUsd: number;
+    gram24kUsd: number;
+    mesghal18kUsd: number;
+    mesghal24kUsd: number;
+    quarterCoinUsd?: number;
     fetchDate: string;
     fetchedAt: string;
   } | null;
   currency: {
     usdFreeToman: number;
     usdtToman: number;
-    usdChange: number;
-    usdtChange: number;
     fetchDate: string;
     fetchedAt: string;
   } | null;
@@ -75,9 +60,60 @@ type MarketPrices = {
   };
 };
 
+type RecentWeekTx = {
+  id: string;
+  type: "income" | "expense";
+  amount: number;
+  title: string;
+  date: string;
+  needsReview?: boolean;
+  categoryName?: string;
+};
+
+const QUICK_LINKS = [
+  {
+    href: "/transactions?new=1",
+    label: "تراکنش جدید",
+    icon: <PlusCircleOutlined />,
+  },
+  {
+    href: "/transactions",
+    label: "تراکنش‌ها",
+    icon: <TransactionOutlined />,
+  },
+  {
+    href: "/imports/bank-sms",
+    label: "ایمپورت",
+    icon: <ImportOutlined />,
+  },
+  {
+    href: "/review",
+    label: "نام‌گذاری",
+    icon: <FormOutlined />,
+  },
+  {
+    href: "/recurring",
+    label: "سررسید‌ها",
+    icon: <AccountBookOutlined />,
+  },
+  {
+    href: "/investments",
+    label: "سرمایه‌گذاری",
+    icon: <FundOutlined />,
+  },
+  {
+    href: "/budgets",
+    label: "بودجه",
+    icon: <WalletOutlined />,
+  },
+  {
+    href: "/reports",
+    label: "گزارش‌ها",
+    icon: <PieChartOutlined />,
+  },
+] as const;
+
 export default function DashboardPage() {
-  const screens = Grid.useBreakpoint();
-  const isMobile = !screens.md;
   const { message } = App.useApp();
   const queryClient = useQueryClient();
   const selectedAccountId = useAccountFilterStore((s) => s.selectedAccountId);
@@ -86,7 +122,26 @@ export default function DashboardPage() {
     queryKey: ["dashboard", selectedAccountId],
     queryFn: async () => {
       const qs = selectedAccountId ? `?accountId=${selectedAccountId}` : "";
-      return (await api.get(`/api/dashboard${qs}`)).data.data;
+      return (await api.get(`/api/dashboard${qs}`)).data.data as {
+        totals: {
+          balance: number;
+          incomeThisMonth: number;
+          expenseThisMonth: number;
+          savingsPercent: number;
+        };
+        netWorth: {
+          cash: number;
+          investmentsValue: number;
+          liabilities: number;
+          receivables: number;
+          netWorth: number;
+        } | null;
+        recentWeek: {
+          from: string;
+          to: string;
+          items: RecentWeekTx[];
+        };
+      };
     },
   });
 
@@ -101,24 +156,12 @@ export default function DashboardPage() {
         throw new Error(msg || (err instanceof Error ? err.message : "خطا در دریافت قیمت‌ها"));
       }
     },
-    // When today's fetch failed, poll so we don't sit on yesterday all day
     staleTime: 60_000,
     refetchInterval: (q) => (q.state.data?.stale ? 2 * 60_000 : false),
     retry: 1,
   });
 
   const dashboardReady = dashboardQ.isSuccess;
-
-  const categoriesQ = useQuery({
-    queryKey: ["reports-categories", selectedAccountId],
-    queryFn: async () => {
-      const qs = new URLSearchParams();
-      if (selectedAccountId) qs.set("accountId", selectedAccountId);
-      const suffix = qs.toString() ? `?${qs.toString()}` : "";
-      return (await api.get(`/api/reports/categories${suffix}`)).data.data;
-    },
-    enabled: dashboardReady,
-  });
 
   const pushStatusQ = useQuery({
     queryKey: ["push-status"],
@@ -151,7 +194,7 @@ export default function DashboardPage() {
       ? marketQ.error.message
       : market?.errors?.gold || market?.errors?.currency;
 
-  const chartHeight = isMobile ? 300 : 260;
+  const recentItems = dashboard?.recentWeek?.items ?? [];
 
   return (
     <PageShell width="full">
@@ -264,39 +307,89 @@ export default function DashboardPage() {
             </SectionCard>
           ) : null}
 
-          <Row gutter={[16, 16]}>
-            <Col xs={24} lg={12}>
-              <SectionCard title="درآمد و هزینه این ماه">
-                <DashboardIncomeExpenseChart
-                  income={dashboard.totals.incomeThisMonth}
-                  expense={dashboard.totals.expenseThisMonth}
-                  height={chartHeight}
-                  tickFontSize={isMobile ? 10 : 12}
-                />
-              </SectionCard>
-            </Col>
+          <SectionCard title="دسترسی سریع" description="میانبر بخش‌های پرتکرار">
+            <div className="grid grid-cols-4 gap-2 sm:grid-cols-4 md:grid-cols-8">
+              {QUICK_LINKS.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "flex flex-col items-center gap-2 rounded-2xl px-2 py-3 text-center transition-colors",
+                    "bg-[color-mix(in_srgb,var(--muted)_7%,transparent)] text-app-fg",
+                    "hover:bg-brand-500/10 active:bg-brand-500/14"
+                  )}
+                >
+                  <span className="text-xl leading-none text-brand-600 dark:text-brand-300">
+                    {item.icon}
+                  </span>
+                  <span className="text-[11px] font-medium leading-tight">{item.label}</span>
+                </Link>
+              ))}
+            </div>
+          </SectionCard>
 
-            <Col xs={24} lg={12}>
-              <SectionCard title="بیشترین دسته‌های هزینه">
-                {categoriesQ.isLoading || !dashboardReady ? (
-                  <Sk className="h-[300px] w-full rounded-3xl md:h-[260px]" />
-                ) : categoriesQ.data ? (
-                  <DashboardCategoryBarChart
-                    data={categoriesQ.data.expense.map(
-                      (c: { name: string; amount: number }) => ({
-                        name: c.name,
-                        amount: c.amount,
-                      })
-                    )}
-                    height={chartHeight}
-                    isMobile={isMobile}
+          <SoftList
+            header={
+              <Flex justify="space-between" align="center" gap="small" wrap="wrap">
+                <div>
+                  <Text strong>تراکنش‌های هفته اخیر</Text>
+                  <div>
+                    <Text type="secondary" className="text-xs">
+                      {formatJalaliDate(dashboard.recentWeek.from)} تا{" "}
+                      {formatJalaliDate(dashboard.recentWeek.to)}
+                    </Text>
+                  </div>
+                </div>
+                <Link
+                  href="/transactions"
+                  className="text-xs font-medium text-brand-600 dark:text-brand-300"
+                >
+                  مشاهده همه
+                </Link>
+              </Flex>
+            }
+          >
+            {recentItems.length === 0 ? (
+              <div className="px-2 py-4">
+                <EmptyState
+                  title="تراکنشی در این هفته نیست"
+                  description="با افزودن تراکنش یا ایمپورت بانکی اینجا پر می‌شود."
+                />
+              </div>
+            ) : (
+              recentItems.map((tx) => (
+                <SoftListItem key={tx.id}>
+                  <SoftListRow
+                    title={
+                      <span className="inline-flex flex-wrap items-center gap-2">
+                        <span>{tx.title || "بدون عنوان"}</span>
+                        {tx.needsReview ? (
+                          <span className="rounded-lg bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                            نام‌گذاری
+                          </span>
+                        ) : null}
+                      </span>
+                    }
+                    subtitle={
+                      <>
+                        {formatJalaliDate(tx.date)}
+                        {tx.categoryName ? ` · ${tx.categoryName}` : ""}
+                      </>
+                    }
+                    trailing={
+                      <AmountText
+                        tone={tx.type === "income" ? "income" : "expense"}
+                        size="sm"
+                        prefix={tx.type === "income" ? "+" : "-"}
+                      >
+                        {formatToman(tx.amount)}
+                      </AmountText>
+                    }
                   />
-                ) : (
-                  <Text type="secondary">اطلاعات کافی نیست.</Text>
-                )}
-              </SectionCard>
-            </Col>
-          </Row>
+                </SoftListItem>
+              ))
+            )}
+          </SoftList>
         </>
       ) : null}
     </PageShell>
