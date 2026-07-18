@@ -39,6 +39,7 @@ import {
 } from "@/services/transactions";
 import type { Transaction } from "@/types/transaction";
 import { formatJalaliDate, formatToman, toPersianDigits } from "@/lib/format";
+import { formatTransactionDateTime, transactionTimeOf } from "@/lib/transaction-time";
 import { accountName, categoryName } from "@/lib/transaction-helpers";
 import { exportTransactionsCsv } from "@/lib/export-transactions-csv";
 import { useAppMessage } from "@/lib/antd-app";
@@ -328,8 +329,9 @@ export default function TransactionsPage() {
       title: "تاریخ",
       dataIndex: "date",
       key: "date",
-      width: 120,
-      render: (date: string) => formatJalaliDate(date),
+      width: 150,
+      render: (date: string, tx) =>
+        formatTransactionDateTime(formatJalaliDate(date), transactionTimeOf(tx) || undefined),
     },
     {
       title: "نوع",
@@ -633,8 +635,11 @@ export default function TransactionsPage() {
                       </Flex>
                     ) : null}
                     <span>
-                      {formatJalaliDate(tx.date)} · {categoryName(tx.categoryId)} ·{" "}
-                      {accountName(tx.accountId)}
+                      {formatTransactionDateTime(
+                        formatJalaliDate(tx.date),
+                        transactionTimeOf(tx) || undefined
+                      )}{" "}
+                      · {categoryName(tx.categoryId)} · {accountName(tx.accountId)}
                     </span>
                   </>
                 }
