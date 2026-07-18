@@ -51,9 +51,22 @@ export const remove = asyncHandler(async (req: Request, res: Response) => {
   if (!userId) throw new AppError(401, "عدم دسترسی");
 
   const { id } = req.params;
-  const deleted = await CategoryModel.findOneAndDelete({ _id: id, userId });
-  if (!deleted) throw new AppError(404, "دسته‌بندی یافت نشد");
+  const category = await CategoryModel.findOne({ _id: id, userId });
+  if (!category) throw new AppError(404, "دسته‌بندی یافت نشد");
 
+  if ((NON_OPERATING_CATEGORY_NAMES as readonly string[]).includes(category.name)) {
+    throw new AppError(400, "دسته‌بندی سیستمی حسابداری قابل حذف نیست");
+  }
+
+  const inUse = await TransactionModel.countDocuments({ userId, categoryId: id });
+  if (inUse > 0) {
+    throw new AppError(
+      400,
+      `این دسته روی ${inUse.toLocaleString("en-US")} تراکنش استفاده شده و قابل حذف نیست`
+    );
+  }
+
+  await CategoryModel.deleteOne({ _id: id, userId });
   return sendSuccess(res, { id }, "دسته‌بندی حذف شد");
 });
 
