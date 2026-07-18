@@ -88,7 +88,7 @@ export function AppShellSkeleton() {
   return (
     <div className="flex h-dvh max-h-dvh overflow-hidden bg-app-surface" aria-busy="true">
       {/* Desktop sidebar */}
-      <aside className="hidden h-full w-[268px] shrink-0 border-l border-app-border bg-app-card p-4 lg:flex lg:flex-col lg:gap-4">
+      <aside className="hidden h-full w-[268px] shrink-0 bg-app-card/90 p-4 shadow-soft lg:flex lg:flex-col lg:gap-4">
         <div className="flex items-center gap-3 px-1 py-2">
           <Sk className="h-10 w-10 shrink-0 rounded-2xl" />
           <div className="min-w-0 flex-1 space-y-2">
@@ -104,7 +104,7 @@ export function AppShellSkeleton() {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="shrink-0 border-b border-app-border bg-app-card/90 px-3 py-3 sm:px-5">
+        <header className="shrink-0 bg-app-card/70 px-3 py-3 sm:px-5">
           <div className="flex items-center gap-3 lg:hidden">
             <Sk className="h-9 w-9 shrink-0 rounded-2xl" />
             <div className="min-w-0 flex-1 space-y-2">
@@ -177,16 +177,19 @@ export function TransactionsListSkeleton({ rows = 5 }: { rows?: number }) {
 
       {/* Desktop table */}
       <Card className="hidden md:block" classNames={{ body: "!p-0" }}>
-        <div className="border-b border-app-border px-4 py-3">
+        <div className="bg-brand-500/[0.05] px-4 py-3">
           <div className="grid grid-cols-8 gap-3">
             {Array.from({ length: 8 }).map((_, i) => (
               <Sk key={i} className="h-3 w-full" />
             ))}
           </div>
         </div>
-        <div className="divide-y divide-app-border">
+        <div className="flex flex-col gap-1 p-2">
           {Array.from({ length: rows }).map((_, i) => (
-            <div key={i} className="grid grid-cols-8 items-center gap-3 px-4 py-3.5">
+            <div
+              key={i}
+              className="grid grid-cols-8 items-center gap-3 rounded-2xl px-3 py-3"
+            >
               {Array.from({ length: 8 }).map((_, j) => (
                 <Sk
                   key={j}
@@ -377,7 +380,7 @@ export function ReportsChartsSkeleton({
               {Array.from({ length: 5 }).map((_, i) => (
                 <div
                   key={i}
-                  className="flex items-center justify-between gap-3 border-b border-app-border py-2 last:border-0"
+                  className="flex items-center justify-between gap-3 rounded-xl px-1 py-2"
                 >
                   <Sk className="h-3.5 w-28" />
                   <Sk className="h-3.5 w-20" />
