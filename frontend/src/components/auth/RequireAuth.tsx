@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/services/api";
 import { useAuthStore } from "@/stores/auth.store";
-import { DashboardSkeleton } from "@/components/skeletons";
+import { AppShellSkeleton } from "@/components/skeletons";
 
 export function RequireAuth({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -50,14 +50,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   }
 
   if (!hydrated || !sessionChecked || !user) {
-    return (
-      <div className="min-h-dvh bg-app-surface p-3 sm:p-4 md:p-6">
-        <div className="mx-auto w-full max-w-page space-y-4">
-          <div className="text-sm text-app-muted">در حال آماده‌سازی...</div>
-          <DashboardSkeleton />
-        </div>
-      </div>
-    );
+    return <AppShellSkeleton />;
   }
 
   return <>{children}</>;
