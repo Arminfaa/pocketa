@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Button,
@@ -64,6 +65,8 @@ type Filters = {
 export default function TransactionsPage() {
   const { message } = useAppMessage();
   const queryClient = useQueryClient();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const selectedAccountId = useAccountFilterStore((s) => s.selectedAccountId);
   const screens = useBreakpoint();
   const isMobile = !screens.md;
@@ -82,6 +85,13 @@ export default function TransactionsPage() {
   const [transferOpen, setTransferOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (searchParams.get("new") !== "1") return;
+    setEditing(null);
+    setModalOpen(true);
+    router.replace("/transactions", { scroll: false });
+  }, [searchParams, router]);
 
   const accountsQ = useQuery({
     queryKey: ["accounts"],
@@ -529,8 +539,8 @@ export default function TransactionsPage() {
       ) : null}
 
       {isMobile && items.length > 0 ? (
-        <Space orientation="vertical" size="small" className="w-full">
-          <Flex align="center" gap="small" className="px-1">
+        <Card className="!overflow-hidden !p-0" styles={{ body: { padding: 0 } }}>
+          <Flex align="center" gap="small" className="border-b border-app-border/60 px-3 py-2.5">
             <Checkbox
               checked={allPageSelected}
               indeterminate={somePageSelected && !allPageSelected}
@@ -540,9 +550,12 @@ export default function TransactionsPage() {
             </Checkbox>
           </Flex>
           {items.map((tx, index) => (
-            <Card key={tx._id} size="small">
+            <div
+              key={tx._id}
+              className="border-b border-app-border/50 px-3 py-3 last:border-b-0"
+            >
               <Flex justify="space-between" align="flex-start" gap="middle">
-                <Flex align="flex-start" gap="small" className="min-w-0 flex-1 mb-3">
+                <Flex align="flex-start" gap="small" className="min-w-0 flex-1">
                   <Checkbox
                     className="mt-1"
                     checked={selectedIds.includes(tx._id)}
@@ -550,10 +563,10 @@ export default function TransactionsPage() {
                   />
                   <div className="min-w-0 flex-1">
                     <Space size={4} wrap>
-                      <Text type="secondary" className="tabular-nums">
+                      <Text type="secondary" className="tabular-nums text-xs">
                         #{rowOffset + index + 1}
                       </Text>
-                      <Text strong ellipsis>
+                      <Text strong ellipsis className="!text-[15px]">
                         {tx.title}
                       </Text>
                       {tx.needsReview ? (
@@ -567,7 +580,7 @@ export default function TransactionsPage() {
                         {tx.tags!.map((tag) => (
                           <Tag
                             key={tag}
-                            color="cyan"
+                            color="blue"
                             className="cursor-pointer !m-0"
                             onClick={() => filterByTag(tag)}
                           >
@@ -577,24 +590,29 @@ export default function TransactionsPage() {
                       </Flex>
                     ) : null}
                     <div className="mt-1">
-                      <Text type="secondary" className="text-sm">
+                      <Text type="secondary" className="text-xs">
                         {formatJalaliDate(tx.date)} · {categoryName(tx.categoryId)} ·{" "}
                         {accountName(tx.accountId)}
                       </Text>
                     </div>
                   </div>
                 </Flex>
-                <Text
-                  strong
-                  type={tx.type === "income" ? "success" : "danger"}
-                  className="whitespace-nowrap"
-                >
-                  {tx.type === "income" ? "+" : "-"}
-                  {formatToman(tx.amount)}
-                </Text>
+                <div className="shrink-0 text-left">
+                  <Text
+                    strong
+                    type={tx.type === "income" ? "success" : "danger"}
+                    className="!block whitespace-nowrap tabular-nums"
+                  >
+                    {tx.type === "income" ? "+" : "-"}
+                    {formatToman(tx.amount)}
+                  </Text>
+                  <Text type="secondary" className="!text-[11px]">
+                    {tx.type === "income" ? "دریافتی" : "پرداختی"}
+                  </Text>
+                </div>
               </Flex>
-              <Flex gap="small" className="mt-3">
-                <Button block onClick={() => openEdit(tx)}>
+              <Flex gap="small" className="mt-2.5 ps-7">
+                <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(tx)}>
                   ویرایش
                 </Button>
                 <Popconfirm
@@ -604,14 +622,14 @@ export default function TransactionsPage() {
                   okButtonProps={{ danger: true }}
                   onConfirm={() => deleteMutation.mutate(tx._id)}
                 >
-                  <Button block danger>
+                  <Button size="small" danger icon={<DeleteOutlined />}>
                     حذف
                   </Button>
                 </Popconfirm>
               </Flex>
-            </Card>
+            </div>
           ))}
-        </Space>
+        </Card>
       ) : null}
 
       {!isMobile && items.length > 0 ? (

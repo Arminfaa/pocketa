@@ -2,16 +2,16 @@
 
 import { PropsWithChildren, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { App, Button, Drawer, Flex, Grid, Layout, Select } from "antd";
+import { App, Button, Drawer, Flex, Grid, Layout, Select, Typography } from "antd";
 import { cn } from "@/lib/cn";
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
-  MenuOutlined,
   BulbOutlined,
   LogoutOutlined,
 } from "@ant-design/icons";
 import { Sidebar } from "./Sidebar";
+import { BottomNav } from "./BottomNav";
 import { useUiStore } from "@/stores/ui.store";
 import { useThemeStore } from "@/stores/theme.store";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
@@ -20,23 +20,26 @@ import { fetchAccounts } from "@/services/accounts";
 import api from "@/services/api";
 import { PageMotion } from "@/components/ui/page-motion";
 import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
 
 const { Header, Sider, Content } = Layout;
 const { useBreakpoint } = Grid;
+const { Text } = Typography;
 
 export default function AppLayout({ children }: PropsWithChildren) {
   const pathname = usePathname();
   const router = useRouter();
   const { message } = App.useApp();
   const screens = useBreakpoint();
-  /** Below Ant Design `lg` (~992px): menu button + Drawer only */
-  const isDrawerNav = !screens.lg;
+  /** Below Ant Design `lg` (~992px): bottom nav + overflow drawer */
+  const isMobileShell = !screens.lg;
 
   const collapsed = useUiStore((s) => s.sidebarCollapsed);
   const toggleCollapse = useUiStore((s) => s.toggleSidebarCollapsed);
   const mode = useThemeStore((s) => s.mode);
   const toggleTheme = useThemeStore((s) => s.toggle);
   const logout = useAuthStore((s) => s.logout);
+  const user = useAuthStore((s) => s.user);
   const selectedAccountId = useAccountFilterStore((s) => s.selectedAccountId);
   const setSelectedAccountId = useAccountFilterStore((s) => s.setSelectedAccountId);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -49,8 +52,8 @@ export default function AppLayout({ children }: PropsWithChildren) {
   });
 
   useEffect(() => {
-    if (!isDrawerNav) setDrawerOpen(false);
-  }, [isDrawerNav]);
+    if (!isMobileShell) setDrawerOpen(false);
+  }, [isMobileShell]);
 
   async function onLogout() {
     setLoggingOut(true);
@@ -68,14 +71,14 @@ export default function AppLayout({ children }: PropsWithChildren) {
 
   return (
     <Layout className="h-dvh max-h-dvh !bg-transparent overflow-hidden">
-      {!isDrawerNav ? (
+      {!isMobileShell ? (
         <Sider
           collapsible
           collapsed={collapsed}
           trigger={null}
-          width={256}
-          collapsedWidth={72}
-          className="!h-dvh !max-h-dvh shrink-0 overflow-hidden border-l border-app-border bg-app-card"
+          width={268}
+          collapsedWidth={80}
+          className="!h-dvh !max-h-dvh shrink-0 overflow-hidden border-l border-app-border/80 bg-app-card shadow-soft"
         >
           <Sidebar />
         </Sider>
@@ -83,9 +86,9 @@ export default function AppLayout({ children }: PropsWithChildren) {
 
       <Drawer
         placement="right"
-        open={isDrawerNav && drawerOpen}
+        open={isMobileShell && drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        size={280}
+        size={300}
         classNames={{
           body: "!p-0 !bg-app-card",
           header: "border-b border-app-border !bg-app-card",
@@ -100,64 +103,122 @@ export default function AppLayout({ children }: PropsWithChildren) {
         destroyOnHidden
       >
         <Sidebar forceExpanded hideBrand onNavigate={() => setDrawerOpen(false)} />
+        <div className="border-t border-app-border p-3 flex gap-2">
+          <Button
+            block
+            icon={<BulbOutlined />}
+            onClick={toggleTheme}
+          >
+            {mode === "dark" ? "حالت روشن" : "حالت تاریک"}
+          </Button>
+          <Button
+            block
+            danger
+            icon={<LogoutOutlined />}
+            onClick={onLogout}
+            loading={loggingOut}
+          >
+            خروج
+          </Button>
+        </div>
       </Drawer>
 
       <Layout className="!bg-transparent min-w-0 max-w-full flex-1 h-dvh max-h-dvh overflow-hidden flex flex-col">
-        <Header className="shrink-0 !px-2 sm:!px-4 !h-auto !leading-normal border-b border-app-border bg-app-card !py-2 z-20">
-          <Flex align="center" gap={8} wrap="wrap" className="w-full">
-            {isDrawerNav ? (
-              <Button
-                type="default"
-                icon={<MenuOutlined />}
-                onClick={() => setDrawerOpen(true)}
-                aria-label="منو"
+        <Header
+          className={cn(
+            "shrink-0 !h-auto !leading-normal !px-3 sm:!px-5 !py-3 z-20",
+            "border-b border-app-border/70 bg-app-card/90 backdrop-blur-md"
+          )}
+        >
+          {isMobileShell ? (
+            <Flex vertical gap={10} className="w-full">
+              <Flex align="center" justify="space-between" gap={8}>
+                <Link href="/dashboard" className="flex items-center gap-2.5 min-w-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/logo.png" alt="Pocketa" className="h-9 w-9 object-contain" />
+                  <div className="min-w-0">
+                    <Text strong className="!text-app-fg !text-base block leading-tight">
+                      Pocketa
+                    </Text>
+                    <Text type="secondary" className="!text-xs block truncate">
+                      {user?.name ? `سلام ${user.name}` : "مدیریت مالی شخصی"}
+                    </Text>
+                  </div>
+                </Link>
+                <Button
+                  type="text"
+                  shape="circle"
+                  className="!bg-brand-500/10 !text-brand-600"
+                  icon={<BulbOutlined />}
+                  onClick={toggleTheme}
+                  aria-label="تغییر تم"
+                />
+              </Flex>
+              <Select
+                allowClear
+                placeholder="همه حساب‌ها"
+                className="w-full"
+                value={selectedAccountId ?? undefined}
+                onChange={(v) => setSelectedAccountId(v ?? null)}
+                options={(accountsQ.data ?? []).map((a) => ({
+                  value: a.id,
+                  label: a.bankName ? `${a.name} · ${a.bankName}` : a.name,
+                }))}
+                loading={accountsQ.isLoading}
               />
-            ) : (
+            </Flex>
+          ) : (
+            <Flex align="center" gap={10} wrap="wrap" className="w-full">
               <Button
                 type="default"
                 icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
                 onClick={toggleCollapse}
                 aria-label="جمع کردن سایدبار"
               />
-            )}
-
-            <Select
-              allowClear
-              placeholder="همه حساب‌ها"
-              className={cn("flex-1 min-w-0", isDrawerNav ? "max-w-full" : "min-w-40 max-w-60")}
-              value={selectedAccountId ?? undefined}
-              onChange={(v) => setSelectedAccountId(v ?? null)}
-              options={(accountsQ.data ?? []).map((a) => ({
-                value: a.id,
-                label: a.bankName ? `${a.name} · ${a.bankName}` : a.name,
-              }))}
-              loading={accountsQ.isLoading}
-              popupMatchSelectWidth={false}
-            />
-
-            <Flex align="center" gap={8} className="!ms-auto shrink-0">
-              <Button
-                type="default"
-                icon={<BulbOutlined />}
-                onClick={toggleTheme}
-                aria-label="تغییر تم"
-                title={mode === "dark" ? "حالت روشن" : "حالت تاریک"}
+              <Select
+                allowClear
+                placeholder="همه حساب‌ها"
+                className="min-w-44 max-w-64 flex-1"
+                value={selectedAccountId ?? undefined}
+                onChange={(v) => setSelectedAccountId(v ?? null)}
+                options={(accountsQ.data ?? []).map((a) => ({
+                  value: a.id,
+                  label: a.bankName ? `${a.name} · ${a.bankName}` : a.name,
+                }))}
+                loading={accountsQ.isLoading}
+                popupMatchSelectWidth={false}
               />
-              <Button
-                type="default"
-                icon={<LogoutOutlined />}
-                onClick={onLogout}
-                loading={loggingOut}
-                aria-label="خروج از حساب"
-                title="خروج از حساب"
-              />
+              <Flex align="center" gap={8} className="!ms-auto shrink-0">
+                <Button
+                  type="default"
+                  icon={<BulbOutlined />}
+                  onClick={toggleTheme}
+                  aria-label="تغییر تم"
+                />
+                <Button
+                  type="default"
+                  icon={<LogoutOutlined />}
+                  onClick={onLogout}
+                  loading={loggingOut}
+                  aria-label="خروج از حساب"
+                />
+              </Flex>
             </Flex>
-          </Flex>
+          )}
         </Header>
 
-        <Content className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6">
+        <Content
+          className={cn(
+            "flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6",
+            isMobileShell && "pb-[5.5rem]"
+          )}
+        >
           <PageMotion key={pathname}>{children}</PageMotion>
         </Content>
+
+        {isMobileShell ? (
+          <BottomNav moreOpen={drawerOpen} onMore={() => setDrawerOpen((open) => !open)} />
+        ) : null}
       </Layout>
     </Layout>
   );

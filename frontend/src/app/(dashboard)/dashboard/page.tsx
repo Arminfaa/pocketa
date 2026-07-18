@@ -5,7 +5,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import { formatToman } from "@/lib/format";
 import { App, Button, Card, Col, Flex, Grid, Row, Statistic, Typography } from "antd";
-import { BellOutlined } from "@ant-design/icons";
+import { ArrowDownOutlined, ArrowUpOutlined, BellOutlined, PlusOutlined } from "@ant-design/icons";
+import Link from "next/link";
 import { QueryError } from "@/components/ui/query-error";
 import { DashboardSkeleton } from "@/components/skeletons";
 import { Sk } from "@/components/ui/skeleton";
@@ -187,40 +188,56 @@ export default function DashboardPage() {
         />
       ) : dashboard ? (
         <>
-          <Row gutter={[16, 16]}>
-            <Col xs={24} sm={12} lg={6}>
-              <Card>
-                <Statistic title="موجودی نقد" value={formatToman(dashboard.totals.balance)} />
-              </Card>
-            </Col>
-            <Col xs={24} sm={12} lg={6}>
-              <Card>
-                <Statistic
-                  title="درآمد عملیاتی این ماه"
-                  value={formatToman(dashboard.totals.incomeThisMonth)}
-                  className="[&_.ant-statistic-content-value]:text-emerald-500"
-                />
-              </Card>
-            </Col>
-            <Col xs={24} sm={12} lg={6}>
-              <Card>
-                <Statistic
-                  title="هزینه عملیاتی این ماه"
-                  value={formatToman(dashboard.totals.expenseThisMonth)}
-                  className="[&_.ant-statistic-content-value]:text-red-500"
-                />
-              </Card>
-            </Col>
-            <Col xs={24} sm={12} lg={6}>
-              <Card>
-                <Statistic
-                  title="درصد پس‌انداز عملیاتی"
-                  value={dashboard.totals.savingsPercent.toFixed(1)}
-                  suffix="%"
-                />
-              </Card>
-            </Col>
-          </Row>
+          <Card className="!overflow-hidden !border-brand-500/15 bg-gradient-to-b from-white to-brand-50/60 dark:from-slate-900 dark:to-slate-900">
+            <Flex vertical gap="middle" className="text-center sm:text-start">
+              <div>
+                <Text type="secondary" className="!text-sm">
+                  موجودی کل
+                </Text>
+                <div className="mt-1 text-3xl font-bold tracking-tight text-brand-600 tabular-nums dark:text-brand-300 sm:text-4xl">
+                  {formatToman(dashboard.totals.balance)}
+                </div>
+                <Text type="secondary" className="!mt-1 !block !text-xs">
+                  پس‌انداز عملیاتی این ماه: {dashboard.totals.savingsPercent.toFixed(1)}٪
+                </Text>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex items-center gap-2.5 rounded-2xl bg-emerald-500/10 px-3 py-2.5 text-start">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-600">
+                    <ArrowDownOutlined />
+                  </span>
+                  <div className="min-w-0">
+                    <Text type="secondary" className="!block !text-xs">
+                      درآمد
+                    </Text>
+                    <Text strong className="!text-emerald-600 tabular-nums">
+                      {formatToman(dashboard.totals.incomeThisMonth)}
+                    </Text>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2.5 rounded-2xl bg-red-500/10 px-3 py-2.5 text-start">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-500/15 text-red-500">
+                    <ArrowUpOutlined />
+                  </span>
+                  <div className="min-w-0">
+                    <Text type="secondary" className="!block !text-xs">
+                      هزینه
+                    </Text>
+                    <Text strong className="!text-red-500 tabular-nums">
+                      {formatToman(dashboard.totals.expenseThisMonth)}
+                    </Text>
+                  </div>
+                </div>
+              </div>
+
+              <Link href="/transactions?new=1" className="block">
+                <Button type="primary" size="large" block icon={<PlusOutlined />} className="!h-12 !rounded-2xl">
+                  تراکنش جدید
+                </Button>
+              </Link>
+            </Flex>
+          </Card>
 
           {dashboard.netWorth && !selectedAccountId ? (
             <Card title="ارزش خالص (خلاصه تراز)">

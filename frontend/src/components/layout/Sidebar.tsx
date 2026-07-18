@@ -5,36 +5,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Menu, Typography } from "antd";
 import type { MenuProps } from "antd";
-import {
-  DashboardOutlined,
-  TransactionOutlined,
-  ImportOutlined,
-  FormOutlined,
-  AccountBookOutlined,
-  AimOutlined,
-  FundOutlined,
-  BankOutlined,
-  TagsOutlined,
-  WalletOutlined,
-  PieChartOutlined,
-  SettingOutlined,
-} from "@ant-design/icons";
 import { useUiStore } from "@/stores/ui.store";
-
-const items = [
-  { href: "/dashboard", label: "داشبورد", icon: <DashboardOutlined /> },
-  { href: "/transactions", label: "تراکنش‌ها", icon: <TransactionOutlined /> },
-  { href: "/imports/bank-sms", label: "ایمپورت پیامک", icon: <ImportOutlined /> },
-  { href: "/review", label: "نام‌گذاری", icon: <FormOutlined /> },
-  { href: "/recurring", label: "جریان دوره‌ای / سررسید‌ها", icon: <AccountBookOutlined /> },
-  { href: "/investments", label: "سرمایه‌گذاری / پس‌انداز", icon: <FundOutlined /> },
-  { href: "/goals", label: "اهداف پس‌انداز", icon: <AimOutlined /> },
-  { href: "/accounts", label: "حساب‌های بانکی", icon: <BankOutlined /> },
-  { href: "/categories", label: "دسته‌بندی‌ها", icon: <TagsOutlined /> },
-  { href: "/budgets", label: "بودجه‌بندی", icon: <WalletOutlined /> },
-  { href: "/reports", label: "گزارش‌ها", icon: <PieChartOutlined /> },
-  { href: "/settings", label: "تنظیمات", icon: <SettingOutlined /> },
-];
+import { matchNavHref, SIDEBAR_NAV_ITEMS } from "./nav-items";
 
 type Props = {
   onNavigate?: () => void;
@@ -55,13 +27,11 @@ export function Sidebar({
   const collapsed = forceExpanded ? false : storeCollapsed;
 
   const selectedKey = useMemo(() => {
-    const match = items.find(
-      (it) => pathname === it.href || pathname?.startsWith(`${it.href}/`)
-    );
+    const match = SIDEBAR_NAV_ITEMS.find((it) => matchNavHref(pathname, it.href));
     return match?.href ?? "/dashboard";
   }, [pathname]);
 
-  const menuItems: MenuProps["items"] = items.map((it) => ({
+  const menuItems: MenuProps["items"] = SIDEBAR_NAV_ITEMS.map((it) => ({
     key: it.href,
     icon: it.icon,
     label: it.label,
@@ -70,7 +40,7 @@ export function Sidebar({
   return (
     <div className="h-full min-h-0 flex flex-col overflow-hidden">
       {!hideBrand ? (
-        <div className="px-4 py-4 flex items-center gap-3 shrink-0">
+        <div className="px-4 py-5 flex items-center gap-3 shrink-0">
           <Link
             href="/dashboard"
             onClick={onNavigate}
@@ -83,9 +53,14 @@ export function Sidebar({
               className="h-10 w-10 object-contain shrink-0"
             />
             {!collapsed ? (
-              <Typography.Text strong className="!text-app-fg truncate">
-                Pocketa
-              </Typography.Text>
+              <div className="min-w-0">
+                <Typography.Text strong className="!text-app-fg !text-base block truncate">
+                  Pocketa
+                </Typography.Text>
+                <Typography.Text type="secondary" className="!text-xs">
+                  مدیریت مالی شخصی
+                </Typography.Text>
+              </div>
             ) : null}
           </Link>
         </div>
@@ -96,7 +71,7 @@ export function Sidebar({
         selectedKeys={[selectedKey]}
         inlineCollapsed={collapsed}
         items={menuItems}
-        className="!border-none !bg-transparent flex-1 min-h-0 max-sm:scroll-none overflow-y-auto overscroll-contain"
+        className="!border-none !bg-transparent flex-1 min-h-0 max-sm:scroll-none overflow-y-auto overscroll-contain px-2"
         onClick={({ key }) => {
           router.push(String(key));
           onNavigate?.();
