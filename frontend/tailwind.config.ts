@@ -22,22 +22,22 @@ const config: Config = {
           gold: "var(--gold)",
         },
         brand: {
-          50: "#eff6ff",
-          100: "#dbeafe",
-          200: "#bfdbfe",
-          300: "#93c5fd",
-          400: "#60a5fa",
-          500: "#2563eb",
-          600: "#1d4ed8",
-          700: "#1e40af",
-          800: "#1e3a8a",
-          900: "#172554",
+          50: "#ecfeff",
+          100: "#cffafe",
+          200: "#a5f3fc",
+          300: "#67e8f9",
+          400: "#22d3ee",
+          500: "#06b6d4",
+          600: "#0891b2",
+          700: "#0e7490",
+          800: "#155e75",
+          900: "#164e63",
         },
         brandViolet: {
-          400: "#7dd3fc",
-          500: "#38bdf8",
-          600: "#0ea5e9",
-          900: "#0c4a6e",
+          400: "#a78bfa",
+          500: "#8b5cf6",
+          600: "#7c3aed",
+          900: "#4c1d95",
         },
         brandGold: {
           400: "#fbbf24",
@@ -51,18 +51,18 @@ const config: Config = {
       },
       backgroundImage: {
         "brand-gradient":
-          "linear-gradient(135deg, #1d4ed8 0%, #2563eb 45%, #38bdf8 100%)",
+          "linear-gradient(135deg, #4c1d95 0%, #0b1220 45%, #155e75 100%)",
         "brand-accent":
-          "linear-gradient(90deg, #2563eb 0%, #38bdf8 55%, #f59e0b 100%)",
+          "linear-gradient(90deg, #06b6d4 0%, #8b5cf6 55%, #f59e0b 100%)",
         "app-mesh":
-          "radial-gradient(ellipse 80% 50% at 100% -10%, rgba(37,99,235,0.16), transparent 55%), radial-gradient(ellipse 60% 40% at 0% 100%, rgba(56,189,248,0.12), transparent 50%)",
+          "radial-gradient(circle at top right, rgba(6,182,212,0.08), transparent 28%), radial-gradient(circle at bottom left, rgba(139,92,246,0.1), transparent 24%)",
       },
       boxShadow: {
-        soft: "0 10px 30px rgba(37, 99, 235, 0.1)",
-        glow: "0 0 40px rgba(37, 99, 235, 0.16)",
+        soft: "0 10px 30px rgba(0,0,0,0.12)",
+        glow: "0 0 40px rgba(6, 182, 212, 0.18)",
       },
       borderRadius: {
-        antd: "16px",
+        antd: "12px",
       },
       maxWidth: {
         page: "56rem",
