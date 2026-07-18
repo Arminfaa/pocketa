@@ -78,7 +78,7 @@ export default function AppLayout({ children }: PropsWithChildren) {
           trigger={null}
           width={268}
           collapsedWidth={80}
-          className="!h-dvh !max-h-dvh shrink-0 overflow-hidden border-l border-app-border/80 bg-app-card shadow-soft"
+          className="!h-dvh !max-h-dvh shrink-0 overflow-hidden !border-0 bg-app-card/90 shadow-soft"
         >
           <Sidebar />
         </Sider>
@@ -91,7 +91,7 @@ export default function AppLayout({ children }: PropsWithChildren) {
         size={300}
         classNames={{
           body: "!p-0 !bg-app-card",
-          header: "border-b border-app-border !bg-app-card",
+          header: "!border-0 !bg-app-card",
         }}
         title={
           <div className="flex items-center gap-2.5 min-w-0">
@@ -103,7 +103,7 @@ export default function AppLayout({ children }: PropsWithChildren) {
         destroyOnHidden
       >
         <Sidebar forceExpanded hideBrand onNavigate={() => setDrawerOpen(false)} />
-        <div className="border-t border-app-border p-3 flex gap-2">
+        <div className="bg-brand-500/[0.04] p-3 flex gap-2">
           <Button
             block
             icon={<BulbOutlined />}
@@ -127,7 +127,7 @@ export default function AppLayout({ children }: PropsWithChildren) {
         <Header
           className={cn(
             "shrink-0 !h-auto !leading-normal !px-3 sm:!px-5 !py-3 z-20",
-            "border-b border-app-border/70 bg-app-card/90 backdrop-blur-md"
+            "!border-0 bg-app-card/70 backdrop-blur-md"
           )}
         >
           {isMobileShell ? (

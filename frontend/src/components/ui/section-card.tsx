@@ -27,7 +27,7 @@ export function SectionCard({
   return (
     <section className={cn("surface-card overflow-hidden", className)}>
       {hasHead ? (
-        <div className="flex items-start justify-between gap-3 border-b border-app-border/50 px-4 py-3.5 sm:px-5">
+        <div className="flex items-start justify-between gap-3 px-4 pt-4 sm:px-5 sm:pt-5">
           <div className="min-w-0">
             {title ? (
               <h2 className="m-0 text-[15px] font-semibold text-app-fg leading-tight">
@@ -41,7 +41,14 @@ export function SectionCard({
           {extra ? <div className="shrink-0">{extra}</div> : null}
         </div>
       ) : null}
-      <div className={cn(flush ? "p-0" : "p-4 sm:p-5", bodyClassName)}>{children}</div>
+      <div
+        className={cn(
+          flush ? "p-0" : hasHead ? "p-4 pt-3 sm:p-5 sm:pt-4" : "p-4 sm:p-5",
+          bodyClassName
+        )}
+      >
+        {children}
+      </div>
     </section>
   );
 }

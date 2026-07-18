@@ -204,7 +204,7 @@ export default function DashboardPage() {
               title="ارزش خالص"
               description="نقد + سرمایه‌گذاری − بدهی + طلب (سررسیدهای فعال)"
             >
-              <SoftList className="!border-0 !shadow-none !rounded-2xl bg-brand-50/30 dark:bg-brand-500/5">
+              <SoftList className="!shadow-none !rounded-2xl bg-brand-500/[0.05] dark:bg-brand-500/[0.08]">
                 {[
                   { label: "نقد", value: dashboard.netWorth.cash, tone: "default" as const },
                   {

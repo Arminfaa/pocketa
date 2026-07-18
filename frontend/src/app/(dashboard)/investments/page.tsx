@@ -95,7 +95,7 @@ function DetailRow({
   amountTone?: "default" | "income" | "expense" | "brand" | "muted";
 }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 border-b border-app-border/60 py-2 last:border-b-0">
+    <div className="flex items-baseline justify-between gap-3 py-2">
       <Text type="secondary" className="shrink-0 text-xs">
         {label}
       </Text>
