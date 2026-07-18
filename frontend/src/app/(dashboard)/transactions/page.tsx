@@ -58,6 +58,7 @@ const { useBreakpoint } = Grid;
 const { Text } = Typography;
 
 const actionBtnClass = "!rounded-xl";
+const headerActionBtnClass = "!h-11 !rounded-2xl !px-4";
 
 type Filters = {
   search: string;
@@ -445,16 +446,14 @@ export default function TransactionsPage() {
               </Popconfirm>
             ) : null}
             <Button
-              size="small"
-              className={actionBtnClass}
+              className={headerActionBtnClass}
               icon={<DownloadOutlined />}
               onClick={() => void handleExport()}
             >
               خروجی CSV
             </Button>
             <Button
-              size="small"
-              className={actionBtnClass}
+              className={headerActionBtnClass}
               icon={<SwapOutlined />}
               onClick={() => setTransferOpen(true)}
             >
@@ -462,8 +461,7 @@ export default function TransactionsPage() {
             </Button>
             <Button
               type="primary"
-              size="small"
-              className={actionBtnClass}
+              className={headerActionBtnClass}
               icon={<PlusOutlined />}
               onClick={() => {
                 setEditing(null);
