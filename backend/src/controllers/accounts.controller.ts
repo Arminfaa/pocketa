@@ -6,13 +6,42 @@ import { BankAccountModel } from "../models/BankAccount";
 import { TransactionModel } from "../models/Transaction";
 import { BankAccountCreateSchema, BankAccountUpdateSchema } from "../validations/accounts";
 import {
+  adjustAccountBalanceToTarget,
   computeAccountBalance,
   createOpeningBalanceTransaction,
   ensureDefaultAccount,
-  findLatestSmsBalance,
-  syncInitialBalanceToTarget,
 } from "../services/account.service";
-import { SyncBalanceSchema } from "../validations/transactions";
+import { AdjustBalanceSchema } from "../validations/transactions";
+
+function accountPayload(
+  account: {
+    _id: unknown;
+    name: string;
+    bankName?: string | null;
+    color: string;
+    icon: string;
+    initialBalance: number;
+    isActive: boolean;
+    createdAt?: Date;
+    updatedAt?: Date;
+  },
+  balance: number,
+  extra: Record<string, unknown> = {}
+) {
+  return {
+    id: account._id,
+    name: account.name,
+    bankName: account.bankName ?? "",
+    color: account.color,
+    icon: account.icon,
+    initialBalance: 0,
+    isActive: account.isActive,
+    balance,
+    createdAt: account.createdAt,
+    updatedAt: account.updatedAt,
+    ...extra,
+  };
+}
 
 export const list = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user?.userId;
@@ -28,19 +57,8 @@ export const list = asyncHandler(async (req: Request, res: Response) => {
 
   const items = await Promise.all(
     accounts.map(async (account) => {
-      const balance = await computeAccountBalance(userId, account._id, account.initialBalance);
-      return {
-        id: account._id,
-        name: account.name,
-        bankName: account.bankName ?? "",
-        color: account.color,
-        icon: account.icon,
-        initialBalance: account.initialBalance,
-        isActive: account.isActive,
-        balance,
-        createdAt: (account as { createdAt?: Date }).createdAt,
-        updatedAt: (account as { updatedAt?: Date }).updatedAt,
-      };
+      const balance = await computeAccountBalance(userId, account._id);
+      return accountPayload(account, balance);
     })
   );
 
@@ -56,8 +74,7 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
 
   const openingBalance = parsed.data.initialBalance;
 
-  // Keep initialBalance at 0; opening cash becomes an income transaction so
-  // reports / category totals stay consistent with the account balance.
+  // Opening cash is an income transaction — never a hidden initialBalance plug.
   const account = await BankAccountModel.create({
     userId,
     name: parsed.data.name,
@@ -72,21 +89,12 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
     await createOpeningBalanceTransaction(userId, account._id, openingBalance);
   }
 
-  const balance = await computeAccountBalance(userId, account._id, account.initialBalance);
+  const balance = await computeAccountBalance(userId, account._id);
 
   return sendSuccess(
     res,
     {
-      item: {
-        id: account._id,
-        name: account.name,
-        bankName: account.bankName ?? "",
-        color: account.color,
-        icon: account.icon,
-        initialBalance: account.initialBalance,
-        isActive: account.isActive,
-        balance,
-      },
+      item: accountPayload(account, balance),
     },
     "حساب بانکی ایجاد شد",
     201
@@ -101,6 +109,7 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
   if (!parsed.success) throw new AppError(400, "خطا در اعتبارسنجی داده‌ها", parsed.error.flatten());
 
   const { id } = req.params;
+  // initialBalance updates are ignored — use POST /:id/adjust-balance instead.
   const account = await BankAccountModel.findOneAndUpdate(
     { _id: id, userId },
     {
@@ -109,10 +118,8 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
         ...(parsed.data.bankName !== undefined ? { bankName: parsed.data.bankName ?? "" } : {}),
         ...(parsed.data.color !== undefined ? { color: parsed.data.color } : {}),
         ...(parsed.data.icon !== undefined ? { icon: parsed.data.icon } : {}),
-        ...(parsed.data.initialBalance !== undefined
-          ? { initialBalance: parsed.data.initialBalance }
-          : {}),
         ...(parsed.data.isActive !== undefined ? { isActive: parsed.data.isActive } : {}),
+        initialBalance: 0,
       },
     },
     { new: true }
@@ -120,19 +127,10 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
 
   if (!account) throw new AppError(404, "حساب بانکی یافت نشد");
 
-  const balance = await computeAccountBalance(userId, account._id, account.initialBalance);
+  const balance = await computeAccountBalance(userId, account._id);
 
   return sendSuccess(res, {
-    item: {
-      id: account._id,
-      name: account.name,
-      bankName: account.bankName ?? "",
-      color: account.color,
-      icon: account.icon,
-      initialBalance: account.initialBalance,
-      isActive: account.isActive,
-      balance,
-    },
+    item: accountPayload(account, balance),
   });
 });
 
@@ -165,68 +163,51 @@ export const getOne = asyncHandler(async (req: Request, res: Response) => {
   if (!account) throw new AppError(404, "حساب بانکی یافت نشد");
 
   const [balance, txCount] = await Promise.all([
-    computeAccountBalance(userId, account._id, account.initialBalance),
+    computeAccountBalance(userId, account._id),
     TransactionModel.countDocuments({ userId, accountId: account._id }),
   ]);
 
   return sendSuccess(res, {
-    item: {
-      id: account._id,
-      name: account.name,
-      bankName: account.bankName ?? "",
-      color: account.color,
-      icon: account.icon,
-      initialBalance: account.initialBalance,
-      isActive: account.isActive,
-      balance,
-      transactionCount: txCount,
-    },
+    item: accountPayload(account, balance, { transactionCount: txCount }),
   });
 });
 
-export const syncBalance = asyncHandler(async (req: Request, res: Response) => {
+/** Set book balance via adjustment transaction (income/expense for the delta). */
+export const adjustBalance = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user?.userId;
   if (!userId) throw new AppError(401, "عدم دسترسی");
 
-  const parsed = SyncBalanceSchema.safeParse(req.body ?? {});
+  const parsed = AdjustBalanceSchema.safeParse(req.body ?? {});
   if (!parsed.success) throw new AppError(400, "خطا در اعتبارسنجی داده‌ها", parsed.error.flatten());
 
   const { id } = req.params;
   const account = await BankAccountModel.findOne({ _id: id, userId });
   if (!account) throw new AppError(404, "حساب بانکی یافت نشد");
 
-  let target = parsed.data.balanceAfter;
-  if (target === undefined) {
-    const latest = await findLatestSmsBalance(userId, account._id);
-    if (latest === null) {
-      throw new AppError(400, "مانده‌ای از پیامک بانکی برای این حساب یافت نشد");
-    }
-    target = latest;
-  }
-
   try {
-    const result = await syncInitialBalanceToTarget(userId, account._id, target);
+    const result = await adjustAccountBalanceToTarget(
+      userId,
+      account._id,
+      parsed.data.targetBalance
+    );
     return sendSuccess(
       res,
       {
-        item: {
-          id: account._id,
-          name: account.name,
-          bankName: account.bankName ?? "",
-          color: account.color,
-          icon: account.icon,
-          initialBalance: result.initialBalance,
-          isActive: account.isActive,
-          balance: result.balance,
+        item: accountPayload(account, result.balance, {
           previousBalance: result.previousBalance,
-          smsBalance: target,
-        },
+          adjustment: result.adjustment,
+        }),
       },
-      parsed.data.balanceAfter !== undefined
-        ? "موجودی حساب تنظیم شد"
-        : "موجودی حساب با مانده پیامک همگام شد"
+      result.adjustment
+        ? result.adjustment.type === "expense"
+          ? `تراکنش هزینه تعدیل به مبلغ ${result.adjustment.amount.toLocaleString("en-US")} ثبت شد`
+          : `تراکنش درآمد تعدیل به مبلغ ${result.adjustment.amount.toLocaleString("en-US")} ثبت شد`
+        : "موجودی از قبل با عدد واردشده یکی بود"
     );
-  } catch {
+  } catch (err) {
+    if (err instanceof Error && err.message === "INVALID_TARGET_BALANCE") {
+      throw new AppError(400, "مبلغ موجودی معتبر نیست");
+    }
     throw new AppError(404, "حساب بانکی یافت نشد");
   }
 });

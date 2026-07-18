@@ -21,14 +21,13 @@ import {
   DeleteOutlined,
   EditOutlined,
   PlusOutlined,
-  SyncOutlined,
   WalletOutlined,
 } from "@ant-design/icons";
 import {
+  adjustAccountBalance,
   createAccount,
   deleteAccount,
   fetchAccounts,
-  syncAccountBalance,
   updateAccount,
 } from "@/services/accounts";
 import { formatToman } from "@/lib/format";
@@ -121,23 +120,6 @@ export default function AccountsPage() {
     },
   });
 
-  const syncMutation = useMutation({
-    mutationFn: (id: string) => syncAccountBalance(id),
-    onSuccess: (item) => {
-      message.success(
-        `موجودی از ${formatToman(item.previousBalance ?? 0)} به ${formatToman(item.balance)} همگام شد`
-      );
-      void queryClient.invalidateQueries({ queryKey: ["accounts"] });
-      void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-    },
-    onError: (err: unknown) => {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        "همگام‌سازی ناموفق بود";
-      message.error(msg);
-    },
-  });
-
   const setBalanceMutation = useMutation({
     mutationFn: async () => {
       if (!balanceTarget) throw new Error("حساب انتخاب نشده");
@@ -145,13 +127,22 @@ export default function AccountsPage() {
       if (!Number.isFinite(amount) || amount < 0) {
         throw new Error("مبلغ موجودی معتبر نیست");
       }
-      return syncAccountBalance(balanceTarget.account.id, amount);
+      return adjustAccountBalance(balanceTarget.account.id, amount);
     },
     onSuccess: (item) => {
-      message.success(`موجودی روی ${formatToman(item.balance)} تنظیم شد`);
+      if (item.adjustment) {
+        const kind = item.adjustment.type === "expense" ? "هزینه" : "درآمد";
+        message.success(
+          `موجودی ${formatToman(item.balance)} شد · تراکنش ${kind} تعدیل ${formatToman(item.adjustment.amount)} ثبت شد`
+        );
+      } else {
+        message.success("موجودی از قبل با عدد واردشده یکی بود");
+      }
       setBalanceTarget(null);
       void queryClient.invalidateQueries({ queryKey: ["accounts"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      void queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      void queryClient.invalidateQueries({ queryKey: ["categories"] });
     },
     onError: (err: unknown) => {
       const msg =
@@ -244,7 +235,7 @@ export default function AccountsPage() {
                   />
                 </div>
                 <Text type="secondary" className="mt-1 block text-xs">
-                  به‌صورت خودکار یک تراکنش درآمد «موجودی اولیه» ثبت می‌شود.
+                  به‌صورت تراکنش درآمد «موجودی اولیه» ثبت می‌شود تا موجودی = درآمد − هزینه بماند.
                 </Text>
               </Col>
             ) : null}
@@ -306,9 +297,15 @@ export default function AccountsPage() {
       >
         <Space orientation="vertical" size="middle" className="w-full">
           <Text type="secondary">
-            اگر موجودی اپ با مانده واقعی کارت فرق دارد، عدد درست را وارد کنید. تراکنش‌ها عوض
-            نمی‌شوند؛ فقط مبنای موجودی طوری تنظیم می‌شود که مجموع با این عدد یکی شود.
+            موجودی دفتر همیشه برابر است با جمع درآمد منهای جمع هزینه. اگر عدد واقعی کارت فرق
+            دارد، مابه‌التفاوت به‌صورت تراکنش «تعدیل موجودی» ثبت می‌شود تا هم موجودی و هم
+            درآمد/هزینه با هم یکی بمانند.
           </Text>
+          {balanceTarget ? (
+            <Text type="secondary" className="text-xs">
+              موجودی فعلی دفتر: {formatToman(balanceTarget.account.balance)}
+            </Text>
+          ) : null}
           <div>
             <Text type="secondary">موجودی واقعی (تومان)</Text>
             <div className="mt-2">
@@ -379,27 +376,12 @@ export default function AccountsPage() {
                     onClick={() =>
                       setBalanceTarget({
                         account,
-                        amount: String(Math.round(account.balance)),
+                        amount: String(Math.max(0, Math.round(account.balance))),
                       })
                     }
                     aria-label="تنظیم موجودی"
-                    title="تنظیم دستی موجودی"
+                    title="تنظیم موجودی با تراکنش تعدیل"
                   />
-                  <Popconfirm
-                    title="همگام‌سازی موجودی"
-                    description={`موجودی «${account.name}» با آخرین مانده پیامک بانکی همگام شود؟ (موجودی اولیه طوری تنظیم می‌شود که مانده حساب با SMS یکی شود)`}
-                    okText="همگام‌سازی"
-                    cancelText="انصراف"
-                    onConfirm={() => syncMutation.mutate(account.id)}
-                  >
-                    <Button
-                      type="default"
-                      icon={<SyncOutlined />}
-                      loading={syncMutation.isPending}
-                      aria-label="همگام‌سازی مانده"
-                      title="همگام‌سازی با آخرین مانده پیامک"
-                    />
-                  </Popconfirm>
                   <Button
                     type="default"
                     icon={<EditOutlined />}

@@ -9,6 +9,7 @@ function toObjectId(id: string | mongoose.Types.ObjectId) {
 }
 
 const OPENING_CATEGORY_NAME = "موجودی اولیه";
+const ADJUSTMENT_CATEGORY_NAME = "تعدیل موجودی";
 
 /** Find or create the income category used for account opening balances. */
 export async function ensureOpeningBalanceCategory(
@@ -30,9 +31,30 @@ export async function ensureOpeningBalanceCategory(
   });
 }
 
+async function ensureAdjustmentCategory(
+  userId: string | mongoose.Types.ObjectId,
+  type: "income" | "expense"
+) {
+  const existing = await CategoryModel.findOne({
+    userId: toObjectId(userId),
+    name: ADJUSTMENT_CATEGORY_NAME,
+    type,
+  });
+  if (existing) return existing;
+
+  return CategoryModel.create({
+    userId: toObjectId(userId),
+    name: ADJUSTMENT_CATEGORY_NAME,
+    type,
+    icon: "Scale",
+    color: type === "income" ? "#06b6d4" : "#f59e0b",
+  });
+}
+
 /**
- * Create an income transaction for the account's opening balance so reports
- * and balance math stay consistent (initialBalance on the account stays 0).
+ * Create an income transaction for the account's opening balance so
+ * balance = Σ income − Σ expense stays the single source of truth
+ * (account.initialBalance stays 0).
  */
 export async function createOpeningBalanceTransaction(
   userId: string | mongoose.Types.ObjectId,
@@ -74,10 +96,13 @@ export async function ensureDefaultAccount(userId: string | mongoose.Types.Objec
   });
 }
 
+/**
+ * Ledger balance for one account.
+ * Accounting identity: موجودی = جمع درآمد − جمع هزینه
+ */
 export async function computeAccountBalance(
   userId: string | mongoose.Types.ObjectId,
-  accountId: string | mongoose.Types.ObjectId,
-  initialBalance: number
+  accountId: string | mongoose.Types.ObjectId
 ): Promise<number> {
   const rows = await TransactionModel.aggregate([
     {
@@ -96,20 +121,30 @@ export async function computeAccountBalance(
     if (row._id === "expense") expense = row.sum ?? 0;
   }
 
-  return initialBalance + income - expense;
+  return income - expense;
 }
 
-/** Adjust initialBalance so computed balance equals targetBalance (e.g. SMS مانده). */
-export async function syncInitialBalanceToTarget(
+/**
+ * Set book balance to target by posting an adjustment transaction for the
+ * difference (Cash Over/Short). Never mutates a hidden initialBalance plug.
+ */
+export async function adjustAccountBalanceToTarget(
   userId: string | mongoose.Types.ObjectId,
   accountId: string | mongoose.Types.ObjectId,
   targetBalance: number
 ): Promise<{
   previousBalance: number;
   balance: number;
-  initialBalance: number;
-  previousInitialBalance: number;
+  adjustment: {
+    type: "income" | "expense";
+    amount: number;
+    id: string;
+  } | null;
 }> {
+  if (!Number.isFinite(targetBalance)) {
+    throw new Error("INVALID_TARGET_BALANCE");
+  }
+
   const account = await BankAccountModel.findOne({
     _id: toObjectId(accountId),
     userId: toObjectId(userId),
@@ -118,59 +153,98 @@ export async function syncInitialBalanceToTarget(
     throw new Error("ACCOUNT_NOT_FOUND");
   }
 
-  const previousBalance = await computeAccountBalance(
-    userId,
-    accountId,
-    account.initialBalance
-  );
-  const netFromTransactions = previousBalance - account.initialBalance;
-  const previousInitialBalance = account.initialBalance;
-  const nextInitial = targetBalance - netFromTransactions;
+  // Legacy plug must not affect the books — zero it if present.
+  if (account.initialBalance !== 0) {
+    account.initialBalance = 0;
+    await account.save();
+  }
 
-  account.initialBalance = nextInitial;
-  await account.save();
+  const previousBalance = await computeAccountBalance(userId, accountId);
+  const delta = Math.round(targetBalance) - Math.round(previousBalance);
+
+  if (delta === 0) {
+    return {
+      previousBalance,
+      balance: previousBalance,
+      adjustment: null,
+    };
+  }
+
+  const type: "income" | "expense" = delta > 0 ? "income" : "expense";
+  const amount = Math.abs(delta);
+  const category = await ensureAdjustmentCategory(userId, type);
+
+  const tx = await TransactionModel.create({
+    userId: toObjectId(userId),
+    accountId: toObjectId(accountId),
+    type,
+    amount,
+    categoryId: category._id,
+    title: ADJUSTMENT_CATEGORY_NAME,
+    description:
+      type === "expense"
+        ? `تعدیل موجودی: کاهش دفتر به ${Math.round(targetBalance).toLocaleString("en-US")} تومان`
+        : `تعدیل موجودی: افزایش دفتر به ${Math.round(targetBalance).toLocaleString("en-US")} تومان`,
+    date: todayJalali(),
+    tags: ["تعدیل-موجودی"],
+    source: "balance_adjustment",
+    needsReview: false,
+  });
+
+  const balance = await computeAccountBalance(userId, accountId);
 
   return {
     previousBalance,
-    balance: targetBalance,
-    initialBalance: nextInitial,
-    previousInitialBalance,
+    balance,
+    adjustment: {
+      type,
+      amount,
+      id: String(tx._id),
+    },
   };
 }
 
-function smsBalanceSortKey(tx: {
-  date?: string | null;
-  bankMeta?: { time?: string | null } | null;
-  createdAt?: Date | string | null;
-}): string {
-  const date = tx.date ?? "";
-  const time = tx.bankMeta?.time?.trim() || "00:00";
-  const created =
-    tx.createdAt instanceof Date
-      ? tx.createdAt.toISOString()
-      : typeof tx.createdAt === "string"
-        ? tx.createdAt
-        : "";
-  return `${date} ${time} ${created}`;
-}
+/**
+ * Convert legacy account.initialBalance plugs into real ledger entries so
+ * balance = income − expense remains exact after the field is zeroed.
+ */
+export async function migrateLegacyInitialBalances(): Promise<{
+  accountsUpdated: number;
+}> {
+  const accounts = await BankAccountModel.find({
+    initialBalance: { $ne: 0 },
+  });
 
-/** Latest bankMeta.balanceAfter for account (by Jalali date + SMS time, then createdAt). */
-export async function findLatestSmsBalance(
-  userId: string | mongoose.Types.ObjectId,
-  accountId: string | mongoose.Types.ObjectId
-): Promise<number | null> {
-  const txs = await TransactionModel.find({
-    userId: toObjectId(userId),
-    accountId: toObjectId(accountId),
-    "bankMeta.balanceAfter": { $exists: true, $ne: null },
-  })
-    .select("date bankMeta.balanceAfter bankMeta.time createdAt")
-    .lean();
+  let accountsUpdated = 0;
 
-  if (txs.length === 0) return null;
+  for (const account of accounts) {
+    const plug = Number(account.initialBalance ?? 0);
+    if (!Number.isFinite(plug) || plug === 0) continue;
 
-  txs.sort((a, b) => smsBalanceSortKey(b).localeCompare(smsBalanceSortKey(a)));
+    const amount = Math.abs(Math.round(plug));
+    if (amount > 0) {
+      const type: "income" | "expense" = plug > 0 ? "income" : "expense";
+      const category = await ensureAdjustmentCategory(account.userId, type);
+      await TransactionModel.create({
+        userId: account.userId,
+        accountId: account._id,
+        type,
+        amount,
+        categoryId: category._id,
+        title: ADJUSTMENT_CATEGORY_NAME,
+        description:
+          "تبدیل موجودی اولیه قدیمی حساب به تراکنش دفتر (مهاجرت حسابداری)",
+        date: todayJalali(),
+        tags: ["تعدیل-موجودی", "مهاجرت"],
+        source: "balance_adjustment",
+        needsReview: false,
+      });
+    }
 
-  const value = txs[0]?.bankMeta?.balanceAfter;
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
+    account.initialBalance = 0;
+    await account.save();
+    accountsUpdated += 1;
+  }
+
+  return { accountsUpdated };
 }

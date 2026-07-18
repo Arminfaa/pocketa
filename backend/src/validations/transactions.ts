@@ -135,8 +135,9 @@ export const CategorySuggestSchema = z.object({
   type: z.enum(["income", "expense"]).optional(),
 });
 
-export const SyncBalanceSchema = z.object({
-  balanceAfter: z.coerce.number().optional(),
+/** Set account book balance by posting an adjustment transaction for the delta. */
+export const AdjustBalanceSchema = z.object({
+  targetBalance: z.coerce.number(),
 });
 
 export const TransactionBulkDeleteSchema = z.object({
