@@ -21,6 +21,7 @@ export type ParsedImportItem = {
   skipReview?: boolean;
   transferAmount?: number;
   feeAmount?: number;
+  needsFee?: boolean;
 };
 
 export type BankSmsPreviewResponse = {

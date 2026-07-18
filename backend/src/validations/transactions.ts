@@ -103,6 +103,8 @@ export const TransactionUpdateSchema = z
     accountId: z.string().min(1).optional(),
     needsReview: z.boolean().optional(),
     tags: TagsSchema,
+    /** کارمزد کارت‌به‌کارت (تومان) — در نام‌گذاری برای needsFee الزامی است */
+    feeAmount: z.coerce.number().positive().optional(),
     ...ObligationAndSettleFields,
   })
   .superRefine(refineObligationAndSettle);

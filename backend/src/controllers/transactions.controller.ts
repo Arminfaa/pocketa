@@ -333,6 +333,43 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
     next.needsReview = false;
   }
 
+  const leavingReview =
+    next.needsReview === false ||
+    (parsed.data.needsReview === false);
+
+  const bankMeta = (tx.bankMeta ?? {}) as {
+    needsFee?: boolean;
+    feeAmount?: number;
+    transferAmount?: number;
+    bankName?: string;
+    accountHint?: string;
+    balanceAfter?: number;
+    time?: string;
+    rawSnippet?: string;
+  };
+
+  if (parsed.data.feeAmount !== undefined) {
+    if (tx.type !== "expense") {
+      throw new AppError(400, "کارمزد فقط برای برداشت کارت‌به‌کارت معنا دارد");
+    }
+    const transferAmount = Number(
+      bankMeta.transferAmount != null ? bankMeta.transferAmount : tx.amount
+    );
+    if (!Number.isFinite(transferAmount) || transferAmount <= 0) {
+      throw new AppError(400, "مبلغ انتقال برای اعمال کارمزد نامعتبر است");
+    }
+    const feeAmount = Math.round(parsed.data.feeAmount);
+    next.amount = transferAmount + feeAmount;
+    next.bankMeta = {
+      ...bankMeta,
+      transferAmount,
+      feeAmount,
+      needsFee: false,
+    };
+  } else if (leavingReview && bankMeta.needsFee) {
+    throw new AppError(400, "کارمزد تراکنش کارت‌به‌کارت را وارد کنید");
+  }
+
   const updated = await TransactionModel.findOneAndUpdate(
     { _id: id, userId },
     { $set: next },
