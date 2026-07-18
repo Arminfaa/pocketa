@@ -113,8 +113,9 @@ export function BottomNav({
               );
             }
 
+            // Match shell radius (1.6rem) minus horizontal/vertical inset (~0.35rem)
             const className = cn(
-              "flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1 transition-all",
+              "flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-[1.25rem] px-1 transition-all",
               active
                 ? "bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300"
                 : "text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
