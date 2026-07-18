@@ -12,10 +12,13 @@ import {
   Row,
   Segmented,
   Select,
-  Space,
   Statistic,
   Typography,
 } from "antd";
+import { PieChartOutlined } from "@ant-design/icons";
+import { PageShell } from "@/components/ui/page-shell";
+import { PageHeader } from "@/components/ui/page-header";
+import { SoftList, SoftListItem, SoftListRow } from "@/components/ui/soft-list";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { fetchCategoryReport, fetchMonthlyReport } from "@/services/reports";
 import { formatJalaliDate, formatToman } from "@/lib/format";
@@ -26,7 +29,7 @@ import { QueryError } from "@/components/ui/query-error";
 const CARD_EXTRA_STACK =
   "[&_.ant-card-head]:flex-wrap [&_.ant-card-head]:gap-2 [&_.ant-card-extra]:!ms-0 [&_.ant-card-extra]:w-full [&_.ant-card-extra_.ant-select]:w-full";
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 const PIE_FALLBACK = ["#06b6d4", "#8b5cf6", "#f59e0b", "#ef4444", "#22c55e", "#3b82f6", "#ec4899"];
 
@@ -132,29 +135,30 @@ export default function ReportsPage() {
   );
 
   return (
-    <Space orientation="vertical" size="large" className="w-full">
-      <div>
-        <Title level={4} className="!m-0">
-          گزارش‌ها
-        </Title>
-        <Text type="secondary">
-          {selectedAccountId
+    <PageShell width="full">
+      <PageHeader
+        title="گزارش‌ها"
+        icon={<PieChartOutlined />}
+        description={
+          selectedAccountId
             ? "گزارش‌ها بر اساس حساب انتخاب‌شده در هدر فیلتر شده‌اند."
-            : "نمایش گزارش همه حساب‌ها. از هدر می‌توانید یک حساب را انتخاب کنید."}
-        </Text>
-      </div>
-
-      <Segmented
-        block
-        value={mode}
-        onChange={(v) => setMode(v as ReportMode)}
-        options={[
-          { value: "monthly", label: "گزارش ماهانه" },
-          { value: "range", label: "روند چندماهه" },
-        ]}
+            : "نمایش گزارش همه حساب‌ها. از هدر می‌توانید یک حساب را انتخاب کنید."
+        }
+        extra={
+          <>
+            <Segmented
+              block
+              value={mode}
+              onChange={(v) => setMode(v as ReportMode)}
+              options={[
+                { value: "monthly", label: "گزارش ماهانه" },
+                { value: "range", label: "روند چندماهه" },
+              ]}
+            />
+            {mode === "monthly" ? <div className="mt-3">{monthPicker}</div> : null}
+          </>
+        }
       />
-
-      {mode === "monthly" ? monthPicker : null}
 
       <Row gutter={[12, 12]}>
         <Col xs={24} md={8}>
@@ -317,54 +321,53 @@ export default function ReportsPage() {
             </Col>
           </Row>
 
-          <Card title={`بیشترین هزینه‌های ${MONTH_LABELS[month - 1]} ${year}`}>
+          <SoftList
+            header={
+              <Text strong>
+                بیشترین هزینه‌های {MONTH_LABELS[month - 1]} {year}
+              </Text>
+            }
+          >
             {categoriesQ.isLoading ? (
-              <div className="space-y-3 py-1" aria-busy="true">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Flex key={i} justify="space-between" align="center" gap="middle">
-                    <div className="min-w-0 flex-1 space-y-2">
-                      <Sk className="h-4 w-36 max-w-full" />
-                      <Sk className="h-3 w-48 max-w-full" />
-                    </div>
-                    <Sk className="h-4 w-20 shrink-0" />
-                  </Flex>
-                ))}
-              </div>
+              <SoftListItem>
+                <div className="space-y-3 py-1" aria-busy="true">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Flex key={i} justify="space-between" align="center" gap="middle">
+                      <div className="min-w-0 flex-1 space-y-2">
+                        <Sk className="h-4 w-36 max-w-full" />
+                        <Sk className="h-3 w-48 max-w-full" />
+                      </div>
+                      <Sk className="h-4 w-20 shrink-0" />
+                    </Flex>
+                  ))}
+                </div>
+              </SoftListItem>
             ) : null}
             {!categoriesQ.isLoading && (categoriesQ.data?.topExpenses?.length ?? 0) === 0 ? (
-              <Flex align="center" justify="center" className="py-8">
-                <Text type="secondary">هزینه‌ای برای نمایش وجود ندارد.</Text>
-              </Flex>
-            ) : (
-              <Space orientation="vertical" size={0} className="w-full">
-                {(categoriesQ.data?.topExpenses ?? []).map((tx) => (
-                  <Flex
-                    key={tx.id}
-                    justify="space-between"
-                    align="center"
-                    gap="middle"
-                    className="w-full py-3 border-b border-app-border last:border-b-0"
-                  >
-                    <div className="min-w-0">
-                      <Text strong ellipsis>
-                        {tx.title}
-                      </Text>
-                      <div>
-                        <Text type="secondary" className="text-xs">
-                          {formatJalaliDate(tx.date)} · {tx.category} · {tx.account}
+              <SoftListItem>
+                <Flex align="center" justify="center" className="py-5">
+                  <Text type="secondary">هزینه‌ای برای نمایش وجود ندارد.</Text>
+                </Flex>
+              </SoftListItem>
+            ) : null}
+            {!categoriesQ.isLoading
+              ? (categoriesQ.data?.topExpenses ?? []).map((tx) => (
+                  <SoftListItem key={tx.id}>
+                    <SoftListRow
+                      title={tx.title}
+                      subtitle={`${formatJalaliDate(tx.date)} · ${tx.category} · ${tx.account}`}
+                      trailing={
+                        <Text strong className="text-red-500 whitespace-nowrap">
+                          {formatToman(tx.amount)}
                         </Text>
-                      </div>
-                    </div>
-                    <Text strong className="text-red-500 whitespace-nowrap">
-                      {formatToman(tx.amount)}
-                    </Text>
-                  </Flex>
-                ))}
-              </Space>
-            )}
-          </Card>
+                      }
+                    />
+                  </SoftListItem>
+                ))
+              : null}
+          </SoftList>
         </>
       ) : null}
-    </Space>
+    </PageShell>
   );
 }

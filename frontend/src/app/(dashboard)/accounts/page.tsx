@@ -8,7 +8,6 @@ import {
   Card,
   Col,
   Flex,
-  Grid,
   Input,
   Modal,
   Popconfirm,
@@ -36,10 +35,13 @@ import { AmountInput } from "@/components/ui/amount-input";
 import { AccountsListSkeleton } from "@/components/skeletons";
 import { QueryError } from "@/components/ui/query-error";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageShell } from "@/components/ui/page-shell";
+import { PageHeader } from "@/components/ui/page-header";
+import { SoftAvatar, SoftList, SoftListItem, SoftListRow } from "@/components/ui/soft-list";
 import type { BankAccount } from "@/types/account";
 import { cn } from "@/lib/cn";
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 const COLORS = ["#06b6d4", "#8b5cf6", "#f59e0b", "#ef4444", "#22c55e", "#3b82f6", "#ec4899"];
 
@@ -58,12 +60,11 @@ const emptyForm: FormState = {
 };
 
 export default function AccountsPage() {
-  const screens = Grid.useBreakpoint();
-  const isMobile = !screens.md;
   const { message } = App.useApp();
   const queryClient = useQueryClient();
   const [form, setForm] = useState<FormState>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
 
   const q = useQuery({
     queryKey: ["accounts"],
@@ -93,6 +94,7 @@ export default function AccountsPage() {
       message.success(editingId ? "حساب به‌روزرسانی شد" : "حساب جدید ساخته شد");
       setForm(emptyForm);
       setEditingId(null);
+      setFormOpen(false);
       void queryClient.invalidateQueries({ queryKey: ["accounts"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       void queryClient.invalidateQueries({ queryKey: ["transactions"] });
@@ -160,6 +162,7 @@ export default function AccountsPage() {
 
   function startEdit(account: BankAccount) {
     setEditingId(account.id);
+    setFormOpen(true);
     setForm({
       name: account.name,
       bankName: account.bankName,
@@ -171,109 +174,128 @@ export default function AccountsPage() {
   function cancelEdit() {
     setEditingId(null);
     setForm(emptyForm);
+    setFormOpen(false);
+  }
+
+  function toggleForm() {
+    if (formOpen && !editingId) {
+      setFormOpen(false);
+      setForm(emptyForm);
+      return;
+    }
+    setEditingId(null);
+    setForm(emptyForm);
+    setFormOpen(true);
   }
 
   return (
-    <Space orientation="vertical" size="large" className="w-full max-w-3xl">
-      <Flex justify="space-between" align="flex-end" gap="middle" wrap="wrap">
-        <div>
-          <Title level={4} className="!m-0">
-            حساب‌های بانکی
-          </Title>
-          <Text type="secondary">
-            هر بانک یا کارت را جدا اضافه کنید؛ بعد می‌توانید تراکنش‌ها را جدا یا یکجا ببینید.
-          </Text>
-        </div>
-        <div className="text-left">
-          <Text type="secondary" className="text-xs">
-            مجموع موجودی
-          </Text>
-          <div>
-            <Text strong className="text-brand-500 text-base">
-              {formatToman(totalBalance)}
+    <PageShell width="form">
+      <PageHeader
+        icon={<BankOutlined />}
+        title="حساب‌های بانکی"
+        description="هر بانک یا کارت را جدا اضافه کنید؛ بعد می‌توانید تراکنش‌ها را جدا یا یکجا ببینید."
+        meta={
+          <div className="text-left">
+            <Text type="secondary" className="text-xs">
+              مجموع موجودی
             </Text>
+            <div>
+              <Text strong className="text-brand-500 text-base">
+                {formatToman(totalBalance)}
+              </Text>
+            </div>
           </div>
-        </div>
-      </Flex>
-
-      <Card
-        title={
-          <Space>
-            <PlusOutlined />
-            {editingId ? "ویرایش حساب" : "افزودن حساب جدید"}
-          </Space>
         }
-      >
-        <Space orientation="vertical" size="middle" className="w-full">
-          <Row gutter={[12, 12]}>
-            <Col xs={24} md={12}>
-              <Text type="secondary">نام حساب</Text>
-              <Input
-                className="mt-2"
-                value={form.name}
-                onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
-                placeholder="مثلاً کارت پاسارگاد"
-              />
-            </Col>
-            <Col xs={24} md={12}>
-              <Text type="secondary">نام بانک (اختیاری)</Text>
-              <Input
-                className="mt-2"
-                value={form.bankName}
-                onChange={(e) => setForm((s) => ({ ...s, bankName: e.target.value }))}
-                placeholder="پاسارگاد / ملی / ..."
-              />
-            </Col>
-            {!editingId ? (
-              <Col xs={24} md={12}>
-                <Text type="secondary">موجودی اولیه (تومان)</Text>
-                <div className="mt-2">
-                  <AmountInput
-                    value={form.initialBalance}
-                    onChange={(v) => setForm((s) => ({ ...s, initialBalance: v }))}
-                    placeholder="۱۰٬۰۰۰٬۰۰۰"
-                  />
-                </div>
-                <Text type="secondary" className="mt-1 block text-xs">
-                  به‌صورت تراکنش درآمد «موجودی اولیه» ثبت می‌شود تا موجودی = درآمد − هزینه بماند.
-                </Text>
-              </Col>
-            ) : null}
-            <Col xs={24} md={12}>
-              <Text type="secondary">رنگ</Text>
-              <Flex gap={8} wrap="wrap" className="mt-2">
-                {COLORS.map((c) => (
-                  <Button
-                    key={c}
-                    type="text"
-                    aria-label={c}
-                    onClick={() => setForm((s) => ({ ...s, color: c }))}
-                    className={cn(
-                      "w-8 h-8 min-w-8 p-0 rounded-xl",
-                      form.color === c
-                        ? "border-2 border-white ring-2 ring-brand-500"
-                        : "border border-slate-400/20"
-                    )}
-                    style={{ background: c }}
-                  />
-                ))}
-              </Flex>
-            </Col>
-          </Row>
+        actions={
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={toggleForm}
+            aria-label={formOpen && !editingId ? "بستن فرم" : "افزودن حساب"}
+          />
+        }
+      />
 
-          <Space>
-            <Button
-              type="primary"
-              loading={saveMutation.isPending}
-              disabled={form.name.trim().length < 2}
-              onClick={() => saveMutation.mutate()}
-            >
-              {editingId ? "ذخیره تغییرات" : "افزودن حساب"}
-            </Button>
-            {editingId ? <Button onClick={cancelEdit}>انصراف</Button> : null}
+      {formOpen || editingId ? (
+        <Card
+          title={
+            <Space>
+              <PlusOutlined />
+              {editingId ? "ویرایش حساب" : "افزودن حساب جدید"}
+            </Space>
+          }
+        >
+          <Space orientation="vertical" size="middle" className="w-full">
+            <Row gutter={[12, 12]}>
+              <Col xs={24} md={12}>
+                <Text type="secondary">نام حساب</Text>
+                <Input
+                  className="mt-2"
+                  value={form.name}
+                  onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
+                  placeholder="مثلاً کارت پاسارگاد"
+                />
+              </Col>
+              <Col xs={24} md={12}>
+                <Text type="secondary">نام بانک (اختیاری)</Text>
+                <Input
+                  className="mt-2"
+                  value={form.bankName}
+                  onChange={(e) => setForm((s) => ({ ...s, bankName: e.target.value }))}
+                  placeholder="پاسارگاد / ملی / ..."
+                />
+              </Col>
+              {!editingId ? (
+                <Col xs={24} md={12}>
+                  <Text type="secondary">موجودی اولیه (تومان)</Text>
+                  <div className="mt-2">
+                    <AmountInput
+                      value={form.initialBalance}
+                      onChange={(v) => setForm((s) => ({ ...s, initialBalance: v }))}
+                      placeholder="۱۰٬۰۰۰٬۰۰۰"
+                    />
+                  </div>
+                  <Text type="secondary" className="mt-1 block text-xs">
+                    به‌صورت تراکنش درآمد «موجودی اولیه» ثبت می‌شود تا موجودی = درآمد − هزینه بماند.
+                  </Text>
+                </Col>
+              ) : null}
+              <Col xs={24} md={12}>
+                <Text type="secondary">رنگ</Text>
+                <Flex gap={8} wrap="wrap" className="mt-2">
+                  {COLORS.map((c) => (
+                    <Button
+                      key={c}
+                      type="text"
+                      aria-label={c}
+                      onClick={() => setForm((s) => ({ ...s, color: c }))}
+                      className={cn(
+                        "w-8 h-8 min-w-8 p-0 rounded-xl",
+                        form.color === c
+                          ? "border-2 border-white ring-2 ring-brand-500"
+                          : "border border-slate-400/20"
+                      )}
+                      style={{ background: c }}
+                    />
+                  ))}
+                </Flex>
+              </Col>
+            </Row>
+
+            <Space>
+              <Button
+                type="primary"
+                loading={saveMutation.isPending}
+                disabled={form.name.trim().length < 2}
+                onClick={() => saveMutation.mutate()}
+              >
+                {editingId ? "ذخیره تغییرات" : "افزودن حساب"}
+              </Button>
+              {editingId ? <Button onClick={cancelEdit}>انصراف</Button> : null}
+            </Space>
           </Space>
-        </Space>
-      </Card>
+        </Card>
+      ) : null}
 
       {q.isLoading ? <AccountsListSkeleton /> : null}
 
@@ -326,90 +348,73 @@ export default function AccountsPage() {
           title="هنوز حسابی ثبت نشده است"
           description="اولین حساب بانکی خود را بسازید تا تراکنش‌ها و ایمپورت به آن وصل شوند."
         />
-      ) : (
-        <Space orientation="vertical" size="middle" className="w-full">
+      ) : (q.data?.length ?? 0) > 0 ? (
+        <SoftList>
           {(q.data ?? []).map((account) => (
-            <Card key={account.id} className="w-full" classNames={{ body: "p-4" }}>
-              <Flex
-                justify="space-between"
-                align={isMobile ? "stretch" : "center"}
-                gap="middle"
-                wrap="wrap"
-                vertical={isMobile}
-              >
-                <Flex align="center" gap="middle" className="min-w-0 flex-1 mb-3">
-                  <div
-                    className="w-11 h-11 rounded-2xl flex items-center justify-center text-white shrink-0"
-                    style={{ background: account.color }}
-                  >
+            <SoftListItem key={account.id}>
+              <SoftListRow
+                leading={
+                  <SoftAvatar color={account.color}>
                     <BankOutlined className="text-xl" />
-                  </div>
-                  <div className="min-w-0">
-                    <Text strong ellipsis>
-                      {account.name}
-                    </Text>
-                    <div>
-                      <Text type="secondary" ellipsis className="text-sm">
-                        {account.bankName || "بدون نام بانک"}
-                      </Text>
-                    </div>
-                  </div>
-                </Flex>
-
-                <Flex
-                  align="center"
-                  gap="small"
-                  wrap="wrap"
-                  className={cn("shrink-0", isMobile && "w-full")}
-                >
-                  <div className={cn("text-left", isMobile ? "flex-1 me-0" : "me-2")}>
+                  </SoftAvatar>
+                }
+                title={account.name}
+                subtitle={account.bankName || "بدون نام بانک"}
+                trailing={
+                  <div>
                     <Text type="secondary" className="text-xs">
                       موجودی
                     </Text>
                     <div>
-                      <Text strong>{formatToman(account.balance)}</Text>
+                      <Text strong className="tabular-nums">
+                        {formatToman(account.balance)}
+                      </Text>
                     </div>
                   </div>
-                  <Button
-                    type="default"
-                    icon={<WalletOutlined />}
-                    onClick={() =>
-                      setBalanceTarget({
-                        account,
-                        amount: String(Math.max(0, Math.round(account.balance))),
-                      })
-                    }
-                    aria-label="تنظیم موجودی"
-                    title="تنظیم موجودی با تراکنش تعدیل"
-                  />
-                  <Button
-                    type="default"
-                    icon={<EditOutlined />}
-                    onClick={() => startEdit(account)}
-                    aria-label="ویرایش"
-                  />
-                  <Popconfirm
-                    title="غیرفعال کردن حساب"
-                    description={`حساب «${account.name}» غیرفعال شود؟`}
-                    okText="غیرفعال"
-                    cancelText="انصراف"
-                    okButtonProps={{ danger: true }}
-                    onConfirm={() => deleteMutation.mutate(account.id)}
-                  >
+                }
+                footer={
+                  <Flex gap="small" wrap="wrap">
                     <Button
                       type="default"
-                      danger
-                      icon={<DeleteOutlined />}
-                      loading={deleteMutation.isPending}
-                      aria-label="حذف"
+                      icon={<WalletOutlined />}
+                      onClick={() =>
+                        setBalanceTarget({
+                          account,
+                          amount: String(Math.max(0, Math.round(account.balance))),
+                        })
+                      }
+                      aria-label="تنظیم موجودی"
+                      title="تنظیم موجودی با تراکنش تعدیل"
                     />
-                  </Popconfirm>
-                </Flex>
-              </Flex>
-            </Card>
+                    <Button
+                      type="default"
+                      icon={<EditOutlined />}
+                      onClick={() => startEdit(account)}
+                      aria-label="ویرایش"
+                    />
+                    <Popconfirm
+                      title="غیرفعال کردن حساب"
+                      description={`حساب «${account.name}» غیرفعال شود؟`}
+                      okText="غیرفعال"
+                      cancelText="انصراف"
+                      okButtonProps={{ danger: true }}
+                      onConfirm={() => deleteMutation.mutate(account.id)}
+                    >
+                      <Button
+                        type="default"
+                        danger
+                        icon={<DeleteOutlined />}
+                        loading={deleteMutation.isPending}
+                        aria-label="حذف"
+                      />
+                    </Popconfirm>
+                  </Flex>
+                }
+              />
+            </SoftListItem>
           ))}
-        </Space>
-      )}
-    </Space>
+        </SoftList>
+      ) : null}
+    </PageShell>
   );
 }
