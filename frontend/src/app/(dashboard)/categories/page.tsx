@@ -21,6 +21,7 @@ import { AppModal } from "@/components/ui/modal";
 import { PageShell } from "@/components/ui/page-shell";
 import { PageHeader } from "@/components/ui/page-header";
 import { SoftAvatar, SoftList, SoftListItem, SoftListRow } from "@/components/ui/soft-list";
+import { FilterBar, FilterField } from "@/components/ui/filter-bar";
 import { cn } from "@/lib/cn";
 
 const { Text } = Typography;
@@ -132,7 +133,10 @@ export default function CategoriesPage() {
             aria-label="افزودن دسته"
           />
         }
-        extra={
+      />
+
+      <FilterBar>
+        <FilterField className="sm:min-w-[14rem] sm:flex-[2]">
           <Segmented
             block
             value={filter}
@@ -143,8 +147,8 @@ export default function CategoriesPage() {
               { value: "income", label: "درآمد" },
             ]}
           />
-        }
-      />
+        </FilterField>
+      </FilterBar>
 
       <AppModal
         open={formOpen || Boolean(editingId)}
