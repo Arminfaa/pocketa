@@ -53,7 +53,7 @@ export function PageHeader({
         {(meta || actions) && (
           <Flex align="center" gap="small" wrap="wrap" className="shrink-0 ms-auto">
             {meta ? (
-              <div className="rounded-2xl border border-app-border/70 bg-app-card/80 px-3 py-2 shadow-sm backdrop-blur-sm">
+              <div className="rounded-2xl bg-app-card/90 px-3 py-2 shadow-soft backdrop-blur-sm">
                 {meta}
               </div>
             ) : null}

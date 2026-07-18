@@ -9,16 +9,16 @@ type SoftListProps = {
   header?: ReactNode;
 };
 
-/** Single elevated card with divided rows — modern finance-app list. */
+/** Soft elevated list — spacing instead of hard dividers. */
 export function SoftList({ children, className, header }: SoftListProps) {
   return (
     <div className={cn("surface-card overflow-hidden", className)}>
       {header ? (
-        <div className="border-b border-app-border/50 bg-brand-50/40 px-4 py-3 dark:bg-brand-500/5 sm:px-5">
+        <div className="bg-brand-500/[0.05] px-4 py-3 dark:bg-brand-500/[0.08] sm:px-5">
           {header}
         </div>
       ) : null}
-      <div className="divide-y divide-app-border/45">{children}</div>
+      <div className="flex flex-col gap-0.5 p-1.5 sm:p-2">{children}</div>
     </div>
   );
 }
@@ -34,8 +34,8 @@ export function SoftListItem({ children, className, onClick }: SoftListItemProps
   return (
     <div
       className={cn(
-        "px-4 py-3.5 transition-colors sm:px-5",
-        interactive && "cursor-pointer hover:bg-brand-500/[0.04] active:bg-brand-500/[0.07]",
+        "rounded-2xl px-3 py-3 transition-colors sm:px-3.5",
+        interactive && "cursor-pointer hover:bg-brand-500/[0.05] active:bg-brand-500/[0.08]",
         className
       )}
       onClick={onClick}

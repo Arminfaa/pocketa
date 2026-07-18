@@ -12,11 +12,11 @@ export function QueryError({
   onRetry,
 }: Props) {
   return (
-    <div className="surface-card overflow-hidden !border-red-500/20">
+    <div className="surface-card overflow-hidden">
       <Alert
         type="error"
         showIcon
-        className="!border-0 !bg-transparent !rounded-none"
+        className="!border-0 !bg-red-500/[0.06] !rounded-none"
         title="خطا"
         description={message}
         action={

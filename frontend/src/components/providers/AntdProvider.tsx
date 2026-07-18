@@ -29,12 +29,13 @@ export function AntdProvider({ children }: { children: React.ReactNode }) {
             colorBgLayout: isDark ? "#0b1220" : "#f8fafc",
             colorText: isDark ? "#e5e7eb" : "#0f172a",
             colorTextSecondary: isDark ? "#93a4b8" : "#475569",
-            colorBorder: isDark ? "rgba(148, 163, 184, 0.22)" : "rgba(15, 23, 42, 0.12)",
+            colorBorder: "transparent",
+            colorBorderSecondary: "transparent",
           },
           components: {
             Layout: {
-              siderBg: isDark ? "#0f1a2e" : "#ffffff",
-              headerBg: isDark ? "#0f1a2e" : "rgba(255,255,255,0.92)",
+              siderBg: isDark ? "#0f1a2e" : "rgba(255,255,255,0.9)",
+              headerBg: "transparent",
               bodyBg: "transparent",
             },
             Menu: {
@@ -51,6 +52,7 @@ export function AntdProvider({ children }: { children: React.ReactNode }) {
             },
             Card: {
               borderRadiusLG: 24,
+              colorBorderSecondary: "transparent",
             },
             Button: {
               controlHeight: 42,
