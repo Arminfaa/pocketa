@@ -13,6 +13,7 @@ import {
 import { Sidebar } from "./Sidebar";
 import { BottomNav } from "./BottomNav";
 import { MoreActionSheet } from "./MoreActionSheet";
+import { AddActionSheet } from "./AddActionSheet";
 import { useUiStore } from "@/stores/ui.store";
 import { useThemeStore } from "@/stores/theme.store";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
@@ -46,6 +47,7 @@ export default function AppLayout({ children }: PropsWithChildren) {
   const selectedAccountId = useAccountFilterStore((s) => s.selectedAccountId);
   const setSelectedAccountId = useAccountFilterStore((s) => s.setSelectedAccountId);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [bottomNavHeight, setBottomNavHeight] = useState(DEFAULT_BOTTOM_NAV_HEIGHT);
 
@@ -58,12 +60,14 @@ export default function AppLayout({ children }: PropsWithChildren) {
   useEffect(() => {
     if (!isMobileShell) {
       setMoreOpen(false);
+      setAddOpen(false);
       document.documentElement.style.removeProperty("--bottom-nav-height");
     }
   }, [isMobileShell]);
 
   useEffect(() => {
     setMoreOpen(false);
+    setAddOpen(false);
   }, [pathname]);
 
   const onBottomNavHeightChange = useCallback((height: number) => {
@@ -82,6 +86,7 @@ export default function AppLayout({ children }: PropsWithChildren) {
       router.replace("/login");
       setLoggingOut(false);
       setMoreOpen(false);
+      setAddOpen(false);
     }
   }
 
@@ -101,14 +106,17 @@ export default function AppLayout({ children }: PropsWithChildren) {
       ) : null}
 
       {isMobileShell ? (
-        <MoreActionSheet
-          open={moreOpen}
-          onClose={() => setMoreOpen(false)}
-          mode={mode}
-          onToggleTheme={toggleTheme}
-          onLogout={onLogout}
-          loggingOut={loggingOut}
-        />
+        <>
+          <MoreActionSheet
+            open={moreOpen}
+            onClose={() => setMoreOpen(false)}
+            mode={mode}
+            onToggleTheme={toggleTheme}
+            onLogout={onLogout}
+            loggingOut={loggingOut}
+          />
+          <AddActionSheet open={addOpen} onClose={() => setAddOpen(false)} />
+        </>
       ) : null}
 
       <Layout className="!bg-transparent min-w-0 max-w-full flex-1 h-dvh max-h-dvh overflow-hidden flex flex-col">
@@ -209,7 +217,15 @@ export default function AppLayout({ children }: PropsWithChildren) {
         {isMobileShell ? (
           <BottomNav
             moreOpen={moreOpen}
-            onMore={() => setMoreOpen((open) => !open)}
+            onMore={() => {
+              setAddOpen(false);
+              setMoreOpen((open) => !open);
+            }}
+            addOpen={addOpen}
+            onAdd={() => {
+              setMoreOpen(false);
+              setAddOpen((open) => !open);
+            }}
             onHeightChange={onBottomNavHeightChange}
           />
         ) : null}

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useOpenOnQuery } from "@/hooks/use-open-on-query";
 import {
   App,
   Button,
@@ -60,6 +61,8 @@ export default function GoalsPage() {
   const [contributeAmounts, setContributeAmounts] = useState<Record<string, string>>({});
   const [contributeAccounts, setContributeAccounts] = useState<Record<string, string>>({});
   const selectedAccountId = useAccountFilterStore((s) => s.selectedAccountId);
+
+  useOpenOnQuery("new", "1", "/goals", () => setFormOpen(true));
 
   const q = useQuery({ queryKey: ["goals"], queryFn: fetchGoals });
   const accountsQ = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
