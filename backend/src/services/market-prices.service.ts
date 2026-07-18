@@ -12,6 +12,9 @@ export const MESGHAL_GRAMS = 4.608;
  */
 export const QUARTER_COIN_FACTOR = (900 / 750) * 2.033;
 
+/** Troy ounce grams — for deriving ounce from gram-24k when needed */
+const TROY_OUNCE_GRAMS = 31.1034768;
+
 /** Refresh free-market dollar / usdt at or after this Tehran hour */
 export const CURRENCY_REFRESH_HOUR_TEHRAN = 14;
 
@@ -31,6 +34,7 @@ export type GoldPayload = {
   quarterCoinUsd: number;
   changePercent: number;
   sourceUpdatedAt: string;
+  source?: "goldapi" | "navasan";
 };
 
 export type CurrencyPayload = {
@@ -59,6 +63,8 @@ export type MarketPricesResponse = {
   asOfDate: string;
   /** True when gold and/or currency snapshot is older than today (Tehran) */
   stale?: boolean;
+  /** Latest snapshot write time (ISO) across gold/currency */
+  lastUpdatedAt?: string;
   errors?: {
     gold?: string;
     currency?: string;
@@ -134,6 +140,12 @@ function errorMessage(err: unknown): string {
   return "خطای ناشناخته";
 }
 
+function timestampToIso(ts: unknown): string {
+  const n = Number(ts);
+  if (Number.isFinite(n) && n > 0) return new Date(n * 1000).toISOString();
+  return new Date().toISOString();
+}
+
 function mapGoldResponse(raw: GoldApiResponse): GoldPayload {
   if (raw.error || (raw.message && raw.price == null)) {
     throw new AppError(502, String(raw.error || raw.message || "خطای سرویس طلا"));
@@ -147,11 +159,6 @@ function mapGoldResponse(raw: GoldApiResponse): GoldPayload {
     throw new AppError(502, "پاسخ نامعتبر از سرویس قیمت طلا");
   }
 
-  const sourceUpdatedAt =
-    typeof raw.timestamp === "number" && Number.isFinite(raw.timestamp)
-      ? new Date(raw.timestamp * 1000).toISOString()
-      : new Date().toISOString();
-
   const gram18kUsd = roundUsd(gram18k);
   return {
     ounceUsd: roundUsd(ounce),
@@ -161,7 +168,8 @@ function mapGoldResponse(raw: GoldApiResponse): GoldPayload {
     mesghal24kUsd: roundUsd(gram24k * MESGHAL_GRAMS),
     quarterCoinUsd: quarterCoinUsdFromGram18k(gram18kUsd),
     changePercent: Number.isFinite(Number(raw.chp)) ? Number(raw.chp) : 0,
-    sourceUpdatedAt,
+    sourceUpdatedAt: timestampToIso(raw.timestamp),
+    source: "goldapi",
   };
 }
 
@@ -180,22 +188,119 @@ function mapNavasanResponse(raw: NavasanResponse): CurrencyPayload {
     throw new AppError(502, "پاسخ نامعتبر از سرویس قیمت ارز");
   }
 
-  const ts = Number(usd?.timestamp ?? usdt?.timestamp);
-  const sourceUpdatedAt =
-    Number.isFinite(ts) && ts > 0
-      ? new Date(ts * 1000).toISOString()
-      : new Date().toISOString();
-
   return {
     usdFreeToman: roundToman(usdFreeToman),
     usdtToman: roundToman(usdtToman),
     usdChange: Number.isFinite(Number(usd?.change)) ? Number(usd?.change) : 0,
     usdtChange: Number.isFinite(Number(usdt?.change)) ? Number(usdt?.change) : 0,
-    sourceUpdatedAt,
+    sourceUpdatedAt: timestampToIso(usd?.timestamp ?? usdt?.timestamp),
   };
 }
 
-async function fetchGoldFromApi(): Promise<GoldPayload> {
+/** Build gold USD payload from Navasan (18ayar toman + usd rate). */
+function mapNavasanGold(raw: NavasanResponse, usdToman: number): GoldPayload {
+  if (!(usdToman > 0)) {
+    throw new AppError(502, "نرخ دلار برای تبدیل قیمت طلا نامعتبر است");
+  }
+
+  const gram18kToman = parseTomanValue(raw["18ayar"]?.value);
+  if (gram18kToman == null || gram18kToman <= 0) {
+    throw new AppError(502, "قیمت گرم ۱۸ عیار از نوسان دریافت نشد");
+  }
+
+  const gram18kUsd = gram18kToman / usdToman;
+  const gram24kUsd = gram18kUsd / 0.75;
+  const ounceFromApi = Number(String(raw.usd_xau?.value ?? "").replace(/,/g, ""));
+  const ounceUsd =
+    Number.isFinite(ounceFromApi) && ounceFromApi > 0
+      ? ounceFromApi
+      : gram24kUsd * TROY_OUNCE_GRAMS;
+
+  const change = Number(raw["18ayar"]?.change);
+  const changePercent =
+    Number.isFinite(change) && gram18kToman > 0
+      ? roundUsd((change / gram18kToman) * 100)
+      : 0;
+
+  return {
+    ounceUsd: roundUsd(ounceUsd),
+    gram18kUsd: roundUsd(gram18kUsd),
+    gram24kUsd: roundUsd(gram24kUsd),
+    mesghal18kUsd: roundUsd(gram18kUsd * MESGHAL_GRAMS),
+    mesghal24kUsd: roundUsd(gram24kUsd * MESGHAL_GRAMS),
+    quarterCoinUsd: quarterCoinUsdFromGram18k(gram18kUsd),
+    changePercent,
+    sourceUpdatedAt: timestampToIso(
+      raw["18ayar"]?.timestamp ?? raw.usd_xau?.timestamp ?? raw.usd_sell?.timestamp
+    ),
+    source: "navasan",
+  };
+}
+
+let navasanMemo: { at: number; raw: NavasanResponse } | null = null;
+
+async function fetchNavasanRaw(): Promise<NavasanResponse> {
+  if (navasanMemo && Date.now() - navasanMemo.at < 15_000) {
+    return navasanMemo.raw;
+  }
+
+  const apiKey = env.NAVASAN_API_KEY?.trim();
+  if (!apiKey) {
+    throw new AppError(503, "سرویس قیمت ارز پیکربندی نشده است (NAVASAN_API_KEY)");
+  }
+
+  let lastError: unknown;
+
+  for (const base of NAVASAN_API_URLS) {
+    const url = `${base}?api_key=${encodeURIComponent(apiKey)}`;
+    try {
+      const response = await fetch(url, {
+        method: "GET",
+        headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(15_000),
+      });
+
+      const text = await response.text();
+      let raw: NavasanResponse;
+      try {
+        raw = JSON.parse(text) as NavasanResponse;
+      } catch {
+        // eslint-disable-next-line no-console
+        console.error("[market] navasan non-JSON", base, response.status, text.slice(0, 300));
+        lastError = new AppError(502, "پاسخ نامعتبر از سرویس قیمت ارز");
+        continue;
+      }
+
+      if (!response.ok) {
+        // eslint-disable-next-line no-console
+        console.error("[market] navasan HTTP error", base, response.status, raw);
+        lastError = new AppError(
+          502,
+          String(raw.error || raw.message || `سرویس ارز HTTP ${response.status}`)
+        );
+        continue;
+      }
+
+      if (raw.error || raw.message) {
+        lastError = new AppError(502, String(raw.error || raw.message));
+        continue;
+      }
+
+      navasanMemo = { at: Date.now(), raw };
+      return raw;
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("[market] navasan fetch failed", base, err);
+      lastError = err;
+    }
+  }
+
+  throw lastError instanceof AppError
+    ? lastError
+    : new AppError(502, "خطا در ارتباط با سرویس قیمت ارز");
+}
+
+async function fetchGoldFromGoldApi(): Promise<GoldPayload> {
   const apiKey = env.GOLD_API_KEY?.trim();
   if (!apiKey) {
     throw new AppError(503, "سرویس قیمت طلا پیکربندی نشده است (GOLD_API_KEY)");
@@ -239,55 +344,29 @@ async function fetchGoldFromApi(): Promise<GoldPayload> {
   return mapGoldResponse(raw);
 }
 
-async function fetchCurrencyFromApi(): Promise<CurrencyPayload> {
-  const apiKey = env.NAVASAN_API_KEY?.trim();
-  if (!apiKey) {
-    throw new AppError(503, "سرویس قیمت ارز پیکربندی نشده است (NAVASAN_API_KEY)");
-  }
-
-  let lastError: unknown;
-
-  for (const base of NAVASAN_API_URLS) {
-    const url = `${base}?api_key=${encodeURIComponent(apiKey)}`;
+/** GoldAPI first; on failure/missing key fall back to Navasan 18ayar. */
+async function fetchGoldFromApi(): Promise<GoldPayload> {
+  const goldKey = env.GOLD_API_KEY?.trim();
+  if (goldKey) {
     try {
-      const response = await fetch(url, {
-        method: "GET",
-        headers: { Accept: "application/json" },
-        signal: AbortSignal.timeout(15_000),
-      });
-
-      const text = await response.text();
-      let raw: NavasanResponse;
-      try {
-        raw = JSON.parse(text) as NavasanResponse;
-      } catch {
-        // eslint-disable-next-line no-console
-        console.error("[market] navasan non-JSON", base, response.status, text.slice(0, 300));
-        lastError = new AppError(502, "پاسخ نامعتبر از سرویس قیمت ارز");
-        continue;
-      }
-
-      if (!response.ok) {
-        // eslint-disable-next-line no-console
-        console.error("[market] navasan HTTP error", base, response.status, raw);
-        lastError = new AppError(
-          502,
-          String(raw.error || raw.message || `سرویس ارز HTTP ${response.status}`)
-        );
-        continue;
-      }
-
-      return mapNavasanResponse(raw);
+      return await withRetry("goldapi", fetchGoldFromGoldApi, 2, 500);
     } catch (err) {
       // eslint-disable-next-line no-console
-      console.error("[market] navasan fetch failed", base, err);
-      lastError = err;
+      console.warn("[market] goldapi failed — falling back to navasan gold", err);
     }
+  } else {
+    // eslint-disable-next-line no-console
+    console.warn("[market] GOLD_API_KEY missing — using navasan gold");
   }
 
-  throw lastError instanceof AppError
-    ? lastError
-    : new AppError(502, "خطا در ارتباط با سرویس قیمت ارز");
+  const raw = await withRetry("navasan-gold", fetchNavasanRaw);
+  const currency = mapNavasanResponse(raw);
+  return mapNavasanGold(raw, currency.usdFreeToman);
+}
+
+async function fetchCurrencyFromApi(): Promise<CurrencyPayload> {
+  const raw = await withRetry("navasan-currency", fetchNavasanRaw);
+  return mapNavasanResponse(raw);
 }
 
 async function saveSnapshot(kind: "gold" | "currency", payload: GoldPayload | CurrencyPayload) {
@@ -304,8 +383,7 @@ async function saveSnapshot(kind: "gold" | "currency", payload: GoldPayload | Cu
 
 /**
  * Gold: at most once per Tehran calendar day.
- * Currency: at most once per Tehran calendar day (same as gold for now).
- * Hour gate (14:00) temporarily disabled so first load can bootstrap immediately.
+ * Currency: at most once per Tehran calendar day.
  */
 export async function refreshGoldIfNeeded(): Promise<void> {
   const { date } = tehranNow();
@@ -316,10 +394,10 @@ export async function refreshGoldIfNeeded(): Promise<void> {
   }
 
   try {
-    const payload = await withRetry("gold", fetchGoldFromApi);
+    const payload = await fetchGoldFromApi();
     await saveSnapshot("gold", payload);
     // eslint-disable-next-line no-console
-    console.log(`[market] gold refreshed for ${date}`);
+    console.log(`[market] gold refreshed for ${date} via ${payload.source ?? "unknown"}`);
   } catch (err) {
     if (existing) {
       // eslint-disable-next-line no-console
@@ -340,15 +418,8 @@ export async function refreshCurrencyIfNeeded(
     return;
   }
 
-  // TEMP: hour gate disabled — fetch on first need of the day so dashboard shows USD/USDT.
-  // Re-enable later for quota control:
-  // const { hour } = tehranNow();
-  // if (!opts.ignoreHourGate && existing && hour < CURRENCY_REFRESH_HOUR_TEHRAN) {
-  //   return;
-  // }
-
   try {
-    const payload = await withRetry("currency", fetchCurrencyFromApi);
+    const payload = await fetchCurrencyFromApi();
     await saveSnapshot("currency", payload);
     // eslint-disable-next-line no-console
     console.log(`[market] currency refreshed for ${date}`);
@@ -362,11 +433,38 @@ export async function refreshCurrencyIfNeeded(
   }
 }
 
-/** Cron 14:00 Tehran: refresh both if not yet stored for today. */
+/**
+ * Daily refresh: one Navasan pull can feed currency + gold fallback.
+ * Still tries GoldAPI first when configured.
+ */
 export async function refreshMarketPricesDaily(): Promise<void> {
+  const { date } = tehranNow();
+  const [goldDoc, currencyDoc] = await Promise.all([
+    MarketPriceModel.findOne({ kind: "gold" }).lean(),
+    MarketPriceModel.findOne({ kind: "currency" }).lean(),
+  ]);
+
+  const needGold = !goldDoc || goldDoc.fetchDate !== date;
+  const needCurrency = !currencyDoc || currencyDoc.fetchDate !== date;
+  if (!needGold && !needCurrency) {
+    // eslint-disable-next-line no-console
+    console.log(`[cron] market prices already fresh for ${date}`);
+    return;
+  }
+
+  // Prefetch Navasan once so gold fallback + currency share one request
+  if (needCurrency || needGold) {
+    try {
+      await fetchNavasanRaw();
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn("[cron] navasan prefetch failed", err);
+    }
+  }
+
   const results = await Promise.allSettled([
-    refreshGoldIfNeeded(),
-    refreshCurrencyIfNeeded({ ignoreHourGate: true }),
+    needGold ? refreshGoldIfNeeded() : Promise.resolve(),
+    needCurrency ? refreshCurrencyIfNeeded({ ignoreHourGate: true }) : Promise.resolve(),
   ]);
   for (const r of results) {
     if (r.status === "rejected") {
@@ -405,6 +503,15 @@ function buildMarketResponse(
   const currencyStale = Boolean(currencyDoc && currencyDoc.fetchDate !== asOfDate);
   const stale = goldStale || currencyStale || !goldDoc || !currencyDoc;
 
+  const fetchedTimes = [goldDoc?.fetchedAt, currencyDoc?.fetchedAt]
+    .filter(Boolean)
+    .map((d) => new Date(d as Date).getTime())
+    .filter((n) => Number.isFinite(n));
+  const lastUpdatedAt =
+    fetchedTimes.length > 0
+      ? new Date(Math.max(...fetchedTimes)).toISOString()
+      : undefined;
+
   return {
     gold: gold
       ? {
@@ -427,6 +534,7 @@ function buildMarketResponse(
         }
       : null,
     asOfDate,
+    ...(lastUpdatedAt ? { lastUpdatedAt } : {}),
     ...(stale ? { stale: true } : {}),
     ...(Object.keys(errors).length ? { errors } : {}),
   };
@@ -434,12 +542,10 @@ function buildMarketResponse(
 
 /**
  * Return Mongo (or memory) snapshots. If today's Tehran snapshot is missing,
- * await a refresh (with retries) so the client does not stay stuck on yesterday
- * until a later request. On API failure, previous day is returned with `stale`.
+ * await a refresh (with retries) so the client does not stay stuck on yesterday.
  */
 export async function getMarketPrices(): Promise<MarketPricesResponse> {
   if (memoryCache && Date.now() - memoryCache.at < MEMORY_TTL_MS) {
-    // Never serve a cached "today is fine" answer across midnight Tehran
     if (memoryCache.data.asOfDate === tehranNow().date && !memoryCache.data.stale) {
       return memoryCache.data;
     }
@@ -457,6 +563,13 @@ export async function getMarketPrices(): Promise<MarketPricesResponse> {
   const errors: { gold?: string; currency?: string } = {};
 
   if (needGold || needCurrency) {
+    // Prefetch Navasan once for currency + gold fallback
+    try {
+      await fetchNavasanRaw();
+    } catch {
+      // individual refresh paths will surface errors
+    }
+
     const [goldResult, currencyResult] = await Promise.allSettled([
       needGold ? refreshGoldIfNeeded() : Promise.resolve(),
       needCurrency ? refreshCurrencyIfNeeded() : Promise.resolve(),
