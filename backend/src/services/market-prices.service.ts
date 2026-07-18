@@ -55,11 +55,37 @@ export type MarketPricesResponse = {
     fetchDate: string;
     fetchedAt: string;
   }) | null;
+  /** Tehran calendar date used for today's cache key (YYYY-MM-DD) */
+  asOfDate: string;
+  /** True when gold and/or currency snapshot is older than today (Tehran) */
+  stale?: boolean;
   errors?: {
     gold?: string;
     currency?: string;
   };
 };
+
+async function withRetry<T>(
+  label: string,
+  fn: () => Promise<T>,
+  attempts = 3,
+  delayMs = 700
+): Promise<T> {
+  let lastErr: unknown;
+  for (let i = 1; i <= attempts; i += 1) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      // eslint-disable-next-line no-console
+      console.warn(`[market] ${label} attempt ${i}/${attempts} failed`, err);
+      if (i < attempts) {
+        await new Promise((r) => setTimeout(r, delayMs * i));
+      }
+    }
+  }
+  throw lastErr;
+}
 
 type GoldApiResponse = {
   price?: number;
@@ -290,7 +316,7 @@ export async function refreshGoldIfNeeded(): Promise<void> {
   }
 
   try {
-    const payload = await fetchGoldFromApi();
+    const payload = await withRetry("gold", fetchGoldFromApi);
     await saveSnapshot("gold", payload);
     // eslint-disable-next-line no-console
     console.log(`[market] gold refreshed for ${date}`);
@@ -322,7 +348,7 @@ export async function refreshCurrencyIfNeeded(
   // }
 
   try {
-    const payload = await fetchCurrencyFromApi();
+    const payload = await withRetry("currency", fetchCurrencyFromApi);
     await saveSnapshot("currency", payload);
     // eslint-disable-next-line no-console
     console.log(`[market] currency refreshed for ${date}`);
@@ -356,7 +382,8 @@ let memoryCache: { at: number; data: MarketPricesResponse } | null = null;
 function buildMarketResponse(
   goldDoc: { payload?: unknown; fetchDate: string; fetchedAt: Date } | null,
   currencyDoc: { payload?: unknown; fetchDate: string; fetchedAt: Date } | null,
-  errors: { gold?: string; currency?: string } = {}
+  errors: { gold?: string; currency?: string } = {},
+  asOfDate = tehranNow().date
 ): MarketPricesResponse {
   const gold = goldDoc?.payload ? (goldDoc.payload as GoldPayload) : null;
   const currency = currencyDoc?.payload
@@ -373,6 +400,10 @@ function buildMarketResponse(
         ? Number(gold.quarterCoinUsd)
         : quarterCoinUsdFromGram18k(gold.gram18kUsd)
       : 0;
+
+  const goldStale = Boolean(goldDoc && goldDoc.fetchDate !== asOfDate);
+  const currencyStale = Boolean(currencyDoc && currencyDoc.fetchDate !== asOfDate);
+  const stale = goldStale || currencyStale || !goldDoc || !currencyDoc;
 
   return {
     gold: gold
@@ -395,18 +426,24 @@ function buildMarketResponse(
           fetchedAt: new Date(currencyDoc!.fetchedAt).toISOString(),
         }
       : null,
+    asOfDate,
+    ...(stale ? { stale: true } : {}),
     ...(Object.keys(errors).length ? { errors } : {}),
   };
 }
 
 /**
- * Fast path for API/read traffic: return Mongo (or memory) snapshots immediately.
- * External refresh is background-only when today's snapshot is missing — never blocks
- * the response when any prior data exists. Cron + startup bootstrap own daily refresh.
+ * Return Mongo (or memory) snapshots. If today's Tehran snapshot is missing,
+ * await a refresh (with retries) so the client does not stay stuck on yesterday
+ * until a later request. On API failure, previous day is returned with `stale`.
  */
 export async function getMarketPrices(): Promise<MarketPricesResponse> {
   if (memoryCache && Date.now() - memoryCache.at < MEMORY_TTL_MS) {
-    return memoryCache.data;
+    // Never serve a cached "today is fine" answer across midnight Tehran
+    if (memoryCache.data.asOfDate === tehranNow().date && !memoryCache.data.stale) {
+      return memoryCache.data;
+    }
+    memoryCache = null;
   }
 
   const { date } = tehranNow();
@@ -417,48 +454,44 @@ export async function getMarketPrices(): Promise<MarketPricesResponse> {
 
   const needGold = !goldDoc || goldDoc.fetchDate !== date;
   const needCurrency = !currencyDoc || currencyDoc.fetchDate !== date;
+  const errors: { gold?: string; currency?: string } = {};
 
-  // Cold start (no snapshots at all): must await once so clients get data
-  if (!goldDoc && !currencyDoc) {
-    const errors: { gold?: string; currency?: string } = {};
+  if (needGold || needCurrency) {
     const [goldResult, currencyResult] = await Promise.allSettled([
-      refreshGoldIfNeeded(),
-      refreshCurrencyIfNeeded(),
+      needGold ? refreshGoldIfNeeded() : Promise.resolve(),
+      needCurrency ? refreshCurrencyIfNeeded() : Promise.resolve(),
     ]);
-    if (goldResult.status === "rejected") {
+
+    if (needGold && goldResult.status === "rejected") {
       errors.gold = errorMessage(goldResult.reason);
     }
-    if (currencyResult.status === "rejected") {
+    if (needCurrency && currencyResult.status === "rejected") {
       errors.currency = errorMessage(currencyResult.reason);
     }
+
     [goldDoc, currencyDoc] = await Promise.all([
       MarketPriceModel.findOne({ kind: "gold" }).lean(),
       MarketPriceModel.findOne({ kind: "currency" }).lean(),
     ]);
-    if (!goldDoc && !currencyDoc) {
-      throw new AppError(
-        503,
-        errors.gold ||
-          errors.currency ||
-          "قیمت طلا و ارز هنوز در دسترس نیست — کلیدها و لاگ Render را بررسی کنید"
-      );
+
+    if (needGold && goldDoc && goldDoc.fetchDate !== date && !errors.gold) {
+      errors.gold = "به‌روزرسانی قیمت طلا برای امروز ناموفق بود";
     }
-    const data = buildMarketResponse(goldDoc, currencyDoc, errors);
-    memoryCache = { at: Date.now(), data };
-    return data;
+    if (needCurrency && currencyDoc && currencyDoc.fetchDate !== date && !errors.currency) {
+      errors.currency = "به‌روزرسانی قیمت ارز برای امروز ناموفق بود";
+    }
   }
 
-  // Have something to show: refresh stale kinds in background (do not await)
-  if (needGold || needCurrency) {
-    void Promise.allSettled([
-      needGold ? refreshGoldIfNeeded() : Promise.resolve(),
-      needCurrency ? refreshCurrencyIfNeeded() : Promise.resolve(),
-    ]).then(() => {
-      memoryCache = null;
-    });
+  if (!goldDoc && !currencyDoc) {
+    throw new AppError(
+      503,
+      errors.gold ||
+        errors.currency ||
+        "قیمت طلا و ارز هنوز در دسترس نیست — کلیدها و لاگ Render را بررسی کنید"
+    );
   }
 
-  const data = buildMarketResponse(goldDoc, currencyDoc);
+  const data = buildMarketResponse(goldDoc, currencyDoc, errors, date);
   memoryCache = { at: Date.now(), data };
   return data;
 }
