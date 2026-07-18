@@ -91,3 +91,22 @@ export const InvestmentUpdateSchema = z.object({
   active: z.boolean().optional(),
   profitEndDate: JalaliDateSchema.optional().nullable(),
 });
+
+export const InvestmentSellSchema = z
+  .object({
+    quantity: z.coerce.number().positive(),
+    /** تومان per unit (for rial assets use 1) */
+    salePricePerUnit: z.coerce.number().positive(),
+    saleDate: JalaliDateSchema,
+    accountId: z.string().min(1, "حساب واریز فروش را انتخاب کنید"),
+    notes: z.string().max(500).optional().nullable(),
+  })
+  .superRefine((data, ctx) => {
+    if (!Number.isFinite(data.quantity) || data.quantity <= 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "مقدار فروش معتبر نیست",
+        path: ["quantity"],
+      });
+    }
+  });

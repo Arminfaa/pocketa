@@ -10,6 +10,7 @@ import { resolveGoldKind, type InvestmentAssetType, type GoldKind } from "./inve
 
 export const TRANSFER_CATEGORY_NAME = "انتقال بین حساب‌ها";
 export const INVESTMENT_PURCHASE_CATEGORY_NAME = "خرید سرمایه‌گذاری";
+export const INVESTMENT_SALE_CATEGORY_NAME = "فروش سرمایه‌گذاری";
 export const GOAL_CONTRIBUTION_CATEGORY_NAME = "پس‌انداز هدف";
 
 /** Categories that are ledger plugs / non-operating — exclude from P&L & savings %. */
@@ -18,6 +19,7 @@ export const NON_OPERATING_CATEGORY_NAMES = [
   ADJUSTMENT_CATEGORY_NAME,
   TRANSFER_CATEGORY_NAME,
   INVESTMENT_PURCHASE_CATEGORY_NAME,
+  INVESTMENT_SALE_CATEGORY_NAME,
   GOAL_CONTRIBUTION_CATEGORY_NAME,
 ] as const;
 
