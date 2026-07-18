@@ -53,6 +53,7 @@ import { TransactionFormModal } from "@/features/transactions/TransactionFormMod
 import { TransferFormModal } from "@/features/transactions/TransferFormModal";
 import { PageShell } from "@/components/ui/page-shell";
 import { PageHeader } from "@/components/ui/page-header";
+import { cn } from "@/lib/cn";
 
 const { useBreakpoint } = Grid;
 const { Text } = Typography;
@@ -425,7 +426,7 @@ export default function TransactionsPage() {
           </>
         }
         actions={
-          <Space wrap>
+          <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
             {selectedIds.length > 0 ? (
               <Popconfirm
                 title={`${toPersianDigits(String(selectedIds.length))} تراکنش انتخاب‌شده حذف شود؟`}
@@ -437,6 +438,7 @@ export default function TransactionsPage() {
                 <Button
                   danger
                   size="small"
+                  block={isMobile}
                   className={actionBtnClass}
                   icon={<DeleteOutlined />}
                   loading={bulkDeleteMutation.isPending}
@@ -445,22 +447,25 @@ export default function TransactionsPage() {
                 </Button>
               </Popconfirm>
             ) : null}
-            <Button
-              className={headerActionBtnClass}
-              icon={<DownloadOutlined />}
-              onClick={() => void handleExport()}
-            >
-              خروجی CSV
-            </Button>
-            <Button
-              className={headerActionBtnClass}
-              icon={<SwapOutlined />}
-              onClick={() => setTransferOpen(true)}
-            >
-              انتقال بین حساب
-            </Button>
+            <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap">
+              <Button
+                className={cn(headerActionBtnClass, "min-w-0 !px-2.5 sm:!px-4")}
+                icon={<DownloadOutlined />}
+                onClick={() => void handleExport()}
+              >
+                {isMobile ? "خروجی" : "خروجی CSV"}
+              </Button>
+              <Button
+                className={cn(headerActionBtnClass, "min-w-0 !px-2.5 sm:!px-4")}
+                icon={<SwapOutlined />}
+                onClick={() => setTransferOpen(true)}
+              >
+                انتقال بین حساب
+              </Button>
+            </div>
             <Button
               type="primary"
+              block={isMobile}
               className={headerActionBtnClass}
               icon={<PlusOutlined />}
               onClick={() => {
@@ -470,7 +475,7 @@ export default function TransactionsPage() {
             >
               تراکنش جدید
             </Button>
-          </Space>
+          </div>
         }
       />
 
