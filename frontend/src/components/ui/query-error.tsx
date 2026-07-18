@@ -12,18 +12,21 @@ export function QueryError({
   onRetry,
 }: Props) {
   return (
-    <Alert
-      type="error"
-      showIcon
-      title="خطا"
-      description={message}
-      action={
-        onRetry ? (
-          <Button size="small" onClick={onRetry}>
-            تلاش مجدد
-          </Button>
-        ) : undefined
-      }
-    />
+    <div className="surface-card overflow-hidden !border-red-500/20">
+      <Alert
+        type="error"
+        showIcon
+        className="!border-0 !bg-transparent !rounded-none"
+        title="خطا"
+        description={message}
+        action={
+          onRetry ? (
+            <Button size="small" onClick={onRetry}>
+              تلاش مجدد
+            </Button>
+          ) : undefined
+        }
+      />
+    </div>
   );
 }

@@ -5,7 +5,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   App,
   Button,
-  Card,
   Col,
   Flex,
   Input,
@@ -29,9 +28,12 @@ import {
   fetchAccounts,
   updateAccount,
 } from "@/services/accounts";
-import { formatToman } from "@/lib/format";
+import { formatToman, toPersianDigits } from "@/lib/format";
 import { parseAmountInput } from "@/lib/amount";
 import { AmountInput } from "@/components/ui/amount-input";
+import { AmountText } from "@/components/ui/amount-text";
+import { KpiCard } from "@/components/ui/kpi-card";
+import { SectionCard } from "@/components/ui/section-card";
 import { AccountsListSkeleton } from "@/components/skeletons";
 import { QueryError } from "@/components/ui/query-error";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -44,6 +46,8 @@ import { cn } from "@/lib/cn";
 const { Text } = Typography;
 
 const COLORS = ["#06b6d4", "#8b5cf6", "#f59e0b", "#ef4444", "#22c55e", "#3b82f6", "#ec4899"];
+
+const actionBtnClass = "!rounded-xl";
 
 type FormState = {
   name: string;
@@ -155,9 +159,10 @@ export default function AccountsPage() {
     },
   });
 
+  const accounts = q.data ?? [];
   const totalBalance = useMemo(
-    () => (q.data ?? []).reduce((sum, a) => sum + a.balance, 0),
-    [q.data]
+    () => accounts.reduce((sum, a) => sum + a.balance, 0),
+    [accounts]
   );
 
   function startEdit(account: BankAccount) {
@@ -194,18 +199,6 @@ export default function AccountsPage() {
         icon={<BankOutlined />}
         title="حساب‌های بانکی"
         description="هر بانک یا کارت را جدا اضافه کنید؛ بعد می‌توانید تراکنش‌ها را جدا یا یکجا ببینید."
-        meta={
-          <div className="text-left">
-            <Text type="secondary" className="text-xs">
-              مجموع موجودی
-            </Text>
-            <div>
-              <Text strong className="text-brand-500 text-base">
-                {formatToman(totalBalance)}
-              </Text>
-            </div>
-          </div>
-        }
         actions={
           <Button
             type="primary"
@@ -216,14 +209,31 @@ export default function AccountsPage() {
         }
       />
 
+      {!q.isLoading && accounts.length > 0 ? (
+        <Row gutter={[12, 12]}>
+          <Col xs={24} sm={12}>
+            <KpiCard
+              label="مجموع موجودی"
+              value={formatToman(totalBalance)}
+              icon={<WalletOutlined />}
+              tone="brand"
+            />
+          </Col>
+          <Col xs={24} sm={12}>
+            <KpiCard
+              label="تعداد حساب"
+              value={toPersianDigits(String(accounts.length))}
+              icon={<BankOutlined />}
+              tone="violet"
+            />
+          </Col>
+        </Row>
+      ) : null}
+
       {formOpen || editingId ? (
-        <Card
-          title={
-            <Space>
-              <PlusOutlined />
-              {editingId ? "ویرایش حساب" : "افزودن حساب جدید"}
-            </Space>
-          }
+        <SectionCard
+          title={editingId ? "ویرایش حساب" : "افزودن حساب جدید"}
+          description="نام، بانک و رنگ را مشخص کنید."
         >
           <Space orientation="vertical" size="middle" className="w-full">
             <Row gutter={[12, 12]}>
@@ -294,7 +304,7 @@ export default function AccountsPage() {
               {editingId ? <Button onClick={cancelEdit}>انصراف</Button> : null}
             </Space>
           </Space>
-        </Card>
+        </SectionCard>
       ) : null}
 
       {q.isLoading ? <AccountsListSkeleton /> : null}
@@ -343,14 +353,20 @@ export default function AccountsPage() {
         </Space>
       </Modal>
 
-      {!q.isLoading && (q.data?.length ?? 0) === 0 ? (
+      {!q.isLoading && accounts.length === 0 ? (
         <EmptyState
           title="هنوز حسابی ثبت نشده است"
           description="اولین حساب بانکی خود را بسازید تا تراکنش‌ها و ایمپورت به آن وصل شوند."
         />
-      ) : (q.data?.length ?? 0) > 0 ? (
-        <SoftList>
-          {(q.data ?? []).map((account) => (
+      ) : accounts.length > 0 ? (
+        <SoftList
+          header={
+            <Text type="secondary" className="text-xs font-medium">
+              {toPersianDigits(String(accounts.length))} حساب فعال
+            </Text>
+          }
+        >
+          {accounts.map((account) => (
             <SoftListItem key={account.id}>
               <SoftListRow
                 leading={
@@ -361,21 +377,20 @@ export default function AccountsPage() {
                 title={account.name}
                 subtitle={account.bankName || "بدون نام بانک"}
                 trailing={
-                  <div>
-                    <Text type="secondary" className="text-xs">
-                      موجودی
-                    </Text>
-                    <div>
-                      <Text strong className="tabular-nums">
-                        {formatToman(account.balance)}
-                      </Text>
-                    </div>
-                  </div>
+                  <AmountText
+                    tone={account.balance >= 0 ? "brand" : "expense"}
+                    size="sm"
+                    caption="موجودی"
+                  >
+                    {formatToman(account.balance)}
+                  </AmountText>
                 }
                 footer={
                   <Flex gap="small" wrap="wrap">
                     <Button
                       type="default"
+                      size="small"
+                      className={actionBtnClass}
                       icon={<WalletOutlined />}
                       onClick={() =>
                         setBalanceTarget({
@@ -388,6 +403,8 @@ export default function AccountsPage() {
                     />
                     <Button
                       type="default"
+                      size="small"
+                      className={actionBtnClass}
                       icon={<EditOutlined />}
                       onClick={() => startEdit(account)}
                       aria-label="ویرایش"
@@ -402,6 +419,8 @@ export default function AccountsPage() {
                     >
                       <Button
                         type="default"
+                        size="small"
+                        className={actionBtnClass}
                         danger
                         icon={<DeleteOutlined />}
                         loading={deleteMutation.isPending}

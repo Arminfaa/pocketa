@@ -5,10 +5,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/auth.store";
 import api from "@/services/api";
 import { useRouter } from "next/navigation";
-import { App, Button, Card, Flex, Input, Space, Tag, Typography } from "antd";
+import { App, Button, Flex, Input, Space, Tag, Typography } from "antd";
 import { BellOutlined, LogoutOutlined, SettingOutlined } from "@ant-design/icons";
 import { SettingsSkeleton } from "@/components/skeletons";
 import { Sk } from "@/components/ui/skeleton";
+import { SectionCard } from "@/components/ui/section-card";
 import { PageShell } from "@/components/ui/page-shell";
 import { PageHeader } from "@/components/ui/page-header";
 import {
@@ -102,7 +103,7 @@ export default function SettingsPage() {
         <SettingsSkeleton />
       ) : (
         <>
-          <Card>
+          <SectionCard title="پروفایل" description={user.email ?? undefined}>
             <Space orientation="vertical" size="large" className="w-full">
               <div>
                 <Text strong>{user.name ?? "—"}</Text>
@@ -126,13 +127,13 @@ export default function SettingsPage() {
                 {saving ? "در حال ذخیره..." : "ذخیره تغییرات"}
               </Button>
             </Space>
-          </Card>
+          </SectionCard>
 
           {pushStatusQ.isLoading ? (
-            <Card
+            <SectionCard
               title={
                 <Space>
-                  <BellOutlined />
+                  <BellOutlined className="text-brand-500" />
                   یادآوری پوش
                 </Space>
               }
@@ -145,22 +146,20 @@ export default function SettingsPage() {
                   <Sk className="h-9 w-40 rounded-lg" />
                 </div>
               </div>
-            </Card>
+            </SectionCard>
           ) : (
-            <Card
+            <SectionCard
               title={
                 <Space>
-                  <BellOutlined />
+                  <BellOutlined className="text-brand-500" />
                   یادآوری پوش
                 </Space>
               }
+              description="یادآوری بدهی/قسط از ۳ روز قبل موعد. روی هر دستگاه جداگانه فعال می‌شود."
             >
               <Flex justify="space-between" align="center" gap="middle" wrap="wrap">
                 <div className="min-w-0">
-                  <Text type="secondary" className="text-xs">
-                    یادآوری بدهی/قسط از ۳ روز قبل موعد. روی هر دستگاه جداگانه فعال می‌شود.
-                  </Text>
-                  <div className="mt-2">
+                  <div>
                     {pushActive ? (
                       <Tag color="success">فعال روی این دستگاه</Tag>
                     ) : (
@@ -170,6 +169,8 @@ export default function SettingsPage() {
                 </div>
                 {pushActive ? (
                   <Button
+                    size="small"
+                    className="!rounded-xl"
                     loading={pushDisableMutation.isPending}
                     onClick={() => pushDisableMutation.mutate()}
                   >
@@ -177,6 +178,8 @@ export default function SettingsPage() {
                   </Button>
                 ) : (
                   <Button
+                    size="small"
+                    className="!rounded-xl"
                     icon={<BellOutlined />}
                     loading={pushEnableMutation.isPending}
                     onClick={() => pushEnableMutation.mutate()}
@@ -186,7 +189,7 @@ export default function SettingsPage() {
                   </Button>
                 )}
               </Flex>
-            </Card>
+            </SectionCard>
           )}
 
           <Button icon={<LogoutOutlined />} onClick={onLogout}>
