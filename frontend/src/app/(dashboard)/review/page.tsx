@@ -420,18 +420,35 @@ export default function ReviewPage() {
                   wrap="wrap"
                   vertical={isMobile}
                 >
-                  <Text type="secondary" className="text-sm min-w-0 break-words flex-1">
-                    {formatJalaliDate(tx.date)}
-                    {tx.bankMeta?.time ? ` · ${tx.bankMeta.time}` : ""}
-                    {" · "}
-                    {accountName(tx.accountId)}
-                    {" · "}
-                    {categoryName(tx.categoryId)}
-                  </Text>
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <Text type="secondary" className="text-sm break-words">
+                      {formatJalaliDate(tx.date)}
+                      {tx.bankMeta?.time ? ` · ${tx.bankMeta.time}` : ""}
+                      {" · "}
+                      {accountName(tx.accountId)}
+                      {" · "}
+                      {categoryName(tx.categoryId)}
+                    </Text>
+                    {tx.bankMeta?.feeAmount && tx.bankMeta.feeAmount > 0 ? (
+                      <Text type="secondary" className="text-xs block">
+                        مبلغ انتقال:{" "}
+                        {formatToman(tx.bankMeta.transferAmount ?? tx.amount - tx.bankMeta.feeAmount)}
+                        {" · کارمزد: "}
+                        {formatToman(tx.bankMeta.feeAmount)}
+                        {" · مجموع ثبت‌شده: "}
+                        {formatToman(tx.amount)}
+                      </Text>
+                    ) : null}
+                  </div>
                   <AmountText
                     tone={tx.type === "income" ? "income" : "expense"}
                     size="sm"
                     prefix={tx.type === "income" ? "+" : "-"}
+                    caption={
+                      tx.bankMeta?.feeAmount && tx.bankMeta.feeAmount > 0
+                        ? "مبلغ + کارمزد"
+                        : undefined
+                    }
                   >
                     {formatToman(tx.amount)}
                   </AmountText>

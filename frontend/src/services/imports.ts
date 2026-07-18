@@ -2,6 +2,8 @@
 
 import api from "@/services/api";
 
+export type ImportParseMode = "sms" | "card_receipt";
+
 export type ParsedImportItem = {
   type: "income" | "expense";
   amount: number;
@@ -15,13 +17,16 @@ export type ParsedImportItem = {
   parser: string;
   isDuplicate: boolean;
   suggestedTitle: string;
-  /** Card-to-card etc. — already titled, no review queue */
+  /** When true, confirm import skips the naming/review queue */
   skipReview?: boolean;
+  transferAmount?: number;
+  feeAmount?: number;
 };
 
 export type BankSmsPreviewResponse = {
   jalaliYear: number;
   accountId: string;
+  mode?: ImportParseMode;
   bankHint: string;
   parsedCount: number;
   duplicateCount: number;
@@ -40,6 +45,7 @@ export async function previewBankSms(payload: {
   rawText: string;
   accountId: string;
   jalaliYear?: number;
+  mode?: ImportParseMode;
 }): Promise<BankSmsPreviewResponse> {
   const res = await api.post("/api/imports/bank-sms/preview", payload);
   return res.data.data as BankSmsPreviewResponse;
@@ -49,6 +55,7 @@ export async function confirmBankSms(payload: {
   rawText: string;
   accountId: string;
   jalaliYear?: number;
+  mode?: ImportParseMode;
   selectedHashes?: string[];
 }): Promise<BankSmsConfirmResponse> {
   const res = await api.post("/api/imports/bank-sms/confirm", payload);
