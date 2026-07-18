@@ -123,7 +123,10 @@ export default function AppLayout({ children }: PropsWithChildren) {
         <Header
           className={cn(
             "shrink-0 !h-auto !leading-normal !px-3 sm:!px-5 !py-3 z-20",
-            "!border-0 bg-app-card/70 backdrop-blur-md"
+            "border-0 border-b border-solid",
+            "border-[color-mix(in_srgb,var(--muted)_16%,transparent)]",
+            "dark:border-[color-mix(in_srgb,var(--muted)_28%,transparent)]",
+            "bg-app-card/70 backdrop-blur-md"
           )}
         >
           {isMobileShell ? (

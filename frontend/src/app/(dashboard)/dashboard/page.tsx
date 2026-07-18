@@ -1,16 +1,24 @@
 "use client";
 
+import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import api from "@/services/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatJalaliDate, formatToman } from "@/lib/format";
-import { App, Button, Flex, Typography } from "antd";
+import { App, Button, Checkbox, Flex, Typography } from "antd";
 import {
   AccountBookOutlined,
+  AimOutlined,
+  BankOutlined,
   BellOutlined,
   FormOutlined,
   FundOutlined,
   ImportOutlined,
+  PieChartOutlined,
+  PlusOutlined,
+  SettingOutlined,
+  TagsOutlined,
+  TransactionOutlined,
   WalletOutlined,
 } from "@ant-design/icons";
 import { QueryError } from "@/components/ui/query-error";
@@ -21,13 +29,35 @@ import { SectionCard } from "@/components/ui/section-card";
 import { SoftList, SoftListItem, SoftListRow } from "@/components/ui/soft-list";
 import { AmountText } from "@/components/ui/amount-text";
 import { EmptyState } from "@/components/ui/empty-state";
+import { AppModal } from "@/components/ui/modal";
 import { MarketPriceTicker } from "@/components/dashboard/MarketPriceTicker";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
+import { useQuickAccessStore } from "@/stores/quick-access.store";
 import { enablePushNotifications, fetchPushStatus } from "@/lib/push";
 import { formatTransactionDateTime } from "@/lib/transaction-time";
+import {
+  QUICK_ACCESS_CATALOG,
+  QUICK_ACCESS_MAX,
+  type QuickAccessKey,
+} from "@/lib/quick-access";
 import { cn } from "@/lib/cn";
 
 const { Text } = Typography;
+
+const QUICK_ICONS: Record<QuickAccessKey, ReactNode> = {
+  review: <FormOutlined />,
+  recurring: <AccountBookOutlined />,
+  investments: <FundOutlined />,
+  budgets: <WalletOutlined />,
+  goals: <AimOutlined />,
+  accounts: <BankOutlined />,
+  categories: <TagsOutlined />,
+  imports: <ImportOutlined />,
+  settings: <SettingOutlined />,
+  transactions: <TransactionOutlined />,
+  reports: <PieChartOutlined />,
+  "new-transaction": <PlusOutlined />,
+};
 
 type MarketPrices = {
   gold: {
@@ -69,38 +99,47 @@ type RecentWeekTx = {
   categoryName?: string;
 };
 
-const QUICK_LINKS = [
-  {
-    href: "/imports/bank-sms",
-    label: "ایمپورت",
-    icon: <ImportOutlined />,
-  },
-  {
-    href: "/review",
-    label: "نام‌گذاری",
-    icon: <FormOutlined />,
-  },
-  {
-    href: "/recurring",
-    label: "سررسید‌ها",
-    icon: <AccountBookOutlined />,
-  },
-  {
-    href: "/investments",
-    label: "سرمایه‌گذاری",
-    icon: <FundOutlined />,
-  },
-  {
-    href: "/budgets",
-    label: "بودجه",
-    icon: <WalletOutlined />,
-  },
-] as const;
-
 export default function DashboardPage() {
   const { message } = App.useApp();
   const queryClient = useQueryClient();
   const selectedAccountId = useAccountFilterStore((s) => s.selectedAccountId);
+  const quickKeys = useQuickAccessStore((s) => s.keys);
+  const setQuickKeys = useQuickAccessStore((s) => s.setKeys);
+  const [customizeOpen, setCustomizeOpen] = useState(false);
+  const [draftKeys, setDraftKeys] = useState<QuickAccessKey[]>([]);
+
+  const quickLinks = useMemo(
+    () =>
+      quickKeys
+        .map((key) => QUICK_ACCESS_CATALOG.find((c) => c.key === key))
+        .filter((c): c is (typeof QUICK_ACCESS_CATALOG)[number] => Boolean(c)),
+    [quickKeys]
+  );
+
+  function openCustomize() {
+    setDraftKeys([...quickKeys]);
+    setCustomizeOpen(true);
+  }
+
+  function toggleDraftKey(key: QuickAccessKey, checked: boolean) {
+    setDraftKeys((prev) => {
+      if (checked) {
+        if (prev.includes(key) || prev.length >= QUICK_ACCESS_MAX) return prev;
+        return [...prev, key];
+      }
+      return prev.filter((k) => k !== key);
+    });
+  }
+
+  function saveCustomize() {
+    if (draftKeys.length === 0) {
+      message.error("حداقل یک میانبر انتخاب کنید");
+      return;
+    }
+    setQuickKeys(draftKeys);
+    setCustomizeOpen(false);
+    message.success("دسترسی سریع ذخیره شد");
+  }
 
   const dashboardQ = useQuery({
     queryKey: ["dashboard", selectedAccountId],
@@ -291,11 +330,14 @@ export default function DashboardPage() {
             </SectionCard>
           ) : null}
 
-          <SectionCard title="دسترسی سریع" description="میانبر بخش‌های پرتکرار">
+          <SectionCard
+            title="دسترسی سریع"
+            description="میانبرهای خودتان — از «اضافه کردن» شخصی‌سازی کنید"
+          >
             <div className="grid grid-cols-4 gap-2 sm:grid-cols-4 md:grid-cols-8">
-              {QUICK_LINKS.map((item) => (
+              {quickLinks.map((item) => (
                 <Link
-                  key={item.href}
+                  key={item.key}
                   href={item.href}
                   className={cn(
                     "flex flex-col items-center gap-2 rounded-2xl px-2 py-3 text-center transition-colors",
@@ -304,13 +346,72 @@ export default function DashboardPage() {
                   )}
                 >
                   <span className="text-xl leading-none text-brand-600 dark:text-brand-300">
-                    {item.icon}
+                    {QUICK_ICONS[item.key]}
                   </span>
                   <span className="text-[11px] font-medium leading-tight">{item.label}</span>
                 </Link>
               ))}
+              <button
+                type="button"
+                onClick={openCustomize}
+                className={cn(
+                  "flex flex-col items-center gap-2 rounded-2xl px-2 py-3 text-center transition-colors",
+                  "border border-dashed border-[color-mix(in_srgb,var(--muted)_35%,transparent)]",
+                  "bg-transparent text-app-muted",
+                  "hover:border-brand-500/45 hover:bg-brand-500/8 hover:text-brand-600",
+                  "dark:hover:text-brand-300"
+                )}
+              >
+                <span className="text-xl leading-none">
+                  <PlusOutlined />
+                </span>
+                <span className="text-[11px] font-medium leading-tight">اضافه کردن</span>
+              </button>
             </div>
           </SectionCard>
+
+          <AppModal
+            open={customizeOpen}
+            onClose={() => setCustomizeOpen(false)}
+            title="شخصی‌سازی دسترسی سریع"
+            subtitle={`تا ${QUICK_ACCESS_MAX} میانبر انتخاب کنید`}
+            width={440}
+            footer={
+              <Flex justify="end" gap="small" wrap="wrap" className="w-full">
+                <Button onClick={() => setCustomizeOpen(false)}>انصراف</Button>
+                <Button type="primary" onClick={saveCustomize}>
+                  ذخیره
+                </Button>
+              </Flex>
+            }
+          >
+            <div className="flex flex-col gap-2">
+              {QUICK_ACCESS_CATALOG.map((item) => {
+                const checked = draftKeys.includes(item.key);
+                const atMax = draftKeys.length >= QUICK_ACCESS_MAX && !checked;
+                return (
+                  <label
+                    key={item.key}
+                    className={cn(
+                      "flex cursor-pointer items-center gap-3 rounded-2xl px-3 py-2.5 transition-colors",
+                      "bg-[color-mix(in_srgb,var(--muted)_7%,transparent)]",
+                      atMax && "opacity-50"
+                    )}
+                  >
+                    <Checkbox
+                      checked={checked}
+                      disabled={atMax}
+                      onChange={(e) => toggleDraftKey(item.key, e.target.checked)}
+                    />
+                    <span className="text-base text-brand-600 dark:text-brand-300">
+                      {QUICK_ICONS[item.key]}
+                    </span>
+                    <span className="text-sm font-medium text-app-fg">{item.label}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </AppModal>
 
           <SoftList
             header={
