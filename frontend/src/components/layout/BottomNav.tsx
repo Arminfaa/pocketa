@@ -8,16 +8,30 @@ import { BOTTOM_NAV_ITEMS, type NavItem } from "./nav-items";
 interface BottomNavProps {
   onMore?: () => void;
   moreOpen?: boolean;
+  onAdd?: () => void;
+  addOpen?: boolean;
   onHeightChange?: (height: number) => void;
 }
 
-function isItemActive(pathname: string, item: NavItem, moreOpen?: boolean) {
+function isItemActive(
+  pathname: string,
+  item: NavItem,
+  moreOpen?: boolean,
+  addOpen?: boolean
+) {
   if (item.key === "more") return Boolean(moreOpen);
+  if (item.key === "add") return Boolean(addOpen);
   if (item.match) return item.match(pathname);
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
 
-export function BottomNav({ onMore, moreOpen, onHeightChange }: BottomNavProps) {
+export function BottomNav({
+  onMore,
+  moreOpen,
+  onAdd,
+  addOpen,
+  onHeightChange,
+}: BottomNavProps) {
   const pathname = usePathname();
   const navRef = useRef<HTMLElement | null>(null);
 
@@ -51,7 +65,7 @@ export function BottomNav({ onMore, moreOpen, onHeightChange }: BottomNavProps) 
       <div className="mx-auto max-w-lg px-3 pb-2.5 pt-1.5">
         <div className="flex items-stretch justify-between gap-1 rounded-[1.85rem] border border-[color-mix(in_srgb,var(--muted)_22%,transparent)] bg-app-card/95 px-2 py-2 shadow-soft backdrop-blur-xl dark:border-[color-mix(in_srgb,var(--muted)_32%,transparent)]">
           {BOTTOM_NAV_ITEMS.map((item) => {
-            const active = isItemActive(pathname, item, moreOpen);
+            const active = isItemActive(pathname, item, moreOpen, addOpen);
             const className = [
               "flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2.5 transition-all",
               active
@@ -78,13 +92,33 @@ export function BottomNav({ onMore, moreOpen, onHeightChange }: BottomNavProps) 
               );
             }
 
+            if (item.key === "add") {
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={onAdd}
+                  className={className}
+                  aria-label={item.label}
+                  aria-expanded={addOpen}
+                >
+                  <span
+                    className={`leading-none ${
+                      active || addOpen ? "scale-105 text-[1.35rem]" : "text-xl opacity-90"
+                    }`}
+                  >
+                    {item.icon}
+                  </span>
+                  <span className="truncate text-[11px] font-medium leading-none">{item.label}</span>
+                </button>
+              );
+            }
+
             return (
               <Link key={item.key} href={item.href} className={className} aria-label={item.label}>
                 <span
                   className={`leading-none ${
-                    item.key === "add" || active
-                      ? "scale-105 text-[1.35rem]"
-                      : "text-xl opacity-80"
+                    active ? "scale-105 text-[1.35rem]" : "text-xl opacity-80"
                   }`}
                 >
                   {item.icon}

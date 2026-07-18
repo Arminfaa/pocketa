@@ -94,10 +94,16 @@ export default function TransactionsPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   useEffect(() => {
-    if (searchParams.get("new") !== "1") return;
-    setEditing(null);
-    setModalOpen(true);
-    router.replace("/transactions", { scroll: false });
+    if (searchParams.get("new") === "1") {
+      setEditing(null);
+      setModalOpen(true);
+      router.replace("/transactions", { scroll: false });
+      return;
+    }
+    if (searchParams.get("transfer") === "1") {
+      setTransferOpen(true);
+      router.replace("/transactions", { scroll: false });
+    }
   }, [searchParams, router]);
 
   const accountsQ = useQuery({

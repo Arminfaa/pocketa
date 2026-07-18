@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useOpenOnQuery } from "@/hooks/use-open-on-query";
 import {
   App,
   Button,
@@ -181,6 +182,14 @@ export default function AccountsPage() {
     setFormOpen(false);
   }
 
+  function openCreate() {
+    setEditingId(null);
+    setForm(emptyForm);
+    setFormOpen(true);
+  }
+
+  useOpenOnQuery("new", "1", "/accounts", openCreate);
+
   return (
     <PageShell width="form">
       <PageHeader
@@ -191,11 +200,7 @@ export default function AccountsPage() {
           <Button
             type="primary"
             icon={<PlusOutlined />}
-            onClick={() => {
-              setEditingId(null);
-              setForm(emptyForm);
-              setFormOpen(true);
-            }}
+            onClick={openCreate}
             aria-label="افزودن حساب"
           />
         }

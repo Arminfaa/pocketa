@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { App, Button, Flex, Input, Popconfirm, Segmented, Space, Tag, Typography } from "antd";
 import { AppstoreOutlined, DeleteOutlined, EditOutlined, PlusOutlined } from "@ant-design/icons";
+import { useOpenOnQuery } from "@/hooks/use-open-on-query";
 import {
   createCategory,
   deleteCategory,
@@ -115,6 +116,14 @@ export default function CategoriesPage() {
     setFormOpen(false);
   }
 
+  function openCreate() {
+    setEditingId(null);
+    setForm(emptyForm);
+    setFormOpen(true);
+  }
+
+  useOpenOnQuery("new", "1", "/categories", openCreate);
+
   return (
     <PageShell width="form">
       <PageHeader
@@ -125,11 +134,7 @@ export default function CategoriesPage() {
           <Button
             type="primary"
             icon={<PlusOutlined />}
-            onClick={() => {
-              setEditingId(null);
-              setForm(emptyForm);
-              setFormOpen(true);
-            }}
+            onClick={openCreate}
             aria-label="افزودن دسته"
           />
         }

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useOpenOnQuery } from "@/hooks/use-open-on-query";
 import {
   Alert,
   App,
@@ -112,6 +113,8 @@ export default function RecurringPage() {
   const [categoryId, setCategoryId] = useState("");
   const [payItem, setPayItem] = useState<RecurringItem | null>(null);
   const [formOpen, setFormOpen] = useState(false);
+
+  useOpenOnQuery("new", "1", "/recurring", () => setFormOpen(true));
 
   const listQ = useQuery({ queryKey: ["recurring"], queryFn: fetchRecurring });
   const accountsQ = useQuery({

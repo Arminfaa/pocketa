@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useOpenOnQuery } from "@/hooks/use-open-on-query";
 import {
   App,
   Button,
@@ -247,6 +248,8 @@ export default function InvestmentsPage() {
     resetForm();
     setFormOpen(true);
   }
+
+  useOpenOnQuery("new", "1", "/investments", openCreate);
 
   function openEdit(item: Investment) {
     setEditingId(item.id);
