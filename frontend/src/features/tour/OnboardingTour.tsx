@@ -36,6 +36,47 @@ function measureTarget(el: HTMLElement): Rect {
   };
 }
 
+const SCRIM =
+  "pointer-events-none absolute bg-sky-950/52 backdrop-blur-[7px]";
+
+/** Four blurred blue panels around the spotlight hole. */
+function TourScrimPanels({ rect }: { rect: Rect }) {
+  const right = Math.max(0, window.innerWidth - (rect.left + rect.width));
+  const bottom = Math.max(0, window.innerHeight - (rect.top + rect.height));
+  return (
+    <>
+      <div className={SCRIM} style={{ top: 0, left: 0, right: 0, height: rect.top }} />
+      <div
+        className={SCRIM}
+        style={{
+          top: rect.top + rect.height,
+          left: 0,
+          right: 0,
+          height: bottom,
+        }}
+      />
+      <div
+        className={SCRIM}
+        style={{
+          top: rect.top,
+          left: 0,
+          width: rect.left,
+          height: rect.height,
+        }}
+      />
+      <div
+        className={SCRIM}
+        style={{
+          top: rect.top,
+          left: rect.left + rect.width,
+          width: right,
+          height: rect.height,
+        }}
+      />
+    </>
+  );
+}
+
 type Props = {
   isMobileShell: boolean;
   /** Breakpoint resolved — avoid flashing wrong shell tour */
@@ -202,23 +243,40 @@ export function OnboardingTour({
       setSpotlight(rect);
       setPreparing(false);
 
-      // Position card
+      // Position card — keep clear of the bottom edge (esp. over action sheets)
       const cardW = Math.min(340, window.innerWidth - 32);
-      const cardH = 200;
+      const cardH = 220;
+      const topSafe = 20;
+      const bottomSafe = Math.max(112, Math.round(window.innerHeight * 0.14));
+      const maxTop = window.innerHeight - cardH - bottomSafe;
+
       if (!rect) {
         setCardPos({
-          top: Math.max(24, (window.innerHeight - cardH) / 2),
+          top: Math.max(topSafe, Math.min(maxTop, (window.innerHeight - cardH) / 2)),
           left: (window.innerWidth - cardW) / 2,
         });
         return;
       }
 
-      const spaceBelow = window.innerHeight - (rect.top + rect.height);
-      const placeBelow = spaceBelow > cardH + 24 || rect.top < cardH + 24;
-      let top = placeBelow
-        ? rect.top + rect.height + 12
-        : rect.top - cardH - 12;
-      top = Math.min(Math.max(16, top), window.innerHeight - cardH - 16);
+      // Large targets (Add/More sheets): park the card in the upper band
+      if (rect.height > window.innerHeight * 0.38) {
+        setCardPos({
+          top: Math.round(window.innerHeight * 0.1),
+          left: (window.innerWidth - cardW) / 2,
+        });
+        return;
+      }
+
+      const targetMidY = rect.top + rect.height / 2;
+      const preferAbove = targetMidY > window.innerHeight * 0.42;
+      let top = preferAbove
+        ? rect.top - cardH - 14
+        : rect.top + rect.height + 14;
+
+      if (top < topSafe) top = rect.top + rect.height + 14;
+      if (top > maxTop) top = Math.min(maxTop, Math.max(topSafe, rect.top - cardH - 14));
+      top = Math.min(Math.max(topSafe, top), maxTop);
+
       let left = rect.left + rect.width / 2 - cardW / 2;
       left = Math.min(Math.max(16, left), window.innerWidth - cardW - 16);
       setCardPos({ top, left });
@@ -279,21 +337,24 @@ export function OnboardingTour({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
       >
-        {/* Dim layer + spotlight hole */}
+        {/* Blue-tinted blur outside the spotlight; keep the target crisp */}
         <div className="absolute inset-0" aria-hidden>
           {spotlight ? (
-            <div
-              className="pointer-events-none absolute rounded-2xl ring-2 ring-cyan-400/80 transition-[top,left,width,height] duration-200"
-              style={{
-                top: spotlight.top,
-                left: spotlight.left,
-                width: spotlight.width,
-                height: spotlight.height,
-                boxShadow: "0 0 0 9999px rgba(15, 23, 42, 0.62)",
-              }}
-            />
+            <>
+              <TourScrimPanels rect={spotlight} />
+              <div
+                className="pointer-events-none absolute rounded-2xl ring-2 ring-cyan-300/90 transition-[top,left,width,height] duration-200"
+                style={{
+                  top: spotlight.top,
+                  left: spotlight.left,
+                  width: spotlight.width,
+                  height: spotlight.height,
+                  boxShadow: "0 0 0 9999px rgba(8, 47, 73, 0.22)",
+                }}
+              />
+            </>
           ) : (
-            <div className="absolute inset-0 bg-slate-950/62" />
+            <div className="absolute inset-0 bg-sky-950/55 backdrop-blur-[7px]" />
           )}
         </div>
 
