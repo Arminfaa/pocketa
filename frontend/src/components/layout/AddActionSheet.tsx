@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { Button } from "antd";
+import { PlusOutlined, RightOutlined } from "@ant-design/icons";
 import {
   motion,
   useAnimationControls,
@@ -25,6 +26,14 @@ const DISMISS_VELOCITY = 720;
 const SPRING = { type: "spring" as const, stiffness: 440, damping: 40, mass: 0.8 };
 const EASE_OUT = { type: "tween" as const, duration: 0.3, ease: [0.32, 0.72, 0, 1] as const };
 
+const PRIMARY_KEY = "add-transaction";
+
+const GROUPS: Array<{ title: string; keys: string[] }> = [
+  { title: "جابه‌جایی پول", keys: ["add-transfer", "add-import"] },
+  { title: "برنامه‌ریزی", keys: ["add-investment", "add-goal", "add-recurring"] },
+  { title: "ساختار حساب", keys: ["add-account", "add-category", "add-budget"] },
+];
+
 export function AddActionSheet({ open, onClose }: Props) {
   const [mounted, setMounted] = useState(false);
   const [present, setPresent] = useState(false);
@@ -37,6 +46,9 @@ export function AddActionSheet({ open, onClose }: Props) {
   const maskOpacity = useTransform(y, [0, 420], [1, 0]);
 
   openRef.current = open;
+
+  const primary = ADD_SHORTCUT_ITEMS.find((item) => item.key === PRIMARY_KEY);
+  const byKey = new Map(ADD_SHORTCUT_ITEMS.map((item) => [item.key, item]));
 
   useEffect(() => {
     setMounted(true);
@@ -111,7 +123,7 @@ export function AddActionSheet({ open, onClose }: Props) {
       <motion.button
         type="button"
         aria-label="بستن"
-        className="absolute inset-0 border-0 cursor-default bg-slate-900/45 dark:bg-black/65 backdrop-blur-[4px]"
+        className="absolute inset-0 border-0 cursor-default bg-slate-900/50 dark:bg-black/70 backdrop-blur-[6px]"
         style={{ opacity: maskOpacity }}
         onClick={requestClose}
       />
@@ -121,9 +133,13 @@ export function AddActionSheet({ open, onClose }: Props) {
         aria-modal="true"
         aria-label="افزودن"
         className={cn(
-          "absolute inset-x-0 bottom-0 max-h-[min(78dvh,640px)]",
-          "rounded-t-[1.75rem] bg-app-card",
-          "shadow-[0_-12px_40px_rgba(15,23,42,0.16)]",
+          "absolute inset-x-0 bottom-0 max-h-[min(82dvh,680px)] overflow-y-auto",
+          "rounded-t-[1.85rem]",
+          // Distinct from More's flat app-card: tinted compose surface
+          "bg-gradient-to-b from-cyan-500/[0.12] via-[var(--card)] to-[var(--card)]",
+          "dark:from-brand-500/[0.16] dark:via-[var(--card)] dark:to-[var(--card)]",
+          "ring-1 ring-inset ring-cyan-600/12 dark:ring-brand-400/15",
+          "shadow-[0_-16px_48px_rgba(8,145,178,0.18)] dark:shadow-[0_-16px_48px_rgba(0,0,0,0.45)]",
           "will-change-transform"
         )}
         style={{
@@ -138,45 +154,98 @@ export function AddActionSheet({ open, onClose }: Props) {
         dragMomentum={false}
         onDragEnd={onDragEnd}
       >
-        <div className="px-4 pb-4 pt-1">
+        <div className="px-4 pb-5 pt-1">
           <div className="select-none -mx-4 px-4 pt-2 pb-1 touch-none">
-            <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-[color-mix(in_srgb,var(--muted)_28%,transparent)]" />
+            <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-cyan-600/35 dark:bg-brand-300/35" />
             <div className="mb-1 flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-base font-semibold text-app-fg">افزودن</div>
-                <div className="text-xs text-app-muted">چه چیزی می‌خواهید ثبت کنید؟</div>
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500 to-teal-500 text-white shadow-[0_8px_18px_rgba(8,145,178,0.35)] dark:from-brand-400 dark:to-teal-400">
+                  <PlusOutlined className="text-base" />
+                </span>
+                <div className="min-w-0">
+                  <div className="text-base font-semibold text-slate-900 dark:text-app-fg">
+                    ثبت سریع
+                  </div>
+                  <div className="text-xs text-slate-600 dark:text-app-muted">
+                    یک مورد جدید بسازید
+                  </div>
+                </div>
               </div>
               <Button
                 type="text"
                 onClick={requestClose}
                 onPointerDown={(e) => e.stopPropagation()}
-                className="!rounded-xl !text-app-muted"
+                className="!rounded-xl !text-slate-500 dark:!text-app-muted"
               >
                 بستن
               </Button>
             </div>
           </div>
 
-          <div
-            className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4"
-            onPointerDown={(e) => e.stopPropagation()}
-          >
-            {ADD_SHORTCUT_ITEMS.map((item) => (
+          <div className="mt-3 space-y-4" onPointerDown={(e) => e.stopPropagation()}>
+            {primary ? (
               <Link
-                key={item.key}
-                href={item.href}
+                href={primary.href}
                 onClick={requestClose}
                 className={cn(
-                  "flex flex-col items-center gap-2 rounded-2xl px-2 py-3 text-center transition-colors",
-                  "bg-[color-mix(in_srgb,var(--muted)_7%,transparent)] text-app-fg hover:bg-brand-500/8"
+                  "flex items-center gap-3 rounded-[1.35rem] px-4 py-3.5 no-underline transition-transform active:scale-[0.99]",
+                  "bg-gradient-to-l from-cyan-600 to-teal-500 text-white",
+                  "shadow-[0_12px_28px_rgba(8,145,178,0.32)]",
+                  "dark:from-brand-500 dark:to-teal-500 dark:shadow-[0_12px_28px_rgba(34,211,238,0.18)]"
                 )}
               >
-                <span className="text-xl leading-none text-brand-600 dark:text-brand-300">
-                  {item.icon}
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/18 text-xl">
+                  {primary.icon}
                 </span>
-                <span className="text-[11px] font-medium leading-tight">{item.label}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[15px] font-semibold leading-tight">
+                    تراکنش جدید
+                  </span>
+                  <span className="mt-0.5 block text-[11px] text-white/80">
+                    درآمد یا هزینه را همین حالا ثبت کنید
+                  </span>
+                </span>
+                <RightOutlined className="rotate-180 text-sm text-white/75" />
               </Link>
-            ))}
+            ) : null}
+
+            {GROUPS.map((group) => {
+              const items = group.keys
+                .map((key) => byKey.get(key))
+                .filter((item): item is NonNullable<typeof item> => Boolean(item));
+              if (!items.length) return null;
+
+              return (
+                <div key={group.title} className="space-y-2">
+                  <div className="px-1 text-[11px] font-medium text-slate-500 dark:text-app-muted">
+                    {group.title}
+                  </div>
+                  <div className="overflow-hidden rounded-[1.25rem] bg-white/80 ring-1 ring-slate-900/5 dark:bg-[color-mix(in_srgb,var(--card)_88%,#000)] dark:ring-white/8">
+                    {items.map((item, index) => (
+                      <Link
+                        key={item.key}
+                        href={item.href}
+                        onClick={requestClose}
+                        className={cn(
+                          "flex items-center gap-3 px-3.5 py-3 no-underline transition-colors",
+                          "text-slate-900 hover:bg-cyan-500/8 dark:text-app-fg dark:hover:bg-brand-500/10",
+                          index > 0 &&
+                            "border-t border-slate-900/6 dark:border-white/8"
+                        )}
+                      >
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-cyan-500/12 text-base text-cyan-700 dark:bg-brand-500/18 dark:text-brand-200">
+                          {item.icon}
+                        </span>
+                        <span className="min-w-0 flex-1 text-sm font-medium leading-tight">
+                          {item.label}
+                        </span>
+                        <RightOutlined className="rotate-180 text-[11px] text-slate-400 dark:text-app-muted" />
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </motion.div>
