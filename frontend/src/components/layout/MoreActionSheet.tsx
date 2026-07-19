@@ -137,6 +137,7 @@ export function MoreActionSheet({
           "shadow-[0_-12px_40px_rgba(15,23,42,0.16)]",
           "will-change-transform"
         )}
+        data-tour="more-sheet"
         data-body-scroll-lock={present ? "1" : undefined}
         style={{
           y,
@@ -180,6 +181,7 @@ export function MoreActionSheet({
                   key={item.key}
                   href={item.href}
                   onClick={requestClose}
+                  data-tour={`nav-${item.key}-more`}
                   className={cn(
                     "flex flex-col items-center gap-2 rounded-2xl px-2 py-3 text-center transition-colors",
                     active
