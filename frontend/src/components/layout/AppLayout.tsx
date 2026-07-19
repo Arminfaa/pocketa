@@ -9,6 +9,7 @@ import {
   MenuUnfoldOutlined,
   BulbOutlined,
   LogoutOutlined,
+  QuestionCircleOutlined,
 } from "@ant-design/icons";
 import { Sidebar } from "./Sidebar";
 import { BottomNav } from "./BottomNav";
@@ -159,15 +160,26 @@ export default function AppLayout({ children }: PropsWithChildren) {
                     </Text>
                   </div>
                 </Link>
-                <Button
-                  type="text"
-                  shape="circle"
-                  className="!bg-brand-500/10 !text-brand-600"
-                  icon={<BulbOutlined />}
-                  onClick={toggleTheme}
-                  aria-label="تغییر تم"
-                  data-tour="theme-toggle"
-                />
+                <Flex align="center" gap={8} className="shrink-0">
+                  <Link href="/help" aria-label="راهنما">
+                    <Button
+                      type="text"
+                      shape="circle"
+                      className="!bg-brand-500/10 !text-brand-600"
+                      icon={<QuestionCircleOutlined />}
+                      aria-label="راهنما"
+                    />
+                  </Link>
+                  <Button
+                    type="text"
+                    shape="circle"
+                    className="!bg-brand-500/10 !text-brand-600"
+                    icon={<BulbOutlined />}
+                    onClick={toggleTheme}
+                    aria-label="تغییر تم"
+                    data-tour="theme-toggle"
+                  />
+                </Flex>
               </Flex>
               <div data-tour="account-filter" className="w-full">
                 <Select
@@ -209,6 +221,13 @@ export default function AppLayout({ children }: PropsWithChildren) {
                 />
               </div>
               <Flex align="center" gap={8} className="!ms-auto shrink-0">
+                <Link href="/help" aria-label="راهنما">
+                  <Button
+                    type="default"
+                    icon={<QuestionCircleOutlined />}
+                    aria-label="راهنما"
+                  />
+                </Link>
                 <Button
                   type="default"
                   icon={<BulbOutlined />}
