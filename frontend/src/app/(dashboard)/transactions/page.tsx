@@ -526,13 +526,23 @@ export default function TransactionsPage() {
 
       <FilterBar>
         <FilterField label="جستجو" className="sm:min-w-[14rem] sm:flex-[2]">
-          <Input.Search
+          <Input
             className="w-full"
             placeholder="جستجو در عنوان یا توضیحات..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            onSearch={applySearch}
-            enterButton="جستجو"
+            onPressEnter={applySearch}
+            allowClear
+            suffix={
+              <Button
+                type="primary"
+                size="small"
+                onClick={applySearch}
+                className="!-me-1 !h-8 !rounded-xl !px-3"
+              >
+                جستجو
+              </Button>
+            }
           />
         </FilterField>
 
