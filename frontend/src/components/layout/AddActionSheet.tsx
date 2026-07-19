@@ -267,6 +267,7 @@ export function AddActionSheet({ open, onClose }: Props) {
           "shadow-[0_-16px_48px_rgba(8,145,178,0.18)] dark:shadow-[0_-16px_48px_rgba(0,0,0,0.45)]",
           "will-change-transform"
         )}
+        data-tour="add-sheet"
         data-body-scroll-lock={present ? "1" : undefined}
         style={{
           y,
