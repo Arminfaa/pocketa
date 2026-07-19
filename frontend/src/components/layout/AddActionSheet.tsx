@@ -291,7 +291,7 @@ export function AddActionSheet({ open, onClose }: Props) {
           className="shrink-0 select-none px-4 pt-2 pb-1 touch-none"
           onPointerDown={onHeaderPointerDown}
         >
-          <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-cyan-600/35 dark:bg-brand-300/35" />
+          <div className="mx-auto mb-3 h-1.5 w-11 rounded-full bg-slate-400/70 dark:bg-brand-300/35" />
           <div className="mb-1 flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2.5">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500 to-teal-500 text-white shadow-[0_8px_18px_rgba(8,145,178,0.35)] dark:from-brand-400 dark:to-teal-400">
