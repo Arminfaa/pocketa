@@ -8,6 +8,7 @@ import { PlusOutlined, RightOutlined } from "@ant-design/icons";
 import {
   motion,
   useAnimationControls,
+  useDragControls,
   useMotionValue,
   useTransform,
   type PanInfo,
@@ -34,16 +35,36 @@ const GROUPS: Array<{ title: string; keys: string[] }> = [
   { title: "ساختار حساب", keys: ["add-account", "add-category", "add-budget"] },
 ];
 
+type BodyGesture = {
+  pointerId: number | null;
+  startY: number;
+  lastY: number;
+  lastT: number;
+  mode: "undecided" | "scroll" | "sheet";
+  velocityY: number;
+};
+
 export function AddActionSheet({ open, onClose }: Props) {
   const [mounted, setMounted] = useState(false);
   const [present, setPresent] = useState(false);
   const [interactive, setInteractive] = useState(true);
 
   const sheetControls = useAnimationControls();
+  const dragControls = useDragControls();
   const closingRef = useRef(false);
   const openRef = useRef(open);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const y = useMotionValue(0);
   const maskOpacity = useTransform(y, [0, 420], [1, 0]);
+
+  const bodyGestureRef = useRef<BodyGesture>({
+    pointerId: null,
+    startY: 0,
+    lastY: 0,
+    lastT: 0,
+    mode: "undecided",
+    velocityY: 0,
+  });
 
   openRef.current = open;
 
@@ -65,6 +86,9 @@ export function AddActionSheet({ open, onClose }: Props) {
   useEffect(() => {
     if (!present || !open || closingRef.current) return;
     void sheetControls.start({ y: 0, transition: SPRING });
+    requestAnimationFrame(() => {
+      if (scrollRef.current) scrollRef.current.scrollTop = 0;
+    });
   }, [present, open, sheetControls]);
 
   useEffect(() => {
@@ -91,20 +115,26 @@ export function AddActionSheet({ open, onClose }: Props) {
     };
   }, [present]);
 
+  // Block native scroll while the sheet-dismiss pull is active.
+  useEffect(() => {
+    if (!present) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    const onTouchMove = (e: TouchEvent) => {
+      if (bodyGestureRef.current.mode === "sheet") {
+        e.preventDefault();
+      }
+    };
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    return () => el.removeEventListener("touchmove", onTouchMove);
+  }, [present]);
+
   function requestClose() {
     if (closingRef.current) return;
     onClose();
   }
 
-  function onDragEnd(_: unknown, info: PanInfo) {
-    const shouldClose =
-      info.offset.y >= DISMISS_DISTANCE || info.velocity.y >= DISMISS_VELOCITY;
-
-    if (!shouldClose) {
-      void sheetControls.start({ y: 0, transition: SPRING });
-      return;
-    }
-
+  function finishDismiss() {
     if (closingRef.current) return;
     closingRef.current = true;
     setInteractive(false);
@@ -114,6 +144,108 @@ export function AddActionSheet({ open, onClose }: Props) {
       closingRef.current = false;
       onClose();
     });
+  }
+
+  function snapSheetOpen() {
+    void sheetControls.start({ y: 0, transition: SPRING });
+  }
+
+  function onHeaderDragEnd(_: unknown, info: PanInfo) {
+    const shouldClose =
+      info.offset.y >= DISMISS_DISTANCE || info.velocity.y >= DISMISS_VELOCITY;
+    if (!shouldClose) {
+      snapSheetOpen();
+      return;
+    }
+    finishDismiss();
+  }
+
+  function isScrollAtTop() {
+    return (scrollRef.current?.scrollTop ?? 0) <= 0;
+  }
+
+  function onHeaderPointerDown(e: React.PointerEvent) {
+    if (!interactive || closingRef.current) return;
+    // Don't start drag from the close button
+    if ((e.target as HTMLElement).closest("button")) return;
+    dragControls.start(e);
+  }
+
+  function resetBodyGesture() {
+    bodyGestureRef.current = {
+      pointerId: null,
+      startY: 0,
+      lastY: 0,
+      lastT: 0,
+      mode: "undecided",
+      velocityY: 0,
+    };
+  }
+
+  function onBodyPointerDown(e: React.PointerEvent) {
+    if (!interactive || closingRef.current) return;
+    // Links/buttons handle their own clicks; still track for gesture lock
+    bodyGestureRef.current = {
+      pointerId: e.pointerId,
+      startY: e.clientY,
+      lastY: e.clientY,
+      lastT: performance.now(),
+      mode: isScrollAtTop() ? "undecided" : "scroll",
+      velocityY: 0,
+    };
+  }
+
+  function onBodyPointerMove(e: React.PointerEvent) {
+    const g = bodyGestureRef.current;
+    if (g.pointerId !== e.pointerId) return;
+
+    const now = performance.now();
+    const dyTotal = e.clientY - g.startY;
+    const dt = Math.max(1, now - g.lastT);
+    g.velocityY = ((e.clientY - g.lastY) / dt) * 1000;
+    g.lastY = e.clientY;
+    g.lastT = now;
+
+    if (g.mode === "undecided") {
+      if (Math.abs(dyTotal) < 10) return;
+      if (dyTotal > 0 && isScrollAtTop()) {
+        g.mode = "sheet";
+        try {
+          (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+        } catch {
+          // ignore
+        }
+      } else {
+        g.mode = "scroll";
+        return;
+      }
+    }
+
+    if (g.mode !== "sheet") return;
+
+    // Pulling down at top moves the sheet; don't scroll the body
+    e.preventDefault();
+    y.set(Math.max(0, dyTotal));
+  }
+
+  function onBodyPointerUp(e: React.PointerEvent) {
+    const g = bodyGestureRef.current;
+    if (g.pointerId !== e.pointerId) return;
+
+    if (g.mode === "sheet") {
+      const offsetY = Math.max(0, y.get());
+      const shouldClose =
+        offsetY >= DISMISS_DISTANCE || g.velocityY >= DISMISS_VELOCITY;
+      if (shouldClose) finishDismiss();
+      else snapSheetOpen();
+    }
+
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
+    resetBodyGesture();
   }
 
   if (!mounted || !present) return null;
@@ -133,9 +265,8 @@ export function AddActionSheet({ open, onClose }: Props) {
         aria-modal="true"
         aria-label="افزودن"
         className={cn(
-          "absolute inset-x-0 bottom-0 max-h-[min(82dvh,680px)] overflow-y-auto",
+          "absolute inset-x-0 bottom-0 flex max-h-[min(82dvh,680px)] flex-col",
           "rounded-t-[1.85rem]",
-          // Distinct from More's flat app-card: tinted compose surface
           "bg-gradient-to-b from-cyan-500/[0.12] via-[var(--card)] to-[var(--card)]",
           "dark:from-brand-500/[0.16] dark:via-[var(--card)] dark:to-[var(--card)]",
           "ring-1 ring-inset ring-cyan-600/12 dark:ring-brand-400/15",
@@ -149,40 +280,52 @@ export function AddActionSheet({ open, onClose }: Props) {
         initial={false}
         animate={sheetControls}
         drag={interactive ? "y" : false}
+        dragListener={false}
+        dragControls={dragControls}
         dragConstraints={{ top: 0, bottom: 0 }}
         dragElastic={{ top: 0.03, bottom: 0.58 }}
         dragMomentum={false}
-        onDragEnd={onDragEnd}
+        onDragEnd={onHeaderDragEnd}
       >
-        <div className="px-4 pb-5 pt-1">
-          <div className="select-none -mx-4 px-4 pt-2 pb-1 touch-none">
-            <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-cyan-600/35 dark:bg-brand-300/35" />
-            <div className="mb-1 flex items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-2.5">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500 to-teal-500 text-white shadow-[0_8px_18px_rgba(8,145,178,0.35)] dark:from-brand-400 dark:to-teal-400">
-                  <PlusOutlined className="text-base" />
-                </span>
-                <div className="min-w-0">
-                  <div className="text-base font-semibold text-slate-900 dark:text-app-fg">
-                    ثبت سریع
-                  </div>
-                  <div className="text-xs text-slate-600 dark:text-app-muted">
-                    یک مورد جدید بسازید
-                  </div>
+        <div
+          className="shrink-0 select-none px-4 pt-2 pb-1 touch-none"
+          onPointerDown={onHeaderPointerDown}
+        >
+          <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-cyan-600/35 dark:bg-brand-300/35" />
+          <div className="mb-1 flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500 to-teal-500 text-white shadow-[0_8px_18px_rgba(8,145,178,0.35)] dark:from-brand-400 dark:to-teal-400">
+                <PlusOutlined className="text-base" />
+              </span>
+              <div className="min-w-0">
+                <div className="text-base font-semibold text-slate-900 dark:text-app-fg">
+                  ثبت سریع
+                </div>
+                <div className="text-xs text-slate-600 dark:text-app-muted">
+                  یک مورد جدید بسازید
                 </div>
               </div>
-              <Button
-                type="text"
-                onClick={requestClose}
-                onPointerDown={(e) => e.stopPropagation()}
-                className="!rounded-xl !text-slate-500 dark:!text-app-muted"
-              >
-                بستن
-              </Button>
             </div>
+            <Button
+              type="text"
+              onClick={requestClose}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="!rounded-xl !text-slate-500 dark:!text-app-muted"
+            >
+              بستن
+            </Button>
           </div>
+        </div>
 
-          <div className="mt-3 space-y-4" onPointerDown={(e) => e.stopPropagation()}>
+        <div
+          ref={scrollRef}
+          className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-y-contain px-4 pb-5 pt-2 [-webkit-overflow-scrolling:touch]"
+          onPointerDown={onBodyPointerDown}
+          onPointerMove={onBodyPointerMove}
+          onPointerUp={onBodyPointerUp}
+          onPointerCancel={onBodyPointerUp}
+        >
+          <div className="space-y-4">
             {primary ? (
               <Link
                 href={primary.href}
