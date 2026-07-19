@@ -106,7 +106,7 @@ export const getDashboard = asyncHandler(async (req: Request, res: Response) => 
         userId: new mongoose.Types.ObjectId(userId),
         accountId: accountScope,
         date: { $gte: weekFrom, $lte: weekTo },
-        source: { $nin: ["transfer", "balance_adjustment"] },
+        source: { $nin: ["balance_adjustment"] },
       })
         .sort({ date: -1, time: -1, createdAt: -1 })
         .limit(20)
@@ -169,6 +169,7 @@ export const getDashboard = asyncHandler(async (req: Request, res: Response) => 
           time: time || "",
           needsReview: Boolean(tx.needsReview),
           categoryName: cat?.name ? String(cat.name) : "",
+          source: String(tx.source ?? "manual"),
         };
       }),
     },
