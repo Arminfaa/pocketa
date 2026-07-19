@@ -382,6 +382,22 @@
     @apply text-[10px] text-app-muted;
   }
 
+  .market-ticker-change {
+    @apply text-[11px] font-semibold tabular-nums ltr:ml-0.5 rtl:mr-0.5;
+  }
+
+  .market-ticker-change--up {
+    @apply text-emerald-600 dark:text-emerald-400;
+  }
+
+  .market-ticker-change--down {
+    @apply text-rose-600 dark:text-rose-400;
+  }
+
+  .market-ticker-change--flat {
+    @apply text-app-muted;
+  }
+
   .market-ticker-fade {
     @apply pointer-events-none absolute inset-y-0 z-10 w-8;
   }

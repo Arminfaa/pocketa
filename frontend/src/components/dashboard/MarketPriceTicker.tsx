@@ -18,6 +18,7 @@ export type MarketTickerData = {
     mesghal18kToman: number | null;
     mesghal24kToman: number | null;
     quarterCoinToman?: number | null;
+    changePercent?: number;
     fetchDate?: string;
     fetchedAt?: string;
     sourceUpdatedAt?: string;
@@ -25,6 +26,10 @@ export type MarketTickerData = {
   currency: {
     usdFreeToman: number;
     usdtToman: number;
+    usdChange?: number;
+    usdtChange?: number;
+    usdChangePercent?: number;
+    usdtChangePercent?: number;
     fetchDate?: string;
     fetchedAt?: string;
     sourceUpdatedAt?: string;
@@ -43,6 +48,8 @@ type TickerItem = {
   label: string;
   amount: string;
   unit: string;
+  /** Day-over-day % vs previous fetch; null = unknown */
+  changePercent: number | null;
 };
 
 function formatAmountFa(amount: number): string {
@@ -54,6 +61,40 @@ function formatAmountUsd(amount: number): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount);
+}
+
+function normalizeChangePercent(raw: unknown): number | null {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return null;
+  return Math.round(n * 10) / 10;
+}
+
+/** e.g. +3% / -3% / 0% — Latin digits as in product copy */
+function formatChangePercent(pct: number): string {
+  const rounded = Math.round(pct * 10) / 10;
+  const abs = Math.abs(rounded);
+  const body = Number.isInteger(abs) ? String(abs) : abs.toFixed(1);
+  if (rounded > 0) return `+${body}%`;
+  if (rounded < 0) return `-${body}%`;
+  return `${body}%`;
+}
+
+function ChangeBadge({ changePercent }: { changePercent: number | null }) {
+  if (changePercent == null) return null;
+  const up = changePercent > 0;
+  const down = changePercent < 0;
+  return (
+    <span
+      className={cn(
+        "market-ticker-change",
+        up && "market-ticker-change--up",
+        down && "market-ticker-change--down",
+        !up && !down && "market-ticker-change--flat"
+      )}
+    >
+      {formatChangePercent(changePercent)}
+    </span>
+  );
 }
 
 /** ISO → «۱۴۰۵/۰۴/۲۷ · ۲۱:۱۰» in Asia/Tehran */
@@ -101,29 +142,48 @@ function tomanItem(
   id: string,
   label: string,
   toman: number | null | undefined,
-  usdFallback?: number
+  usdFallback: number | undefined,
+  changePercent: number | null
 ): TickerItem | null {
   if (toman != null) {
-    return { id, label, amount: formatAmountFa(toman), unit: "تومان" };
+    return { id, label, amount: formatAmountFa(toman), unit: "تومان", changePercent };
   }
   if (usdFallback != null) {
-    return { id, label, amount: formatAmountUsd(usdFallback), unit: "$" };
+    return {
+      id,
+      label,
+      amount: formatAmountUsd(usdFallback),
+      unit: "$",
+      changePercent,
+    };
   }
   return null;
+}
+
+function currencyChangePercent(
+  explicit: number | undefined,
+  absoluteChange: number | undefined,
+  value: number
+): number | null {
+  const fromExplicit = normalizeChangePercent(explicit);
+  if (fromExplicit != null) return fromExplicit;
+  if (absoluteChange == null || !(value > 0)) return null;
+  return normalizeChangePercent((absoluteChange / value) * 100);
 }
 
 function buildItems(market: MarketTickerData | undefined): TickerItem[] {
   if (!market) return [];
   const items: TickerItem[] = [];
   const { gold, currency } = market;
+  const goldChange = normalizeChangePercent(gold?.changePercent);
 
   if (gold) {
     const goldItems = [
-      tomanItem("g18", "گرم ۱۸ عیار", gold.gram18kToman, gold.gram18kUsd),
-      tomanItem("g24", "گرم ۲۴ عیار", gold.gram24kToman, gold.gram24kUsd),
-      tomanItem("m18", "مثقال ۱۸ عیار", gold.mesghal18kToman, gold.mesghal18kUsd),
-      tomanItem("m24", "مثقال ۲۴ عیار", gold.mesghal24kToman, gold.mesghal24kUsd),
-      tomanItem("qcoin", "ربع سکه", gold.quarterCoinToman, gold.quarterCoinUsd),
+      tomanItem("g18", "گرم ۱۸ عیار", gold.gram18kToman, gold.gram18kUsd, goldChange),
+      tomanItem("g24", "گرم ۲۴ عیار", gold.gram24kToman, gold.gram24kUsd, goldChange),
+      tomanItem("m18", "مثقال ۱۸ عیار", gold.mesghal18kToman, gold.mesghal18kUsd, goldChange),
+      tomanItem("m24", "مثقال ۲۴ عیار", gold.mesghal24kToman, gold.mesghal24kUsd, goldChange),
+      tomanItem("qcoin", "ربع سکه", gold.quarterCoinToman, gold.quarterCoinUsd, goldChange),
     ];
     for (const item of goldItems) {
       if (item) items.push(item);
@@ -137,12 +197,22 @@ function buildItems(market: MarketTickerData | undefined): TickerItem[] {
         label: "دلار آزاد",
         amount: formatAmountFa(currency.usdFreeToman),
         unit: "تومان",
+        changePercent: currencyChangePercent(
+          currency.usdChangePercent,
+          currency.usdChange,
+          currency.usdFreeToman
+        ),
       },
       {
         id: "usdt",
         label: "تتر",
         amount: formatAmountFa(currency.usdtToman),
         unit: "تومان",
+        changePercent: currencyChangePercent(
+          currency.usdtChangePercent,
+          currency.usdtChange,
+          currency.usdtToman
+        ),
       }
     );
   }
@@ -156,6 +226,7 @@ function TickerChip({ item }: { item: TickerItem }) {
       <span className="market-ticker-label">{item.label}</span>
       <span className="market-ticker-value">{item.amount}</span>
       <span className="market-ticker-unit">{item.unit}</span>
+      <ChangeBadge changePercent={item.changePercent} />
     </div>
   );
 }
@@ -310,6 +381,7 @@ export function MarketPriceTicker({ market, loading, errorMessage, className }: 
               <div key={item.id} className="market-ticker-dropdown-row" role="listitem">
                 <span className="market-ticker-label">{item.label}</span>
                 <span className="market-ticker-dropdown-price">
+                  <ChangeBadge changePercent={item.changePercent} />
                   <span className="market-ticker-value">{item.amount}</span>
                   <span className="market-ticker-unit">{item.unit}</span>
                 </span>
