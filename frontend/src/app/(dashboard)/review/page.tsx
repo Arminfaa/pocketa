@@ -473,7 +473,7 @@ export default function ReviewPage() {
                   <div className="min-w-0 flex-1 space-y-1">
                     <Text type="secondary" className="text-sm break-words">
                       {formatJalaliDate(tx.date)}
-                      {tx.bankMeta?.time ? ` · ${tx.bankMeta.time}` : ""}
+                      {tx.bankMeta?.time ? ` · ${toPersianDigits(tx.bankMeta.time)}` : ""}
                       {" · "}
                       {accountName(tx.accountId)}
                       {" · "}
