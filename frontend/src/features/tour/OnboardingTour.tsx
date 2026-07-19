@@ -37,7 +37,7 @@ function measureTarget(el: HTMLElement): Rect {
 }
 
 const SCRIM =
-  "pointer-events-none absolute bg-sky-950/52 backdrop-blur-[7px]";
+  "pointer-events-none absolute bg-slate-900/35 backdrop-blur-[3px]";
 
 /** Four blurred blue panels around the spotlight hole. */
 function TourScrimPanels({ rect }: { rect: Rect }) {
@@ -349,12 +349,12 @@ export function OnboardingTour({
                   left: spotlight.left,
                   width: spotlight.width,
                   height: spotlight.height,
-                  boxShadow: "0 0 0 9999px rgba(8, 47, 73, 0.22)",
+                  boxShadow: "0 0 0 9999px rgba(15, 23, 42, 0.12)",
                 }}
               />
             </>
           ) : (
-            <div className="absolute inset-0 bg-sky-950/55 backdrop-blur-[7px]" />
+            <div className="absolute inset-0 bg-slate-900/35 backdrop-blur-[3px]" />
           )}
         </div>
 
