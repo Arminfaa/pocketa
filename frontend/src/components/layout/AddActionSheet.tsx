@@ -263,10 +263,11 @@ export function AddActionSheet({ open, onClose }: Props) {
           "rounded-t-[1.85rem]",
           "bg-gradient-to-b from-cyan-500/[0.12] via-[var(--card)] to-[var(--card)]",
           "dark:from-brand-500/[0.16] dark:via-[var(--card)] dark:to-[var(--card)]",
-          // Light: full-bleed, navbar-matching hairline (top + sides), no shadow
-          "border border-b-0 border-[color-mix(in_srgb,var(--muted)_22%,transparent)] shadow-none",
+          // Light: inset hairline follows the top radius (CSS border-b-0 often
+          // leaves the curved corners unstroked while only the straight sides show).
+          "border-0 shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--muted)_22%,transparent)]",
           // Dark: previous ring + lift shadow
-          "dark:border-transparent dark:ring-1 dark:ring-inset dark:ring-brand-400/15",
+          "dark:ring-1 dark:ring-inset dark:ring-brand-400/15",
           "dark:shadow-[0_-16px_48px_rgba(0,0,0,0.45)]",
           "will-change-transform"
         )}
