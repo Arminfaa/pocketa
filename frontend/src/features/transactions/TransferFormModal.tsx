@@ -79,7 +79,8 @@ export function TransferFormModal({
       }
     >
       <Typography.Text type="secondary" className="mb-3 block text-sm">
-        مبلغ از حساب مبدأ کم و به مقصد اضافه می‌شود، بدون اینکه درآمد/هزینه ماه را باد کند.
+        دو تراکنش هم‌زمان ثبت می‌شود: منفی (−) روی حساب مبدأ و مثبت (+) روی حساب مقصد.
+        در گزارش درآمد/هزینه ماه شمرده نمی‌شوند.
       </Typography.Text>
       <Form
         form={form}

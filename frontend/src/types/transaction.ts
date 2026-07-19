@@ -26,6 +26,9 @@ export type Transaction = {
   /** HH:mm when known (import or manual) */
   time?: string;
   source?: "manual" | "bank_sms" | "balance_adjustment" | "transfer" | "investment" | "goal";
+  /** Links both legs of an inter-account transfer */
+  transferGroupId?: string;
+  linkedTransactionId?: string;
   needsReview?: boolean;
   tags?: string[];
   importHash?: string;

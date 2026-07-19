@@ -48,6 +48,32 @@ import { QueryError } from "@/components/ui/query-error";
 import { EmptyState } from "@/components/ui/empty-state";
 import { AmountText } from "@/components/ui/amount-text";
 import { FilterBar, FilterField } from "@/components/ui/filter-bar";
+
+function isTransferTx(tx: Pick<Transaction, "source">): boolean {
+  return tx.source === "transfer";
+}
+
+/** Type column / caption: transfers show as انتقال (+/−), not درآمد/هزینه */
+function transactionTypeLabel(tx: Pick<Transaction, "type" | "source">): {
+  text: string;
+  tone: "success" | "danger" | "secondary";
+} {
+  if (isTransferTx(tx)) {
+    return tx.type === "income"
+      ? { text: "انتقال +", tone: "success" }
+      : { text: "انتقال −", tone: "danger" };
+  }
+  return tx.type === "income"
+    ? { text: "درآمد", tone: "success" }
+    : { text: "هزینه", tone: "danger" };
+}
+
+function transactionAmountCaption(tx: Pick<Transaction, "type" | "source">): string {
+  if (isTransferTx(tx)) {
+    return tx.type === "income" ? "ورود" : "خروج";
+  }
+  return tx.type === "income" ? "دریافتی" : "پرداختی";
+}
 import { SectionCard } from "@/components/ui/section-card";
 import { SoftList, SoftListItem, SoftListRow } from "@/components/ui/soft-list";
 import { TransactionFormModal } from "@/features/transactions/TransactionFormModal";
@@ -179,7 +205,7 @@ export default function TransactionsPage() {
   const transferMutation = useMutation({
     mutationFn: createTransfer,
     onSuccess: () => {
-      message.success("انتقال بین حساب‌ها ثبت شد");
+      message.success("انتقال ثبت شد: یک تراکنش منفی (−) و یک مثبت (+)");
       setTransferOpen(false);
       void queryClient.invalidateQueries({ queryKey: ["transactions"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
@@ -337,12 +363,11 @@ export default function TransactionsPage() {
       title: "نوع",
       dataIndex: "type",
       key: "type",
-      width: 90,
-      render: (type: Transaction["type"]) => (
-        <Text type={type === "income" ? "success" : "danger"}>
-          {type === "income" ? "درآمد" : "هزینه"}
-        </Text>
-      ),
+      width: 110,
+      render: (_type: Transaction["type"], tx) => {
+        const label = transactionTypeLabel(tx);
+        return <Text type={label.tone}>{label.text}</Text>;
+      },
     },
     {
       title: "دسته‌بندی",
@@ -639,7 +664,8 @@ export default function TransactionsPage() {
                         formatJalaliDate(tx.date),
                         transactionTimeOf(tx) || undefined
                       )}{" "}
-                      · {categoryName(tx.categoryId)} · {accountName(tx.accountId)}
+                      · {isTransferTx(tx) ? transactionTypeLabel(tx).text : categoryName(tx.categoryId)}{" "}
+                      · {accountName(tx.accountId)}
                     </span>
                   </>
                 }
@@ -648,7 +674,7 @@ export default function TransactionsPage() {
                     tone={tx.type === "income" ? "income" : "expense"}
                     size="sm"
                     prefix={tx.type === "income" ? "+" : "-"}
-                    caption={tx.type === "income" ? "دریافتی" : "پرداختی"}
+                    caption={transactionAmountCaption(tx)}
                   >
                     {formatToman(tx.amount)}
                   </AmountText>
