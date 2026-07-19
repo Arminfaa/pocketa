@@ -54,11 +54,12 @@ export default function HelpPage() {
   );
 
   function onStartTour() {
-    if (!isMobileShell) setSidebarCollapsed(false);
+    const shell = isMobileShell ? "mobile" : "desktop";
+    if (shell === "desktop") setSidebarCollapsed(false);
     // Leave help so the first spotlight targets are visible on dashboard chrome
     router.push("/dashboard");
     window.setTimeout(() => {
-      startTour(isMobileShell ? "mobile" : "desktop");
+      startTour(shell);
     }, 320);
   }
 
@@ -68,20 +69,11 @@ export default function HelpPage() {
         title="راهنما"
         description="آموزش کامل بخش‌های Pocketa — بخوانید یا تور تعاملی را اجرا کنید."
         icon={<QuestionCircleOutlined />}
-        actions={
-          <Button type="primary" icon={<PlayCircleOutlined />} onClick={onStartTour}>
-            شروع تور آموزشی
-          </Button>
-        }
       />
 
       <SectionCard
         title="تور تعاملی"
-        description={
-          isMobileShell
-            ? "تور موبایل نوار پایین، افزودن سریع، منوی بیشتر و تک‌تک صفحات را نشان می‌دهد."
-            : "تور دسکتاپ منوی کناری و همه بخش‌ها را قدم‌به‌قدم توضیح می‌دهد."
-        }
+        description="با یک دکمه، تور مناسب همین دستگاه اجرا می‌شود: در موبایل نوار پایین و شیت‌ها، در دسکتاپ منوی کناری و بخش‌ها."
       >
         <Flex vertical gap={12}>
           <Paragraph className="!mb-0 !text-app-muted">
@@ -91,7 +83,7 @@ export default function HelpPage() {
           </Paragraph>
           <div>
             <Button type="primary" icon={<PlayCircleOutlined />} onClick={onStartTour}>
-              {isMobileShell ? "شروع تور موبایل" : "شروع تور دسکتاپ"}
+              شروع تور آموزشی
             </Button>
           </div>
         </Flex>
