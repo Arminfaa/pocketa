@@ -122,12 +122,32 @@
     box-shadow: none !important;
   }
 
+  /* Password / affix inputs: only the outer wrapper keeps the border.
+     Nesting .ant-input styles would draw a second inner box (visible on mobile). */
+  .ant-input-affix-wrapper .ant-input,
+  .ant-input-affix-wrapper.ant-input-affix-wrapper .ant-input,
+  .ant-input-number-affix-wrapper .ant-input-number-input {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+
   .ant-input:hover,
   .ant-input-affix-wrapper:hover,
   .ant-select:not(.ant-select-disabled):hover .ant-select-selector,
   .ant-picker:hover,
   .ant-input-number:hover {
     border-color: color-mix(in srgb, var(--accent) 45%, transparent) !important;
+  }
+
+  .ant-input-affix-wrapper:hover .ant-input,
+  .ant-input-affix-wrapper .ant-input:hover,
+  .ant-input-affix-wrapper .ant-input:focus,
+  .ant-input-number-affix-wrapper .ant-input-number-input:focus {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
   }
 
   .ant-input:focus,
@@ -139,6 +159,13 @@
     border-color: color-mix(in srgb, var(--accent) 70%, transparent) !important;
     background: var(--card) !important;
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent) !important;
+  }
+
+  .ant-input-affix-wrapper-focused .ant-input,
+  .ant-input-affix-wrapper .ant-input-focused {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
   }
 
   /* Dark: borderless inputs — darker fill only */
