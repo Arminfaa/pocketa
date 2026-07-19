@@ -12,11 +12,16 @@ import {
   getActiveAccountIds,
   getNonOperatingCategoryIds,
 } from "../services/accounting.service";
-import { jalaliDaysBefore, jalaliDaysUntil, todayJalali } from "../utils/jalaliDate";
+import { jalaliDaysBefore, jalaliDaysUntil, jalaliYearMonth, todayJalali } from "../utils/jalaliDate";
 import { RecurringTransactionModel } from "../models/RecurringTransaction";
+import { SavingsGoalModel } from "../models/SavingsGoal";
+import { isMonthChecklistClear } from "../services/recurring-month.service";
 
 /** Active dues in the reminder window: from 3 days before until paid (incl. overdue). */
 const DUE_BANNER_DAYS_AHEAD = 3;
+
+/** Min total cash (تومان) to suggest goal contributions on the dashboard. */
+const GOALS_MOTIVATION_MIN_CASH = 100_000;
 
 function currentJalaliMonthYear() {
   const now = new Date();
@@ -95,36 +100,72 @@ export const getDashboard = asyncHandler(async (req: Request, res: Response) => 
   const weekFrom = jalaliDaysBefore(6);
   const weekTo = todayJalali();
   const today = weekTo;
+  const monthLabel = jalaliYearMonth(today);
 
-  const [incomeThis, expenseThis, incomePrev, expensePrev, overall, netWorth, recentWeek, dueItems] =
-    await Promise.all([
-      sumOperatingByTypeAndMonth(userId, "income", year, month, accountScope, nonOp),
-      sumOperatingByTypeAndMonth(userId, "expense", year, month, accountScope, nonOp),
-      sumOperatingByTypeAndMonth(userId, "income", prev.year, prev.month, accountScope, nonOp),
-      sumOperatingByTypeAndMonth(userId, "expense", prev.year, prev.month, accountScope, nonOp),
-      TransactionModel.aggregate([
-        { $match: balanceMatch },
+  const [
+    incomeThis,
+    expenseThis,
+    incomePrev,
+    expensePrev,
+    overall,
+    netWorth,
+    recentWeek,
+    dueItems,
+    recurringAll,
+    goals,
+    totalCashRows,
+  ] = await Promise.all([
+    sumOperatingByTypeAndMonth(userId, "income", year, month, accountScope, nonOp),
+    sumOperatingByTypeAndMonth(userId, "expense", year, month, accountScope, nonOp),
+    sumOperatingByTypeAndMonth(userId, "income", prev.year, prev.month, accountScope, nonOp),
+    sumOperatingByTypeAndMonth(userId, "expense", prev.year, prev.month, accountScope, nonOp),
+    TransactionModel.aggregate([
+      { $match: balanceMatch },
+      { $group: { _id: "$type", sum: { $sum: "$amount" } } },
+    ]),
+    accountId ? null : computeNetWorth(userId),
+    TransactionModel.find({
+      userId: new mongoose.Types.ObjectId(userId),
+      accountId: accountScope,
+      date: { $gte: weekFrom, $lte: weekTo },
+      source: { $nin: ["balance_adjustment"] },
+    })
+      .sort({ date: -1, time: -1, createdAt: -1 })
+      .limit(20)
+      .select("type amount title date time bankMeta.time categoryId accountId source needsReview")
+      .populate("categoryId", "name type color")
+      .lean(),
+    RecurringTransactionModel.find({
+      userId: new mongoose.Types.ObjectId(userId),
+      active: true,
+    })
+      .select("title amount type kind nextPaymentDate")
+      .lean(),
+    RecurringTransactionModel.find({
+      userId: new mongoose.Types.ObjectId(userId),
+    })
+      .select("kind active dayOfMonth lastPaymentDate nextPaymentDate paymentsMade")
+      .lean(),
+    SavingsGoalModel.find({
+      userId: new mongoose.Types.ObjectId(userId),
+      active: true,
+    })
+      .select("title targetAmount currentAmount color")
+      .lean(),
+    // Always total cash across active accounts (not scoped to account filter)
+    (async () => {
+      if (activeIds.length === 0) return [] as Array<{ _id: string; sum: number }>;
+      return TransactionModel.aggregate([
+        {
+          $match: {
+            userId: new mongoose.Types.ObjectId(userId),
+            accountId: { $in: activeIds },
+          },
+        },
         { $group: { _id: "$type", sum: { $sum: "$amount" } } },
-      ]),
-      accountId ? null : computeNetWorth(userId),
-      TransactionModel.find({
-        userId: new mongoose.Types.ObjectId(userId),
-        accountId: accountScope,
-        date: { $gte: weekFrom, $lte: weekTo },
-        source: { $nin: ["balance_adjustment"] },
-      })
-        .sort({ date: -1, time: -1, createdAt: -1 })
-        .limit(20)
-        .select("type amount title date time bankMeta.time categoryId accountId source needsReview")
-        .populate("categoryId", "name type color")
-        .lean(),
-      RecurringTransactionModel.find({
-        userId: new mongoose.Types.ObjectId(userId),
-        active: true,
-      })
-        .select("title amount type kind nextPaymentDate")
-        .lean(),
-    ]);
+      ]);
+    })(),
+  ]);
 
   const dueBanners = dueItems
     .map((item) => {
@@ -142,6 +183,59 @@ export const getDashboard = asyncHandler(async (req: Request, res: Response) => 
     })
     .filter((item) => item.daysUntil <= DUE_BANNER_DAYS_AHEAD)
     .sort((a, b) => a.daysUntil - b.daysUntil || a.dueDate.localeCompare(b.dueDate));
+
+  let totalCashIncome = 0;
+  let totalCashExpense = 0;
+  for (const row of totalCashRows) {
+    if (row._id === "income") totalCashIncome = row.sum ?? 0;
+    if (row._id === "expense") totalCashExpense = row.sum ?? 0;
+  }
+  const totalCash = totalCashIncome - totalCashExpense;
+
+  const monthDuesClear = isMonthChecklistClear(
+    recurringAll.map((item) => ({
+      kind: item.kind,
+      active: item.active,
+      dayOfMonth: item.dayOfMonth,
+      lastPaymentDate: item.lastPaymentDate,
+      nextPaymentDate: item.nextPaymentDate,
+      paymentsMade: item.paymentsMade,
+    })),
+    today
+  );
+
+  const goalSuggestions = goals
+    .map((goal) => {
+      const target = Number(goal.targetAmount) || 0;
+      const current = Number(goal.currentAmount) || 0;
+      const remaining = Math.max(0, target - current);
+      const suggestedAmount = Math.min(remaining, Math.max(0, totalCash));
+      const percent = target > 0 ? Math.min(100, (current / target) * 100) : 0;
+      return {
+        id: String(goal._id),
+        title: String(goal.title ?? ""),
+        remaining,
+        percent,
+        suggestedAmount,
+        canComplete: remaining > 0 && suggestedAmount >= remaining,
+        color: String(goal.color ?? "#6366f1"),
+      };
+    })
+    .filter((g) => g.remaining > 0 && g.suggestedAmount > 0)
+    .sort((a, b) => {
+      if (a.canComplete !== b.canComplete) return a.canComplete ? -1 : 1;
+      return b.suggestedAmount - a.suggestedAmount;
+    });
+
+  const goalsMotivation = {
+    eligible:
+      monthDuesClear &&
+      totalCash >= GOALS_MOTIVATION_MIN_CASH &&
+      goalSuggestions.length > 0,
+    monthLabel,
+    cash: totalCash,
+    goals: goalSuggestions,
+  };
 
   const totalByType = new Map<string, number>();
   for (const row of overall) totalByType.set(String(row._id), row.sum);
@@ -179,6 +273,7 @@ export const getDashboard = asyncHandler(async (req: Request, res: Response) => 
         }
       : null,
     dueBanners,
+    goalsMotivation,
     recentWeek: {
       from: weekFrom,
       to: weekTo,
