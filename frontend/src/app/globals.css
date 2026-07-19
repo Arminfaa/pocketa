@@ -109,48 +109,6 @@
     @apply !shadow-none;
   }
 
-  /*
-   * Space.Compact / Input.Search: global !rounded-2xl on inputs & buttons
-   * splits the control into two pills. Compact item classes live on the
-   * child (`ant-input-compact-*` / `ant-btn-compact-*`), not the wrapper.
-   */
-  .ant-space-compact {
-    gap: 0 !important;
-  }
-
-  .ant-space-compact > .ant-input-compact-item:not(.ant-input-compact-last-item),
-  .ant-space-compact > .ant-input-affix-wrapper.ant-input-compact-item:not(
-      .ant-input-compact-last-item
-    ),
-  .ant-space-compact > .ant-btn-compact-item:not(.ant-btn-compact-last-item) {
-    margin-inline-end: -1px !important;
-  }
-
-  .ant-space-compact
-    > .ant-input-compact-item.ant-input-compact-first-item:not(
-      .ant-input-compact-last-item
-    ),
-  .ant-space-compact
-    > .ant-input-affix-wrapper.ant-input-compact-first-item:not(
-      .ant-input-compact-last-item
-    ) {
-    border-start-end-radius: 0 !important;
-    border-end-end-radius: 0 !important;
-  }
-
-  .ant-space-compact
-    > .ant-btn.ant-btn-compact-item.ant-btn-compact-last-item:not(
-      .ant-btn-compact-first-item
-    ),
-  .ant-input-search .ant-btn.ant-input-search-button.ant-btn-compact-last-item {
-    border-start-start-radius: 0 !important;
-    border-end-start-radius: 0 !important;
-  }
-
-  .ant-input-search .ant-input-search-button {
-    z-index: 1;
-  }
-
   .ant-input,
   .ant-input-affix-wrapper,
   .ant-select-selector,
