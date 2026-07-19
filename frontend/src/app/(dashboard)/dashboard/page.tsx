@@ -32,6 +32,10 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { AppModal } from "@/components/ui/modal";
 import { MarketPriceTicker } from "@/components/dashboard/MarketPriceTicker";
 import { DueBanners, type DueBannerItem } from "@/components/dashboard/DueBanners";
+import {
+  GoalsMotivationBanner,
+  type GoalsMotivationData,
+} from "@/components/dashboard/GoalsMotivationBanner";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { useQuickAccessStore } from "@/stores/quick-access.store";
 import { enablePushNotifications, fetchPushStatus } from "@/lib/push";
@@ -162,6 +166,7 @@ export default function DashboardPage() {
           netWorth: number;
         } | null;
         dueBanners?: DueBannerItem[];
+        goalsMotivation?: GoalsMotivationData;
         recentWeek: {
           from: string;
           to: string;
@@ -267,6 +272,7 @@ export default function DashboardPage() {
       ) : dashboard ? (
         <>
           <DueBanners items={dueBanners} />
+          <GoalsMotivationBanner data={dashboard.goalsMotivation} />
 
           <HeroBalanceCard
             balance={formatToman(dashboard.totals.balance)}

@@ -11,62 +11,22 @@ import {
   RecurringGenerateSchema,
   RecurringUpdateSchema,
 } from "../validations/recurring";
-import { normalizeJalaliDate, toEnglishDigits } from "../utils/normalizeDigits";
+import { getMarketPrices } from "../services/market-prices.service";
+import {
+  belongsToMonthChecklist,
+  computePaidThisMonth,
+} from "../services/recurring-month.service";
 import {
   advanceJalaliDate,
   advanceMonthlyByDay,
   isDueOnOrBefore,
-  isSameJalaliMonth,
   jalaliDateFromDay,
   jalaliYearMonth,
   nextOccurrenceFromDayOfMonth,
   todayJalali,
   type Frequency,
 } from "../utils/jalaliDate";
-import { getMarketPrices } from "../services/market-prices.service";
-
-function parseYm(today: string): { jy: number; jm: number } {
-  const [y, m] = normalizeJalaliDate(toEnglishDigits(today)).split("/").map(Number);
-  return { jy: y!, jm: m! };
-}
-
-/** True if this month's installment/debt has already been paid. */
-function computePaidThisMonth(item: {
-  kind?: string;
-  active: boolean;
-  dayOfMonth?: number | null;
-  lastPaymentDate?: string | null;
-  nextPaymentDate: string;
-  paymentsMade?: number | null;
-}, today: string): boolean {
-  const kind = (item.kind as "recurring" | "one_time" | undefined) ?? "recurring";
-  const lastPaymentDate = item.lastPaymentDate
-    ? normalizeJalaliDate(item.lastPaymentDate)
-    : null;
-
-  if (lastPaymentDate && isSameJalaliMonth(lastPaymentDate, today)) {
-    return true;
-  }
-
-  if (kind === "one_time") {
-    return (
-      !item.active &&
-      (item.paymentsMade ?? 0) > 0 &&
-      isSameJalaliMonth(item.nextPaymentDate, today)
-    );
-  }
-
-  // قسط: موعد بعدی از موعد همین ماه جلوتر + حداقل یک پرداخت
-  const { jy, jm } = parseYm(today);
-  const dayOfMonth =
-    item.dayOfMonth ??
-    Number(normalizeJalaliDate(toEnglishDigits(item.nextPaymentDate)).split("/")[2]);
-  if (!Number.isFinite(dayOfMonth) || dayOfMonth < 1) return false;
-  if ((item.paymentsMade ?? 0) < 1) return false;
-
-  const thisMonthDue = jalaliDateFromDay(jy, jm, dayOfMonth);
-  return normalizeJalaliDate(item.nextPaymentDate) > normalizeJalaliDate(thisMonthDue);
-}
+import { normalizeJalaliDate } from "../utils/normalizeDigits";
 
 function mapItem(item: {
   _id: unknown;
@@ -161,28 +121,6 @@ function resolveAssetLinkedAmount(
         : market.gold?.gram18kToman;
   if (unit == null || unit <= 0) return item.amount;
   return Math.max(1, Math.round(qty * unit));
-}
-
-function belongsToMonthChecklist(
-  item: {
-    kind?: string;
-    active: boolean;
-    nextPaymentDate: string;
-    paidThisMonth: boolean;
-  },
-  today: string
-): boolean {
-  const kind = (item.kind as "recurring" | "one_time" | undefined) ?? "recurring";
-  const currentYm = jalaliYearMonth(today);
-
-  if (kind === "one_time") {
-    return jalaliYearMonth(item.nextPaymentDate) === currentYm;
-  }
-
-  if (item.paidThisMonth) return true;
-  if (!item.active) return false;
-  // هنوز موعد همین ماه یا عقب‌افتاده دارد
-  return jalaliYearMonth(item.nextPaymentDate) <= currentYm;
 }
 
 export const list = asyncHandler(async (req: Request, res: Response) => {
