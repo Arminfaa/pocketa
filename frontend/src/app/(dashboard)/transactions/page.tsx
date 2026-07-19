@@ -309,6 +309,14 @@ export default function TransactionsPage() {
     setFilters((f) => ({ ...f, search: searchInput.trim() }));
   }
 
+  /** Clear input + applied search filter (× on the field). */
+  function clearSearch() {
+    setSearchInput("");
+    setPage(1);
+    setSelectedIds([]);
+    setFilters((f) => ({ ...f, search: "" }));
+  }
+
   function clearFilters() {
     setSearchInput("");
     setPage(1);
@@ -530,7 +538,17 @@ export default function TransactionsPage() {
             className="w-full"
             placeholder="جستجو در عنوان یا توضیحات..."
             value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value;
+              setSearchInput(value);
+              // × / emptying the field should also clear the applied query
+              if (!value.trim() && filters.search) {
+                setPage(1);
+                setSelectedIds([]);
+                setFilters((f) => ({ ...f, search: "" }));
+              }
+            }}
+            onClear={clearSearch}
             onPressEnter={applySearch}
             allowClear
             suffix={
