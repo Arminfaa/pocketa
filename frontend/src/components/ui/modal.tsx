@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { cn } from "@/lib/cn";
+import { scheduleBodyScrollLockRepair } from "@/lib/body-scroll-lock";
 
 export interface AppModalProps {
   title: ReactNode;
@@ -178,6 +179,9 @@ export function AppModal({
         if (visible) {
           window.requestAnimationFrame(measureChromeHeight);
           window.setTimeout(measureChromeHeight, 50);
+        } else {
+          // Sheet/Modal races can leave body overflow stuck after close.
+          scheduleBodyScrollLockRepair();
         }
         afterOpenChange?.(visible);
       }}

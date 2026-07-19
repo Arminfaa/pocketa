@@ -15,6 +15,7 @@ import {
 } from "framer-motion";
 import { ADD_SHORTCUT_ITEMS } from "./nav-items";
 import { cn } from "@/lib/cn";
+import { useBodyScrollLock } from "@/lib/body-scroll-lock";
 
 type Props = {
   open: boolean;
@@ -106,14 +107,7 @@ export function AddActionSheet({ open, onClose }: Props) {
     });
   }, [open, present, sheetControls, y]);
 
-  useEffect(() => {
-    if (!present) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [present]);
+  useBodyScrollLock(present);
 
   // Block native scroll while the sheet-dismiss pull is active.
   useEffect(() => {
@@ -273,6 +267,7 @@ export function AddActionSheet({ open, onClose }: Props) {
           "shadow-[0_-16px_48px_rgba(8,145,178,0.18)] dark:shadow-[0_-16px_48px_rgba(0,0,0,0.45)]",
           "will-change-transform"
         )}
+        data-body-scroll-lock={present ? "1" : undefined}
         style={{
           y,
           paddingBottom: "env(safe-area-inset-bottom, 0px)",

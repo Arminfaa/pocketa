@@ -15,6 +15,7 @@ import {
 } from "framer-motion";
 import { MORE_NAV_ITEMS, matchNavHref } from "./nav-items";
 import { cn } from "@/lib/cn";
+import { useBodyScrollLock } from "@/lib/body-scroll-lock";
 
 type Props = {
   open: boolean;
@@ -86,14 +87,7 @@ export function MoreActionSheet({
     });
   }, [open, present, sheetControls, y]);
 
-  useEffect(() => {
-    if (!present) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [present]);
+  useBodyScrollLock(present);
 
   function requestClose() {
     if (closingRef.current) return;
@@ -143,6 +137,7 @@ export function MoreActionSheet({
           "shadow-[0_-12px_40px_rgba(15,23,42,0.16)]",
           "will-change-transform"
         )}
+        data-body-scroll-lock={present ? "1" : undefined}
         style={{
           y,
           paddingBottom: "env(safe-area-inset-bottom, 0px)",
