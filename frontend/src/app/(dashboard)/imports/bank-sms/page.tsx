@@ -30,7 +30,7 @@ import {
   type ParsedImportItem,
 } from "@/services/imports";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
-import { formatToman, formatJalaliDate } from "@/lib/format";
+import { formatToman, formatJalaliDate, toPersianDigits } from "@/lib/format";
 import { Sk } from "@/components/ui/skeleton";
 import { cn } from "@/lib/cn";
 import { PageShell } from "@/components/ui/page-shell";
@@ -327,7 +327,7 @@ export default function BankSmsImportPage() {
                       subtitle={
                         <>
                           {formatJalaliDate(item.date)}
-                          {item.time ? ` · ${item.time}` : ""}
+                          {item.time ? ` · ${toPersianDigits(item.time)}` : ""}
                           {item.feeAmount && item.feeAmount > 0 ? (
                             <>
                               {" · "}

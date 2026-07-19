@@ -1,4 +1,6 @@
-/** Prefer top-level time, then bankMeta.time. */
+import { toPersianDigits } from "@/lib/format";
+
+/** Prefer top-level time, then bankMeta.time. Returns HH:mm (English digits) for forms/API. */
 export function transactionTimeOf(tx: {
   time?: string | null;
   bankMeta?: { time?: string | null } | null;
@@ -9,7 +11,8 @@ export function transactionTimeOf(tx: {
   return `${String(hh).padStart(2, "0")}:${String(mm).slice(0, 2)}`;
 }
 
+/** Display date · time with Persian digits (e.g. ۱۴۰۵/۰۴/۲۸ · ۱۴:۳۰). */
 export function formatTransactionDateTime(date: string, time?: string): string {
   if (!time) return date;
-  return `${date} · ${time}`;
+  return `${date} · ${toPersianDigits(time)}`;
 }
