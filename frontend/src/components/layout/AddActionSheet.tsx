@@ -263,8 +263,10 @@ export function AddActionSheet({ open, onClose }: Props) {
           "rounded-t-[1.85rem]",
           "bg-gradient-to-b from-cyan-500/[0.12] via-[var(--card)] to-[var(--card)]",
           "dark:from-brand-500/[0.16] dark:via-[var(--card)] dark:to-[var(--card)]",
-          "ring-1 ring-inset ring-cyan-600/12 dark:ring-brand-400/15",
-          "shadow-[0_-16px_48px_rgba(8,145,178,0.18)] dark:shadow-[0_-16px_48px_rgba(0,0,0,0.45)]",
+          // Light: navbar-matching hairline, no shadow. Dark: keep ring + lift shadow.
+          "border border-b-0 border-[color-mix(in_srgb,var(--muted)_22%,transparent)] shadow-none",
+          "dark:border-transparent dark:ring-1 dark:ring-inset dark:ring-brand-400/15",
+          "dark:shadow-[0_-16px_48px_rgba(0,0,0,0.45)]",
           "will-change-transform"
         )}
         data-tour="add-sheet"
@@ -306,7 +308,7 @@ export function AddActionSheet({ open, onClose }: Props) {
               type="text"
               onClick={requestClose}
               onPointerDown={(e) => e.stopPropagation()}
-              className="!rounded-xl !text-slate-500 dark:!text-app-muted"
+              className="!rounded-xl !font-semibold !text-brand-600 dark:!font-normal dark:!text-app-muted"
             >
               بستن
             </Button>
