@@ -31,6 +31,7 @@ import { AmountText } from "@/components/ui/amount-text";
 import { EmptyState } from "@/components/ui/empty-state";
 import { AppModal } from "@/components/ui/modal";
 import { MarketPriceTicker } from "@/components/dashboard/MarketPriceTicker";
+import { DueBanners, type DueBannerItem } from "@/components/dashboard/DueBanners";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { useQuickAccessStore } from "@/stores/quick-access.store";
 import { enablePushNotifications, fetchPushStatus } from "@/lib/push";
@@ -160,6 +161,7 @@ export default function DashboardPage() {
           receivables: number;
           netWorth: number;
         } | null;
+        dueBanners?: DueBannerItem[];
         recentWeek: {
           from: string;
           to: string;
@@ -219,6 +221,7 @@ export default function DashboardPage() {
       : market?.errors?.gold || market?.errors?.currency;
 
   const recentItems = dashboard?.recentWeek?.items ?? [];
+  const dueBanners = dashboard?.dueBanners ?? [];
 
   return (
     <PageShell width="full">
@@ -263,6 +266,8 @@ export default function DashboardPage() {
         />
       ) : dashboard ? (
         <>
+          <DueBanners items={dueBanners} />
+
           <HeroBalanceCard
             balance={formatToman(dashboard.totals.balance)}
             hint={`پس‌انداز عملیاتی این ماه: ${dashboard.totals.savingsPercent.toFixed(1)}٪`}

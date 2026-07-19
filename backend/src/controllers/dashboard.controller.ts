@@ -12,7 +12,11 @@ import {
   getActiveAccountIds,
   getNonOperatingCategoryIds,
 } from "../services/accounting.service";
-import { jalaliDaysBefore, todayJalali } from "../utils/jalaliDate";
+import { jalaliDaysBefore, jalaliDaysUntil, todayJalali } from "../utils/jalaliDate";
+import { RecurringTransactionModel } from "../models/RecurringTransaction";
+
+/** Active dues in the reminder window: from 3 days before until paid (incl. overdue). */
+const DUE_BANNER_DAYS_AHEAD = 3;
 
 function currentJalaliMonthYear() {
   const now = new Date();
@@ -90,8 +94,9 @@ export const getDashboard = asyncHandler(async (req: Request, res: Response) => 
 
   const weekFrom = jalaliDaysBefore(6);
   const weekTo = todayJalali();
+  const today = weekTo;
 
-  const [incomeThis, expenseThis, incomePrev, expensePrev, overall, netWorth, recentWeek] =
+  const [incomeThis, expenseThis, incomePrev, expensePrev, overall, netWorth, recentWeek, dueItems] =
     await Promise.all([
       sumOperatingByTypeAndMonth(userId, "income", year, month, accountScope, nonOp),
       sumOperatingByTypeAndMonth(userId, "expense", year, month, accountScope, nonOp),
@@ -113,7 +118,30 @@ export const getDashboard = asyncHandler(async (req: Request, res: Response) => 
         .select("type amount title date time bankMeta.time categoryId accountId source needsReview")
         .populate("categoryId", "name type color")
         .lean(),
+      RecurringTransactionModel.find({
+        userId: new mongoose.Types.ObjectId(userId),
+        active: true,
+      })
+        .select("title amount type kind nextPaymentDate")
+        .lean(),
     ]);
+
+  const dueBanners = dueItems
+    .map((item) => {
+      const dueDate = String(item.nextPaymentDate);
+      const daysUntil = jalaliDaysUntil(dueDate, today);
+      return {
+        id: String(item._id),
+        title: String(item.title ?? ""),
+        amount: Number(item.amount),
+        type: item.type as "income" | "expense",
+        kind: (item.kind as "recurring" | "one_time") ?? "recurring",
+        dueDate,
+        daysUntil,
+      };
+    })
+    .filter((item) => item.daysUntil <= DUE_BANNER_DAYS_AHEAD)
+    .sort((a, b) => a.daysUntil - b.daysUntil || a.dueDate.localeCompare(b.dueDate));
 
   const totalByType = new Map<string, number>();
   for (const row of overall) totalByType.set(String(row._id), row.sum);
@@ -150,6 +178,7 @@ export const getDashboard = asyncHandler(async (req: Request, res: Response) => 
           netWorth: netWorth.netWorth,
         }
       : null,
+    dueBanners,
     recentWeek: {
       from: weekFrom,
       to: weekTo,
