@@ -259,12 +259,15 @@ export function AddActionSheet({ open, onClose }: Props) {
         aria-modal="true"
         aria-label="افزودن"
         className={cn(
-          "absolute inset-x-0 bottom-0 flex max-h-[min(82dvh,680px)] flex-col",
+          "absolute bottom-0 flex max-h-[min(82dvh,680px)] flex-col",
           "rounded-t-[1.85rem]",
           "bg-gradient-to-b from-cyan-500/[0.12] via-[var(--card)] to-[var(--card)]",
           "dark:from-brand-500/[0.16] dark:via-[var(--card)] dark:to-[var(--card)]",
-          // Light: navbar-matching hairline, no shadow. Dark: keep ring + lift shadow.
-          "border border-b-0 border-[color-mix(in_srgb,var(--muted)_22%,transparent)] shadow-none",
+          // Light: inset like BottomNav so top + side borders are visible
+          "left-3 right-3 mx-auto w-auto max-w-lg shadow-none",
+          "border border-b-0 border-[color-mix(in_srgb,var(--muted)_22%,transparent)]",
+          // Dark: full-bleed, previous ring + lift shadow
+          "dark:left-0 dark:right-0 dark:max-w-none",
           "dark:border-transparent dark:ring-1 dark:ring-inset dark:ring-brand-400/15",
           "dark:shadow-[0_-16px_48px_rgba(0,0,0,0.45)]",
           "will-change-transform"
