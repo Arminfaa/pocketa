@@ -97,6 +97,7 @@ type RecentWeekTx = {
   time?: string;
   needsReview?: boolean;
   categoryName?: string;
+  source?: string;
 };
 
 export default function DashboardPage() {
@@ -448,6 +449,11 @@ export default function DashboardPage() {
                     title={
                       <span className="inline-flex flex-wrap items-center gap-2">
                         <span>{tx.title || "بدون عنوان"}</span>
+                        {tx.source === "transfer" ? (
+                          <span className="rounded-lg bg-slate-500/15 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-300">
+                            {tx.type === "income" ? "انتقال +" : "انتقال −"}
+                          </span>
+                        ) : null}
                         {tx.needsReview ? (
                           <span className="rounded-lg bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300">
                             نام‌گذاری
@@ -461,7 +467,11 @@ export default function DashboardPage() {
                           formatJalaliDate(tx.date),
                           tx.time || undefined
                         )}
-                        {tx.categoryName ? ` · ${tx.categoryName}` : ""}
+                        {tx.source === "transfer"
+                          ? ""
+                          : tx.categoryName
+                            ? ` · ${tx.categoryName}`
+                            : ""}
                       </>
                     }
                     trailing={

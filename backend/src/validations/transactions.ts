@@ -133,6 +133,10 @@ export const TransactionQuerySchema = z.object({
       if (typeof v === "boolean") return v;
       return v === "true";
     }),
+  source: z
+    .enum(["manual", "bank_sms", "balance_adjustment", "transfer", "investment", "goal"])
+    .optional()
+    .nullable(),
   sortBy: z.string().optional().nullable(),
   sortOrder: z.enum(["asc", "desc"]).optional().default("desc"),
 });
