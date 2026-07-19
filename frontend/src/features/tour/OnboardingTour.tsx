@@ -300,51 +300,56 @@ export function OnboardingTour({
         {/* Block clicks on page except card */}
         <div className="absolute inset-0" onClick={(e) => e.stopPropagation()} />
 
-        <motion.div
-          key={step.id}
-          className={cn(
-            "absolute z-10 w-[min(340px,calc(100vw-2rem))] rounded-2xl",
-            "border border-[color-mix(in_srgb,var(--muted)_22%,transparent)]",
-            "bg-app-card p-4 shadow-soft"
-          )}
-          style={{
-            top: cardPos?.top ?? "30%",
-            left: cardPos?.left ?? "50%",
-            width: cardW,
-            transform: cardPos ? undefined : "translateX(-50%)",
-            opacity: preparing && !cardPos ? 0.5 : 1,
-          }}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.2 }}
-        >
-          <div className="mb-1 flex items-center justify-between gap-2">
-            <Typography.Text type="secondary" className="!text-xs">
-              آموزش {stepIndex + 1} از {total}
-            </Typography.Text>
-            <button
-              type="button"
-              className="border-0 bg-transparent text-xs text-app-muted cursor-pointer"
-              onClick={() => finish(true)}
-            >
-              رد کردن
-            </button>
-          </div>
-          <Typography.Title level={5} className="!mt-0 !mb-2 !text-base">
-            {copy.title}
-          </Typography.Title>
-          <Typography.Paragraph className="!mb-4 !text-sm !text-app-muted !leading-relaxed">
-            {copy.body}
-          </Typography.Paragraph>
-          <div className="flex items-center justify-between gap-2">
-            <Button disabled={stepIndex === 0} onClick={goPrev}>
-              قبلی
-            </Button>
-            <Button type="primary" onClick={goNext}>
-              {isLast ? "پایان" : "بعدی"}
-            </Button>
-          </div>
-        </motion.div>
+        {/*
+          Wait for pixel cardPos before mounting the card.
+          Using left:50% + translateX(-50%) fought with framer-motion's
+          transform (y), so the card briefly sat at the right half then jumped.
+        */}
+        {cardPos && !preparing ? (
+          <motion.div
+            key={step.id}
+            className={cn(
+              "absolute z-10 rounded-2xl",
+              "border border-[color-mix(in_srgb,var(--muted)_22%,transparent)]",
+              "bg-app-card p-4 shadow-soft"
+            )}
+            style={{
+              top: cardPos.top,
+              left: cardPos.left,
+              width: cardW,
+            }}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+          >
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <Typography.Text type="secondary" className="!text-xs">
+                آموزش {stepIndex + 1} از {total}
+              </Typography.Text>
+              <button
+                type="button"
+                className="border-0 bg-transparent text-xs text-app-muted cursor-pointer"
+                onClick={() => finish(true)}
+              >
+                رد کردن
+              </button>
+            </div>
+            <Typography.Title level={5} className="!mt-0 !mb-2 !text-base">
+              {copy.title}
+            </Typography.Title>
+            <Typography.Paragraph className="!mb-4 !text-sm !text-app-muted !leading-relaxed">
+              {copy.body}
+            </Typography.Paragraph>
+            <div className="flex items-center justify-between gap-2">
+              <Button disabled={stepIndex === 0} onClick={goPrev}>
+                قبلی
+              </Button>
+              <Button type="primary" onClick={goNext}>
+                {isLast ? "پایان" : "بعدی"}
+              </Button>
+            </div>
+          </motion.div>
+        ) : null}
       </motion.div>
     </AnimatePresence>,
     document.body
