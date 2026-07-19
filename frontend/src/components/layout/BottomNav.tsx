@@ -81,6 +81,7 @@ export function BottomNav({
                     onClick={onAdd}
                     aria-label={item.label}
                     aria-expanded={addOpen}
+                    data-tour="nav-add"
                     className={cn(
                       "absolute left-1/2 top-0 z-10 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2",
                       "items-center justify-center rounded-full text-white",
@@ -130,6 +131,7 @@ export function BottomNav({
                   className={className}
                   aria-label={item.label}
                   aria-expanded={moreOpen}
+                  data-tour="nav-more"
                 >
                   <span className={cn("text-lg leading-none", active ? "scale-105" : "opacity-80")}>
                     {item.icon}
@@ -140,7 +142,13 @@ export function BottomNav({
             }
 
             return (
-              <Link key={item.key} href={item.href} className={className} aria-label={item.label}>
+              <Link
+                key={item.key}
+                href={item.href}
+                className={className}
+                aria-label={item.label}
+                data-tour={`nav-${item.key}`}
+              >
                 <span
                   className={cn(
                     "leading-none",

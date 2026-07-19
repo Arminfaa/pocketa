@@ -18,9 +18,11 @@ import { useUiStore } from "@/stores/ui.store";
 import { useThemeStore } from "@/stores/theme.store";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { useAuthStore } from "@/stores/auth.store";
+import { useTourStore } from "@/stores/tour.store";
 import { fetchAccounts } from "@/services/accounts";
 import api from "@/services/api";
 import { PageMotion } from "@/components/ui/page-motion";
+import { OnboardingTour } from "@/features/tour/OnboardingTour";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -36,7 +38,9 @@ export default function AppLayout({ children }: PropsWithChildren) {
   const { message } = App.useApp();
   const screens = useBreakpoint();
   /** Below Ant Design `lg` (~992px): bottom nav + more action sheet */
+  const shellReady = screens.lg !== undefined;
   const isMobileShell = !screens.lg;
+  const tourActive = useTourStore((s) => s.active);
 
   const collapsed = useUiStore((s) => s.sidebarCollapsed);
   const toggleCollapse = useUiStore((s) => s.toggleSidebarCollapsed);
@@ -50,6 +54,15 @@ export default function AppLayout({ children }: PropsWithChildren) {
   const [addOpen, setAddOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [bottomNavHeight, setBottomNavHeight] = useState(DEFAULT_BOTTOM_NAV_HEIGHT);
+
+  const requestMore = useCallback((open: boolean) => {
+    setMoreOpen(open);
+    if (open) setAddOpen(false);
+  }, []);
+  const requestAdd = useCallback((open: boolean) => {
+    setAddOpen(open);
+    if (open) setMoreOpen(false);
+  }, []);
 
   const accountsQ = useQuery({
     queryKey: ["accounts"],
@@ -66,9 +79,11 @@ export default function AppLayout({ children }: PropsWithChildren) {
   }, [isMobileShell]);
 
   useEffect(() => {
+    // Keep sheets open when the onboarding tour is driving them across routes
+    if (tourActive) return;
     setMoreOpen(false);
     setAddOpen(false);
-  }, [pathname]);
+  }, [pathname, tourActive]);
 
   const onBottomNavHeightChange = useCallback((height: number) => {
     if (height > 0) setBottomNavHeight(height);
@@ -151,20 +166,23 @@ export default function AppLayout({ children }: PropsWithChildren) {
                   icon={<BulbOutlined />}
                   onClick={toggleTheme}
                   aria-label="تغییر تم"
+                  data-tour="theme-toggle"
                 />
               </Flex>
-              <Select
-                allowClear
-                placeholder="همه حساب‌ها"
-                className="w-full"
-                value={selectedAccountId ?? undefined}
-                onChange={(v) => setSelectedAccountId(v ?? null)}
-                options={(accountsQ.data ?? []).map((a) => ({
-                  value: a.id,
-                  label: a.bankName ? `${a.name} · ${a.bankName}` : a.name,
-                }))}
-                loading={accountsQ.isLoading}
-              />
+              <div data-tour="account-filter" className="w-full">
+                <Select
+                  allowClear
+                  placeholder="همه حساب‌ها"
+                  className="w-full"
+                  value={selectedAccountId ?? undefined}
+                  onChange={(v) => setSelectedAccountId(v ?? null)}
+                  options={(accountsQ.data ?? []).map((a) => ({
+                    value: a.id,
+                    label: a.bankName ? `${a.name} · ${a.bankName}` : a.name,
+                  }))}
+                  loading={accountsQ.isLoading}
+                />
+              </div>
             </Flex>
           ) : (
             <Flex align="center" gap={10} wrap="wrap" className="w-full">
@@ -173,26 +191,30 @@ export default function AppLayout({ children }: PropsWithChildren) {
                 icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
                 onClick={toggleCollapse}
                 aria-label="جمع کردن سایدبار"
+                data-tour="sidebar-collapse"
               />
-              <Select
-                allowClear
-                placeholder="همه حساب‌ها"
-                className="min-w-44 max-w-64 flex-1"
-                value={selectedAccountId ?? undefined}
-                onChange={(v) => setSelectedAccountId(v ?? null)}
-                options={(accountsQ.data ?? []).map((a) => ({
-                  value: a.id,
-                  label: a.bankName ? `${a.name} · ${a.bankName}` : a.name,
-                }))}
-                loading={accountsQ.isLoading}
-                popupMatchSelectWidth={false}
-              />
+              <div data-tour="account-filter" className="min-w-44 max-w-64 flex-1">
+                <Select
+                  allowClear
+                  placeholder="همه حساب‌ها"
+                  className="w-full"
+                  value={selectedAccountId ?? undefined}
+                  onChange={(v) => setSelectedAccountId(v ?? null)}
+                  options={(accountsQ.data ?? []).map((a) => ({
+                    value: a.id,
+                    label: a.bankName ? `${a.name} · ${a.bankName}` : a.name,
+                  }))}
+                  loading={accountsQ.isLoading}
+                  popupMatchSelectWidth={false}
+                />
+              </div>
               <Flex align="center" gap={8} className="!ms-auto shrink-0">
                 <Button
                   type="default"
                   icon={<BulbOutlined />}
                   onClick={toggleTheme}
                   aria-label="تغییر تم"
+                  data-tour="theme-toggle"
                 />
                 <Button
                   type="default"
@@ -221,11 +243,13 @@ export default function AppLayout({ children }: PropsWithChildren) {
           <BottomNav
             moreOpen={moreOpen}
             onMore={() => {
+              if (tourActive) return;
               setAddOpen(false);
               setMoreOpen((open) => !open);
             }}
             addOpen={addOpen}
             onAdd={() => {
+              if (tourActive) return;
               setMoreOpen(false);
               setAddOpen((open) => !open);
             }}
@@ -233,6 +257,13 @@ export default function AppLayout({ children }: PropsWithChildren) {
           />
         ) : null}
       </Layout>
+
+      <OnboardingTour
+        isMobileShell={isMobileShell}
+        shellReady={shellReady}
+        onRequestMore={requestMore}
+        onRequestAdd={requestAdd}
+      />
     </Layout>
   );
 }
