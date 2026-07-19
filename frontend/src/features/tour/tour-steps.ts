@@ -30,19 +30,10 @@ export function getTourSteps(shell: TourShell): TourStep[] {
       step("theme", { target: "theme-toggle" }),
       step("dashboard", { target: "nav-home", route: "/dashboard" }),
       step("transactions", { target: "nav-transactions", route: "/transactions" }),
-      step("add", { target: "nav-add", sheet: null }),
-      step("add", {
-        id: "add-sheet",
-        target: "add-sheet",
-        sheet: "add",
-      }),
+      // Spotlight nav only — do not open Add/More action sheets during the tour
+      step("add", { target: "nav-add" }),
       step("reports", { target: "nav-reports", route: "/reports" }),
       step("more", { target: "nav-more" }),
-      step("more", {
-        id: "more-sheet",
-        target: "more-sheet",
-        sheet: "more",
-      }),
       step("imports", { route: "/imports/bank-sms" }),
       step("review", { route: "/review" }),
       step("recurring", { route: "/recurring" }),
