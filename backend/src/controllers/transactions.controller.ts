@@ -254,47 +254,61 @@ export const transfer = asyncHandler(async (req: Request, res: Response) => {
 
   const normalizedDate = normalizeJalaliDate(date);
   const transferGroupId = new mongoose.Types.ObjectId();
+  const outId = new mongoose.Types.ObjectId();
+  const inId = new mongoose.Types.ObjectId();
 
-  const outTx = await TransactionModel.create({
-    userId,
-    accountId: fromAccountId,
-    type: "expense",
-    amount,
-    categoryId: cats.expense._id,
-    title: `${title} → ${toAccount.name}`,
-    description: description ?? `انتقال به ${toAccount.name}`,
-    date: normalizedDate,
-    tags: ["انتقال"],
-    source: "transfer",
-    needsReview: false,
-    transferGroupId,
-  });
+  // Dual-entry: − on source (expense) and + on destination (income).
+  // Pre-link both ids so a partial failure can be cleaned up cleanly.
+  let outTx;
+  try {
+    outTx = await TransactionModel.create({
+      _id: outId,
+      userId,
+      accountId: fromAccountId,
+      type: "expense",
+      amount,
+      categoryId: cats.expense._id,
+      title: `${title} → ${toAccount.name}`,
+      description: description ?? `انتقال به ${toAccount.name}`,
+      date: normalizedDate,
+      tags: ["انتقال"],
+      source: "transfer",
+      needsReview: false,
+      transferGroupId,
+      linkedTransactionId: inId,
+    });
 
-  const inTx = await TransactionModel.create({
-    userId,
-    accountId: toAccountId,
-    type: "income",
-    amount,
-    categoryId: cats.income._id,
-    title: `${title} ← ${fromAccount.name}`,
-    description: description ?? `انتقال از ${fromAccount.name}`,
-    date: normalizedDate,
-    tags: ["انتقال"],
-    source: "transfer",
-    needsReview: false,
-    transferGroupId,
-    linkedTransactionId: outTx._id,
-  });
+    const inTx = await TransactionModel.create({
+      _id: inId,
+      userId,
+      accountId: toAccountId,
+      type: "income",
+      amount,
+      categoryId: cats.income._id,
+      title: `${title} ← ${fromAccount.name}`,
+      description: description ?? `انتقال از ${fromAccount.name}`,
+      date: normalizedDate,
+      tags: ["انتقال"],
+      source: "transfer",
+      needsReview: false,
+      transferGroupId,
+      linkedTransactionId: outId,
+    });
 
-  outTx.linkedTransactionId = inTx._id;
-  await outTx.save();
-
-  return sendSuccess(
-    res,
-    { item: outTx, linked: inTx, transferGroupId },
-    "انتقال بین حساب‌ها ثبت شد",
-    201
-  );
+    return sendSuccess(
+      res,
+      { item: outTx, linked: inTx, transferGroupId },
+      "انتقال بین حساب‌ها ثبت شد",
+      201
+    );
+  } catch (err) {
+    await TransactionModel.deleteMany({
+      _id: { $in: [outId, inId] },
+      userId,
+      transferGroupId,
+    });
+    throw err;
+  }
 });
 
 export const update = asyncHandler(async (req: Request, res: Response) => {
