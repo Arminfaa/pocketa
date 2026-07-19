@@ -40,8 +40,12 @@ export type GoldPayload = {
 export type CurrencyPayload = {
   usdFreeToman: number;
   usdtToman: number;
+  /** Absolute toman change from source (legacy / Navasan raw) */
   usdChange: number;
   usdtChange: number;
+  /** Day-over-day % vs previous fetch / previous day */
+  usdChangePercent: number;
+  usdtChangePercent: number;
   sourceUpdatedAt: string;
 };
 
@@ -123,6 +127,17 @@ function roundToman(n: number): number {
   return Math.round(n);
 }
 
+/** Percent change vs previous value, one decimal place. */
+function pctChange(current: number, previous: number | null | undefined): number | null {
+  if (previous == null || !(previous > 0) || !Number.isFinite(current)) return null;
+  return Math.round(((current - previous) / previous) * 1000) / 10;
+}
+
+function pctFromAbsoluteChange(change: number, current: number): number {
+  if (!Number.isFinite(change) || !(current > 0)) return 0;
+  return Math.round((change / current) * 1000) / 10;
+}
+
 /** Derive quarter-coin USD from 18k gram price (works for cached payloads without the field). */
 export function quarterCoinUsdFromGram18k(gram18kUsd: number): number {
   return roundUsd(gram18kUsd * QUARTER_COIN_FACTOR);
@@ -188,11 +203,16 @@ function mapNavasanResponse(raw: NavasanResponse): CurrencyPayload {
     throw new AppError(502, "پاسخ نامعتبر از سرویس قیمت ارز");
   }
 
+  const usdChange = Number.isFinite(Number(usd?.change)) ? Number(usd?.change) : 0;
+  const usdtChange = Number.isFinite(Number(usdt?.change)) ? Number(usdt?.change) : 0;
+
   return {
     usdFreeToman: roundToman(usdFreeToman),
     usdtToman: roundToman(usdtToman),
-    usdChange: Number.isFinite(Number(usd?.change)) ? Number(usd?.change) : 0,
-    usdtChange: Number.isFinite(Number(usdt?.change)) ? Number(usdt?.change) : 0,
+    usdChange,
+    usdtChange,
+    usdChangePercent: pctFromAbsoluteChange(usdChange, usdFreeToman),
+    usdtChangePercent: pctFromAbsoluteChange(usdtChange, usdtToman),
     sourceUpdatedAt: timestampToIso(usd?.timestamp ?? usdt?.timestamp),
   };
 }
@@ -217,10 +237,10 @@ function mapNavasanGold(raw: NavasanResponse, usdToman: number): GoldPayload {
       : gram24kUsd * TROY_OUNCE_GRAMS;
 
   const change = Number(raw["18ayar"]?.change);
-  const changePercent =
-    Number.isFinite(change) && gram18kToman > 0
-      ? roundUsd((change / gram18kToman) * 100)
-      : 0;
+  const changePercent = pctFromAbsoluteChange(
+    Number.isFinite(change) ? change : 0,
+    gram18kToman
+  );
 
   return {
     ounceUsd: roundUsd(ounceUsd),
@@ -372,9 +392,33 @@ async function fetchCurrencyFromApi(): Promise<CurrencyPayload> {
 async function saveSnapshot(kind: "gold" | "currency", payload: GoldPayload | CurrencyPayload) {
   const { date } = tehranNow();
   const fetchedAt = new Date();
+  const existing = await MarketPriceModel.findOne({ kind }).lean();
+
+  let toStore: GoldPayload | CurrencyPayload = payload;
+
+  // Prefer % vs our previous stored snapshot (previous request / previous day).
+  if (kind === "gold" && existing?.payload) {
+    const prev = existing.payload as GoldPayload;
+    const next = payload as GoldPayload;
+    const fromPrev = pctChange(next.gram18kUsd, prev.gram18kUsd);
+    if (fromPrev != null) {
+      toStore = { ...next, changePercent: fromPrev };
+    }
+  } else if (kind === "currency" && existing?.payload) {
+    const prev = existing.payload as CurrencyPayload;
+    const next = payload as CurrencyPayload;
+    const usdPct = pctChange(next.usdFreeToman, prev.usdFreeToman);
+    const usdtPct = pctChange(next.usdtToman, prev.usdtToman);
+    toStore = {
+      ...next,
+      ...(usdPct != null ? { usdChangePercent: usdPct } : {}),
+      ...(usdtPct != null ? { usdtChangePercent: usdtPct } : {}),
+    };
+  }
+
   await MarketPriceModel.findOneAndUpdate(
     { kind },
-    { kind, fetchDate: date, fetchedAt, payload },
+    { kind, fetchDate: date, fetchedAt, payload: toStore },
     { upsert: true, new: true, setDefaultsOnInsert: true }
   );
   memoryCache = null;
@@ -529,6 +573,14 @@ function buildMarketResponse(
     currency: currency
       ? {
           ...currency,
+          usdChangePercent:
+            Number.isFinite(Number(currency.usdChangePercent))
+              ? Number(currency.usdChangePercent)
+              : pctFromAbsoluteChange(Number(currency.usdChange) || 0, currency.usdFreeToman),
+          usdtChangePercent:
+            Number.isFinite(Number(currency.usdtChangePercent))
+              ? Number(currency.usdtChangePercent)
+              : pctFromAbsoluteChange(Number(currency.usdtChange) || 0, currency.usdtToman),
           fetchDate: currencyDoc!.fetchDate,
           fetchedAt: new Date(currencyDoc!.fetchedAt).toISOString(),
         }
