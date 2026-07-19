@@ -260,11 +260,11 @@ export function AddActionSheet({ open, onClose }: Props) {
         aria-label="افزودن"
         className={cn(
           "absolute inset-x-0 bottom-0 flex max-h-[min(82dvh,680px)] flex-col",
-          "rounded-t-[1.85rem]",
-          "bg-gradient-to-b from-cyan-500/[0.12] via-[var(--card)] to-[var(--card)]",
-          "dark:from-brand-500/[0.16] dark:via-[var(--card)] dark:to-[var(--card)]",
-          "ring-1 ring-inset ring-cyan-600/12 dark:ring-brand-400/15",
-          "shadow-[0_-16px_48px_rgba(8,145,178,0.18)] dark:shadow-[0_-16px_48px_rgba(0,0,0,0.45)]",
+          // Match BottomNav shell: muted hairline border + soft card surface
+          "rounded-t-[1.6rem]",
+          "border border-b-0 border-[color-mix(in_srgb,var(--muted)_22%,transparent)]",
+          "bg-app-card/95 shadow-soft backdrop-blur-xl",
+          "dark:border-[color-mix(in_srgb,var(--muted)_32%,transparent)] dark:bg-app-card",
           "will-change-transform"
         )}
         data-body-scroll-lock={present ? "1" : undefined}
@@ -283,29 +283,32 @@ export function AddActionSheet({ open, onClose }: Props) {
         onDragEnd={onHeaderDragEnd}
       >
         <div
-          className="shrink-0 select-none px-4 pt-2 pb-1 touch-none"
+          className="shrink-0 select-none border-b border-[color-mix(in_srgb,var(--muted)_14%,transparent)] px-4 pt-2 pb-3 touch-none dark:border-[color-mix(in_srgb,var(--muted)_22%,transparent)]"
           onPointerDown={onHeaderPointerDown}
         >
-          <div className="mx-auto mb-3 h-1.5 w-11 rounded-full bg-slate-400/70 dark:bg-brand-300/35" />
-          <div className="mb-1 flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-2.5">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500 to-teal-500 text-white shadow-[0_8px_18px_rgba(8,145,178,0.35)] dark:from-brand-400 dark:to-teal-400">
+          <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-[color-mix(in_srgb,var(--muted)_28%,transparent)]" />
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <span
+                className={cn(
+                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-white",
+                  "bg-gradient-to-br from-cyan-400 via-cyan-500 to-violet-500",
+                  "shadow-[0_6px_16px_rgba(6,182,212,0.28)]",
+                  "ring-2 ring-[color-mix(in_srgb,var(--card)_92%,transparent)]"
+                )}
+              >
                 <PlusOutlined className="text-base" />
               </span>
               <div className="min-w-0">
-                <div className="text-base font-semibold text-slate-900 dark:text-app-fg">
-                  ثبت سریع
-                </div>
-                <div className="text-xs text-slate-600 dark:text-app-muted">
-                  یک مورد جدید بسازید
-                </div>
+                <div className="text-base font-semibold text-app-fg">ثبت سریع</div>
+                <div className="text-xs text-app-muted">یک مورد جدید بسازید</div>
               </div>
             </div>
             <Button
               type="text"
               onClick={requestClose}
               onPointerDown={(e) => e.stopPropagation()}
-              className="!rounded-xl !text-slate-500 dark:!text-app-muted"
+              className="!rounded-xl !text-app-muted"
             >
               بستن
             </Button>
@@ -314,7 +317,7 @@ export function AddActionSheet({ open, onClose }: Props) {
 
         <div
           ref={scrollRef}
-          className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-y-contain px-4 pb-5 pt-2 [-webkit-overflow-scrolling:touch]"
+          className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-y-contain px-4 pb-5 pt-3 [-webkit-overflow-scrolling:touch]"
           onPointerDown={onBodyPointerDown}
           onPointerMove={onBodyPointerMove}
           onPointerUp={onBodyPointerUp}
@@ -327,9 +330,9 @@ export function AddActionSheet({ open, onClose }: Props) {
                 onClick={requestClose}
                 className={cn(
                   "flex items-center gap-3 rounded-[1.35rem] px-4 py-3.5 no-underline transition-transform active:scale-[0.99]",
-                  "bg-gradient-to-l from-cyan-600 to-teal-500 text-white",
-                  "shadow-[0_12px_28px_rgba(8,145,178,0.32)]",
-                  "dark:from-brand-500 dark:to-teal-500 dark:shadow-[0_12px_28px_rgba(34,211,238,0.18)]"
+                  "bg-gradient-to-l from-cyan-600 via-cyan-500 to-teal-500 text-white",
+                  "shadow-[0_10px_24px_rgba(6,182,212,0.28)]",
+                  "dark:from-brand-500 dark:via-cyan-500 dark:to-teal-500 dark:shadow-[0_10px_24px_rgba(34,211,238,0.16)]"
                 )}
               >
                 <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/18 text-xl">
@@ -355,10 +358,18 @@ export function AddActionSheet({ open, onClose }: Props) {
 
               return (
                 <div key={group.title} className="space-y-2">
-                  <div className="px-1 text-[11px] font-medium text-slate-500 dark:text-app-muted">
+                  <div className="px-1 text-[11px] font-medium text-app-muted">
                     {group.title}
                   </div>
-                  <div className="overflow-hidden rounded-[1.25rem] bg-white/80 ring-1 ring-slate-900/5 dark:bg-[color-mix(in_srgb,var(--card)_88%,#000)] dark:ring-white/8">
+                  <div
+                    className={cn(
+                      "overflow-hidden rounded-[1.25rem]",
+                      "border border-[color-mix(in_srgb,var(--muted)_16%,transparent)]",
+                      "bg-[color-mix(in_srgb,var(--muted)_5%,var(--card))]",
+                      "dark:border-[color-mix(in_srgb,var(--muted)_28%,transparent)]",
+                      "dark:bg-[color-mix(in_srgb,#000_22%,var(--card))]"
+                    )}
+                  >
                     {items.map((item, index) => (
                       <Link
                         key={item.key}
@@ -366,18 +377,18 @@ export function AddActionSheet({ open, onClose }: Props) {
                         onClick={requestClose}
                         className={cn(
                           "flex items-center gap-3 px-3.5 py-3 no-underline transition-colors",
-                          "text-slate-900 hover:bg-cyan-500/8 dark:text-app-fg dark:hover:bg-brand-500/10",
+                          "text-app-fg hover:bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]",
                           index > 0 &&
-                            "border-t border-slate-900/6 dark:border-white/8"
+                            "border-t border-[color-mix(in_srgb,var(--muted)_12%,transparent)] dark:border-[color-mix(in_srgb,var(--muted)_22%,transparent)]"
                         )}
                       >
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-cyan-500/12 text-base text-cyan-700 dark:bg-brand-500/18 dark:text-brand-200">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-base text-brand-600 dark:bg-brand-500/18 dark:text-brand-200">
                           {item.icon}
                         </span>
                         <span className="min-w-0 flex-1 text-sm font-medium leading-tight">
                           {item.label}
                         </span>
-                        <RightOutlined className="rotate-180 text-[11px] text-slate-400 dark:text-app-muted" />
+                        <RightOutlined className="rotate-180 text-[11px] text-app-muted" />
                       </Link>
                     ))}
                   </div>
