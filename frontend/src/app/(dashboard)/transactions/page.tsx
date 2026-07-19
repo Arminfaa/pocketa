@@ -48,6 +48,13 @@ import { QueryError } from "@/components/ui/query-error";
 import { EmptyState } from "@/components/ui/empty-state";
 import { AmountText } from "@/components/ui/amount-text";
 import { FilterBar, FilterField } from "@/components/ui/filter-bar";
+import { SectionCard } from "@/components/ui/section-card";
+import { SoftList, SoftListItem, SoftListRow } from "@/components/ui/soft-list";
+import { TransactionFormModal } from "@/features/transactions/TransactionFormModal";
+import { TransferFormModal } from "@/features/transactions/TransferFormModal";
+import { PageShell } from "@/components/ui/page-shell";
+import { PageHeader } from "@/components/ui/page-header";
+import { cn } from "@/lib/cn";
 
 function isTransferTx(tx: Pick<Transaction, "source">): boolean {
   return tx.source === "transfer";
@@ -74,13 +81,6 @@ function transactionAmountCaption(tx: Pick<Transaction, "type" | "source">): str
   }
   return tx.type === "income" ? "دریافتی" : "پرداختی";
 }
-import { SectionCard } from "@/components/ui/section-card";
-import { SoftList, SoftListItem, SoftListRow } from "@/components/ui/soft-list";
-import { TransactionFormModal } from "@/features/transactions/TransactionFormModal";
-import { TransferFormModal } from "@/features/transactions/TransferFormModal";
-import { PageShell } from "@/components/ui/page-shell";
-import { PageHeader } from "@/components/ui/page-header";
-import { cn } from "@/lib/cn";
 
 const { useBreakpoint } = Grid;
 const { Text } = Typography;
@@ -94,6 +94,7 @@ type Filters = {
   categoryId: string;
   tag: string;
   needsReviewOnly: boolean;
+  transfersOnly: boolean;
 };
 
 export default function TransactionsPage() {
@@ -113,6 +114,7 @@ export default function TransactionsPage() {
     categoryId: "",
     tag: "",
     needsReviewOnly: false,
+    transfersOnly: false,
   });
   const [searchInput, setSearchInput] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -161,6 +163,7 @@ export default function TransactionsPage() {
         accountId: selectedAccountId,
         tag: filters.tag || undefined,
         needsReview: filters.needsReviewOnly ? true : undefined,
+        source: filters.transfersOnly ? "transfer" : undefined,
         sortBy: "date",
         sortOrder: "desc",
       }),
@@ -245,6 +248,7 @@ export default function TransactionsPage() {
     },
     onSuccess: () => {
       message.success("تراکنش حذف شد");
+      void queryClient.invalidateQueries({ queryKey: ["transactions"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       void queryClient.invalidateQueries({ queryKey: ["accounts"] });
     },
@@ -309,7 +313,14 @@ export default function TransactionsPage() {
     setSearchInput("");
     setPage(1);
     setSelectedIds([]);
-    setFilters({ search: "", type: "", categoryId: "", tag: "", needsReviewOnly: false });
+    setFilters({
+      search: "",
+      type: "",
+      categoryId: "",
+      tag: "",
+      needsReviewOnly: false,
+      transfersOnly: false,
+    });
   }
 
   function filterByTag(tag: string) {
@@ -333,6 +344,7 @@ export default function TransactionsPage() {
         accountId: selectedAccountId,
         tag: filters.tag || undefined,
         needsReview: filters.needsReviewOnly ? true : undefined,
+        source: filters.transfersOnly ? "transfer" : undefined,
         sortBy: "date",
         sortOrder: "desc",
       });
@@ -584,6 +596,16 @@ export default function TransactionsPage() {
               }}
             >
               فقط نیاز به بررسی
+            </Checkbox>
+            <Checkbox
+              checked={filters.transfersOnly}
+              className="!items-center"
+              onChange={(e) => {
+                setPage(1);
+                setFilters((f) => ({ ...f, transfersOnly: e.target.checked }));
+              }}
+            >
+              فقط انتقال بین حساب
             </Checkbox>
             <Button size="small" className={actionBtnClass} onClick={clearFilters}>
               پاک کردن فیلترها

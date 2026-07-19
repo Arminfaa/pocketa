@@ -14,6 +14,7 @@ import {
 } from "../validations/transactions";
 import { normalizeJalaliDate, toEnglishDigits } from "../utils/normalizeDigits";
 import { normalizeTime } from "../utils/transactionTime";
+import { tehranClockTime } from "../utils/tehranTime";
 import { ensureDefaultAccount } from "../services/account.service";
 import {
   ensureDebtExpenseCategory,
@@ -68,6 +69,7 @@ export const list = asyncHandler(async (req: Request, res: Response) => {
     month,
     year,
     needsReview,
+    source,
     sortBy,
     sortOrder,
   } = parsed.data;
@@ -78,6 +80,7 @@ export const list = asyncHandler(async (req: Request, res: Response) => {
   if (accountId) filter.accountId = accountId;
   if (tag) filter.tags = tag;
   if (needsReview !== undefined) filter.needsReview = needsReview;
+  if (source) filter.source = source;
 
   if (month && year) {
     const prefix = `${year}/${String(month).padStart(2, "0")}/`;
@@ -256,29 +259,31 @@ export const transfer = asyncHandler(async (req: Request, res: Response) => {
   const transferGroupId = new mongoose.Types.ObjectId();
   const outId = new mongoose.Types.ObjectId();
   const inId = new mongoose.Types.ObjectId();
+  // Stamp clock time so transfers aren't buried under timed SMS rows (empty time sorts last).
+  const time = tehranClockTime();
 
   // Dual-entry: − on source (expense) and + on destination (income).
-  // Pre-link both ids so a partial failure can be cleaned up cleanly.
-  let outTx;
-  try {
-    outTx = await TransactionModel.create({
-      _id: outId,
-      userId,
-      accountId: fromAccountId,
-      type: "expense",
-      amount,
-      categoryId: cats.expense._id,
-      title: `${title} → ${toAccount.name}`,
-      description: description ?? `انتقال به ${toAccount.name}`,
-      date: normalizedDate,
-      tags: ["انتقال"],
-      source: "transfer",
-      needsReview: false,
-      transferGroupId,
-      linkedTransactionId: inId,
-    });
+  const outTx = await TransactionModel.create({
+    _id: outId,
+    userId,
+    accountId: fromAccountId,
+    type: "expense",
+    amount,
+    categoryId: cats.expense._id,
+    title: `${title} → ${toAccount.name}`,
+    description: description ?? `انتقال به ${toAccount.name}`,
+    date: normalizedDate,
+    time,
+    tags: ["انتقال"],
+    source: "transfer",
+    needsReview: false,
+    transferGroupId,
+    linkedTransactionId: inId,
+  });
 
-    const inTx = await TransactionModel.create({
+  let inTx;
+  try {
+    inTx = await TransactionModel.create({
       _id: inId,
       userId,
       accountId: toAccountId,
@@ -288,19 +293,13 @@ export const transfer = asyncHandler(async (req: Request, res: Response) => {
       title: `${title} ← ${fromAccount.name}`,
       description: description ?? `انتقال از ${fromAccount.name}`,
       date: normalizedDate,
+      time,
       tags: ["انتقال"],
       source: "transfer",
       needsReview: false,
       transferGroupId,
       linkedTransactionId: outId,
     });
-
-    return sendSuccess(
-      res,
-      { item: outTx, linked: inTx, transferGroupId },
-      "انتقال بین حساب‌ها ثبت شد",
-      201
-    );
   } catch (err) {
     await TransactionModel.deleteMany({
       _id: { $in: [outId, inId] },
@@ -309,6 +308,13 @@ export const transfer = asyncHandler(async (req: Request, res: Response) => {
     });
     throw err;
   }
+
+  return sendSuccess(
+    res,
+    { item: outTx, linked: inTx, transferGroupId },
+    "انتقال بین حساب‌ها ثبت شد",
+    201
+  );
 });
 
 export const update = asyncHandler(async (req: Request, res: Response) => {

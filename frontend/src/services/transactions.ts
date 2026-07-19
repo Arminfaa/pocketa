@@ -12,6 +12,7 @@ export type TransactionListParams = {
   accountId?: string | null;
   tag?: string;
   needsReview?: boolean;
+  source?: "manual" | "bank_sms" | "balance_adjustment" | "transfer" | "investment" | "goal";
   sortBy?: string;
   sortOrder?: "asc" | "desc";
 };
@@ -28,6 +29,7 @@ export async function fetchTransactions(
   if (params.accountId) qs.set("accountId", params.accountId);
   if (params.tag) qs.set("tag", params.tag);
   if (params.needsReview !== undefined) qs.set("needsReview", String(params.needsReview));
+  if (params.source) qs.set("source", params.source);
   if (params.sortBy) qs.set("sortBy", params.sortBy);
   if (params.sortOrder) qs.set("sortOrder", params.sortOrder);
 

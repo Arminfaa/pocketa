@@ -22,3 +22,17 @@ export function tehranNow(now = new Date()): { date: string; hour: number } {
     hour: Number.isFinite(hour) ? hour : 0,
   };
 }
+
+/** Current clock time HH:mm in Asia/Tehran. */
+export function tehranClockTime(now = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Tehran",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+
+  const hour = parts.find((p) => p.type === "hour")?.value ?? "00";
+  const minute = parts.find((p) => p.type === "minute")?.value ?? "00";
+  return `${hour.padStart(2, "0")}:${minute.padStart(2, "0")}`;
+}
