@@ -34,11 +34,11 @@ export function Sidebar({
   const menuItems: MenuProps["items"] = SIDEBAR_NAV_ITEMS.map((it) => ({
     key: it.href,
     icon: it.icon,
-    label: it.label,
+    label: <span data-tour={`nav-${it.key}`}>{it.label}</span>,
   }));
 
   return (
-    <div className="h-full min-h-0 flex flex-col overflow-hidden">
+    <div className="h-full min-h-0 flex flex-col overflow-hidden" data-tour="sidebar">
       {!hideBrand ? (
         <div className="px-4 py-5 flex items-center gap-3 shrink-0">
           <Link

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { App, Button, Card, Flex, Form, Input, Space, Typography } from "antd";
 import api from "@/services/api";
 import { useAuthStore } from "@/stores/auth.store";
+import { useTourStore } from "@/stores/tour.store";
 import { useRouter } from "next/navigation";
 
 type RegisterForm = {
@@ -36,8 +37,12 @@ export default function RegisterPage() {
         password: values.password,
       });
       const loginPayload = loginRes.data?.data;
-      setUser(loginPayload?.user ?? null);
+      const user = loginPayload?.user ?? null;
+      setUser(user);
       setSessionChecked(true);
+      if (user?.id) {
+        useTourStore.getState().markPendingForUser(user.id);
+      }
       router.replace("/dashboard");
     } catch (err: unknown) {
       const apiErr = err as { response?: { data?: { message?: string } } };
