@@ -13,6 +13,8 @@ interface BottomNavProps {
   onAdd?: () => void;
   addOpen?: boolean;
   onHeightChange?: (height: number) => void;
+  /** Soft-keyboard open on small screens — slide/fade nav away */
+  hideForKeyboard?: boolean;
 }
 
 function isItemActive(
@@ -33,6 +35,7 @@ export function BottomNav({
   onAdd,
   addOpen,
   onHeightChange,
+  hideForKeyboard = false,
 }: BottomNavProps) {
   const pathname = usePathname();
   const navRef = useRef<HTMLElement | null>(null);
@@ -60,9 +63,16 @@ export function BottomNav({
   return (
     <nav
       ref={navRef}
-      className="fixed bottom-0 inset-x-0 z-40 lg:hidden"
+      className={cn(
+        "fixed bottom-0 inset-x-0 z-40 lg:hidden",
+        "transition-[opacity,transform] duration-200 ease-out",
+        hideForKeyboard
+          ? "pointer-events-none translate-y-[110%] opacity-0"
+          : "translate-y-0 opacity-100"
+      )}
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       aria-label="ناوبری اصلی"
+      aria-hidden={hideForKeyboard}
     >
       {/* Top pad = half FAB so the raised button isn't clipped */}
       <div className="mx-auto max-w-lg px-3 pb-1.5 pt-7">
