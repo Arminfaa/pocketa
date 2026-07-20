@@ -251,7 +251,7 @@ export default function AppLayout({ children }: PropsWithChildren) {
 
         <Content
           className={cn(
-            "flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6",
+            "flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6 overscroll-y-contain",
             isMobileShell && "transition-[padding-bottom] duration-200 ease-out"
           )}
           style={
