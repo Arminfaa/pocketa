@@ -526,6 +526,28 @@
 
   .market-ticker-dropdown {
     @apply fixed z-[1100] max-h-[min(70vh,22rem)] overflow-y-auto rounded-3xl border-0 bg-app-card p-2 shadow-lg;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /*
+   * Keep Select/Picker list scrolling inside the popup — don't chain to the
+   * page Content scroller (feels sticky / hard to scroll on mobile).
+   */
+  .ant-select-dropdown,
+  .ant-picker-dropdown,
+  .ant-dropdown,
+  .ant-cascader-dropdown {
+    overscroll-behavior: contain;
+  }
+
+  .ant-select-dropdown .rc-virtual-list-holder,
+  .ant-select-dropdown .rc-virtual-list,
+  .ant-cascader-menu,
+  .ant-picker-time-panel-column,
+  .ant-dropdown-menu {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   .market-ticker-dropdown-row {
