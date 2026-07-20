@@ -13,8 +13,10 @@ type Props = {
 
 /**
  * HH:mm picker — native time input (reliable on iOS PWA).
- * Absolutely fills a width-clamped shell so WebKit's intrinsic min-width
- * cannot expand the parent (modal overflow / wider-than-siblings).
+ *
+ * Visible chrome lives on the outer shell (same width as other fields).
+ * The native control is borderless inside so WebKit's intrinsic min-width
+ * cannot clip or stretch the border.
  */
 export function TimeInput({
   value,
@@ -25,10 +27,12 @@ export function TimeInput({
   id,
 }: Props) {
   return (
-    <div
+    <label
       className={cn(
-        "relative isolate w-full min-w-0 max-w-full overflow-hidden",
-        "h-[42px] rounded-2xl"
+        "app-time-input",
+        "flex h-[42px] w-full min-w-0 max-w-full items-center rounded-2xl px-3",
+        disabled && "pointer-events-none opacity-60",
+        className
       )}
     >
       <input
@@ -39,13 +43,8 @@ export function TimeInput({
         value={value && /^\d{2}:\d{2}$/.test(value) ? value : ""}
         onChange={(e) => onChange?.(e.target.value)}
         placeholder={placeholder}
-        className={cn(
-          "ant-input absolute inset-0 box-border m-0 h-full max-h-full",
-          "min-w-0 w-full max-w-full px-3 py-0 text-sm tabular-nums leading-none",
-          "rounded-2xl outline-none",
-          className
-        )}
+        className="app-time-input__native min-w-0 w-full max-w-full flex-1 bg-transparent text-sm tabular-nums outline-none"
       />
-    </div>
+    </label>
   );
 }
