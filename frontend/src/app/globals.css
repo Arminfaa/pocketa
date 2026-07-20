@@ -353,9 +353,21 @@
   }
 
   .app-modal-root .ant-modal-body {
-    @apply min-h-0 flex-1 overflow-y-auto overscroll-contain !px-5 !py-4;
+    @apply min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain !px-5 !py-4;
     background: var(--card) !important;
     color: var(--text) !important;
+  }
+
+  /* WebKit time inputs ignore width without clamping the inner edit fields */
+  input[type="time"] {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  input[type="time"]::-webkit-datetime-edit,
+  input[type="time"]::-webkit-datetime-edit-fields-wrapper {
+    max-width: 100%;
+    min-width: 0;
   }
 
   .app-modal-root .ant-modal-footer {
