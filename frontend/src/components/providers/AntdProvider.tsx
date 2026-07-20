@@ -5,6 +5,7 @@ import { App, ConfigProvider, theme as antdTheme } from "antd";
 import faIR from "antd/locale/fa_IR";
 import JalaliProvider from "antd-jalali-v5";
 import { useThemeStore } from "@/stores/theme.store";
+import { DropdownScrollLock } from "@/components/ui/dropdown-scroll-lock";
 
 const brand = {
   colorPrimary: "#06b6d4",
@@ -104,6 +105,7 @@ export function AntdProvider({ children }: { children: React.ReactNode }) {
         }}
       >
         <JalaliProvider />
+        <DropdownScrollLock />
         <App message={{ maxCount: 3 }} notification={{ placement: "topLeft" }}>
           {children}
         </App>
