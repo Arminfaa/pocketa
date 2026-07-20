@@ -20,6 +20,8 @@ export function JalaliDateInput({
   onChange,
   className,
   placeholder = "1405/04/25",
+  inputReadOnly = true,
+  allowClear = true,
   ...rest
 }: Props) {
   return (
@@ -28,6 +30,8 @@ export function JalaliDateInput({
       className={cn("w-full", className)}
       placeholder={placeholder}
       format="YYYY/MM/DD"
+      inputReadOnly={inputReadOnly}
+      allowClear={allowClear}
       value={jalaliStringToDayjs(value)}
       onChange={(_, dateString) =>
         onChange?.(dateString ? normalizeJalaliDateInput(String(dateString)) : "")
