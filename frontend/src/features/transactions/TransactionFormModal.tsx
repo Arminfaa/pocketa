@@ -412,12 +412,8 @@ export function TransactionFormModal({
               <JalaliDateInput placeholder="1405/04/25" />
             </Form.Item>
           </Col>
-          <Col xs={24} sm={12} className="!min-w-0 max-w-full">
-            <Form.Item
-              name="time"
-              label="ساعت (اختیاری)"
-              className="!max-w-full [&_.ant-form-item-control]:!max-w-full [&_.ant-form-item-control-input]:!max-w-full [&_.ant-form-item-control-input-content]:!max-w-full [&_.ant-form-item-control-input-content]:overflow-hidden"
-            >
+          <Col xs={24} sm={12} className="!min-w-0">
+            <Form.Item name="time" label="ساعت (اختیاری)">
               <TimeInput />
             </Form.Item>
           </Col>
