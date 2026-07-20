@@ -397,7 +397,7 @@ export function TransactionFormModal({
               />
             </Form.Item>
           </Col>
-          <Col xs={24} sm={12}>
+          <Col xs={24} sm={12} className="!min-w-0">
             <Form.Item
               name="date"
               label="تاریخ شمسی (YYYY/MM/DD)"
@@ -412,7 +412,7 @@ export function TransactionFormModal({
               <JalaliDateInput placeholder="1405/04/25" />
             </Form.Item>
           </Col>
-          <Col xs={24} sm={12}>
+          <Col xs={24} sm={12} className="!min-w-0">
             <Form.Item name="time" label="ساعت (اختیاری)">
               <TimeInput />
             </Form.Item>
