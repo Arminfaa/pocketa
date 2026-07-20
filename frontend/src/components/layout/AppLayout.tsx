@@ -24,6 +24,7 @@ import { fetchAccounts } from "@/services/accounts";
 import api from "@/services/api";
 import { PageMotion } from "@/components/ui/page-motion";
 import { OnboardingTour } from "@/features/tour/OnboardingTour";
+import { useHideOnSoftKeyboard } from "@/hooks/use-hide-on-soft-keyboard";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -55,6 +56,7 @@ export default function AppLayout({ children }: PropsWithChildren) {
   const [addOpen, setAddOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [bottomNavHeight, setBottomNavHeight] = useState(DEFAULT_BOTTOM_NAV_HEIGHT);
+  const hideBottomNavForKeyboard = useHideOnSoftKeyboard();
 
   const requestMore = useCallback((open: boolean) => {
     setMoreOpen(open);
@@ -248,10 +250,17 @@ export default function AppLayout({ children }: PropsWithChildren) {
         </Header>
 
         <Content
-          className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6"
+          className={cn(
+            "flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6",
+            isMobileShell && "transition-[padding-bottom] duration-200 ease-out"
+          )}
           style={
             isMobileShell
-              ? { paddingBottom: `calc(${bottomNavHeight}px + 0.75rem)` }
+              ? {
+                  paddingBottom: hideBottomNavForKeyboard
+                    ? "0.75rem"
+                    : `calc(${bottomNavHeight}px + 0.75rem)`,
+                }
               : undefined
           }
         >
@@ -273,6 +282,7 @@ export default function AppLayout({ children }: PropsWithChildren) {
               setAddOpen((open) => !open);
             }}
             onHeightChange={onBottomNavHeightChange}
+            hideForKeyboard={hideBottomNavForKeyboard}
           />
         ) : null}
       </Layout>
