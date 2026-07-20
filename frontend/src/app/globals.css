@@ -358,16 +358,34 @@
     color: var(--text) !important;
   }
 
-  /* WebKit time inputs ignore width without clamping the inner edit fields */
-  input[type="time"] {
+  /* WebKit time inputs have a huge intrinsic min-width — clamp hard */
+  .ant-form-item-control-input,
+  .ant-form-item-control-input-content {
+    min-width: 0 !important;
     max-width: 100%;
-    min-width: 0;
+  }
+
+  input[type="time"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
   }
 
   input[type="time"]::-webkit-datetime-edit,
-  input[type="time"]::-webkit-datetime-edit-fields-wrapper {
-    max-width: 100%;
-    min-width: 0;
+  input[type="time"]::-webkit-datetime-edit-fields-wrapper,
+  input[type="time"]::-webkit-datetime-edit-hour-field,
+  input[type="time"]::-webkit-datetime-edit-minute-field,
+  input[type="time"]::-webkit-datetime-edit-ampm-field,
+  input[type="time"]::-webkit-datetime-edit-text {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+
+  input[type="time"]::-webkit-calendar-picker-indicator {
+    margin-inline-start: 0;
+    flex-shrink: 0;
   }
 
   .app-modal-root .ant-modal-footer {
