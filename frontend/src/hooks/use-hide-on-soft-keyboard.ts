@@ -19,6 +19,16 @@ const KEYBOARD_INPUT_TYPES = new Set([
   "week",
 ]);
 
+/** Modals / sheets — focusing fields here must not hide the bottom nav. */
+const OVERLAY_SELECTOR = [
+  ".ant-modal-wrap",
+  ".ant-modal-root",
+  ".app-modal-root",
+  ".ant-drawer",
+  ".ant-image-preview-wrap",
+  '[data-body-scroll-lock="1"]',
+].join(", ");
+
 function isBelowSm() {
   return typeof window !== "undefined" && window.matchMedia(`(max-width: ${SM_MAX}px)`).matches;
 }
@@ -36,9 +46,20 @@ export function isSoftKeyboardField(el: EventTarget | null): boolean {
   return KEYBOARD_INPUT_TYPES.has(type);
 }
 
+function isInsideOverlay(el: EventTarget | null): boolean {
+  if (!(el instanceof HTMLElement)) return false;
+  return Boolean(el.closest(OVERLAY_SELECTOR));
+}
+
+/** Page-level text field (not inside modal/sheet) that opens the soft keyboard. */
+function shouldHideBottomNav(el: EventTarget | null): boolean {
+  return isSoftKeyboardField(el) && !isInsideOverlay(el);
+}
+
 /**
- * Below Tailwind `sm`, hide chrome when a text-like field is focused
- * (soft keyboard open). Restores on blur / leaving the breakpoint.
+ * Below Tailwind `sm`, hide bottom nav only when a page-level text field is
+ * focused. Inputs inside modals/sheets never hide the nav (avoids stuck-hidden
+ * after closing a modal with the keyboard open).
  */
 export function useHideOnSoftKeyboard() {
   const [hidden, setHidden] = useState(false);
@@ -51,7 +72,7 @@ export function useHideOnSoftKeyboard() {
         setHidden(false);
         return;
       }
-      setHidden(isSoftKeyboardField(document.activeElement));
+      setHidden(shouldHideBottomNav(document.activeElement));
     };
 
     const onFocusIn = (e: FocusEvent) => {
@@ -60,7 +81,12 @@ export function useHideOnSoftKeyboard() {
         setHidden(false);
         return;
       }
-      if (isSoftKeyboardField(e.target)) setHidden(true);
+      // Modal/sheet focus must restore nav if it was hidden from a page field
+      if (isInsideOverlay(e.target)) {
+        setHidden(false);
+        return;
+      }
+      setHidden(shouldHideBottomNav(e.target));
     };
 
     const onFocusOut = () => {
@@ -74,15 +100,22 @@ export function useHideOnSoftKeyboard() {
       else syncFromActive();
     };
 
+    // Modal unmount can drop focus without a reliable page-level focusin
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") syncFromActive();
+    };
+
     document.addEventListener("focusin", onFocusIn);
     document.addEventListener("focusout", onFocusOut);
     window.addEventListener("resize", onResize);
+    document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
       window.clearTimeout(blurTimer);
       document.removeEventListener("focusin", onFocusIn);
       document.removeEventListener("focusout", onFocusOut);
       window.removeEventListener("resize", onResize);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, []);
 
