@@ -213,6 +213,26 @@
     box-shadow: none !important;
   }
 
+  /*
+   * iOS Safari auto-zooms focused fields when font-size < 16px.
+   * Mobile shell only (matches Ant lg breakpoint).
+   */
+  @media (max-width: 991px) {
+    input,
+    select,
+    textarea,
+    .ant-input,
+    .ant-input-affix-wrapper,
+    .ant-input-affix-wrapper .ant-input,
+    .ant-select-selector,
+    .ant-select-selection-search-input,
+    .ant-picker-input > input,
+    .ant-input-number-input,
+    .ant-input-textarea textarea {
+      font-size: 16px !important;
+    }
+  }
+
   /* Dark: borderless inputs — darker fill only */
   .dark .ant-input,
   .dark .ant-input-affix-wrapper,
