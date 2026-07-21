@@ -29,7 +29,7 @@ export default function HomePage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45, ease: "easeOut" }}
         >
-          <Flex vertical align="start" gap={24} className="md:max-w-xl">
+          <Flex vertical align="start" gap={24} className="md:max-w-2xl lg:max-w-3xl">
             <Flex align="center" gap={16}>
               <Image
                 src="/logo.png"
