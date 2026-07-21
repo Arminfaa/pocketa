@@ -18,8 +18,11 @@ Persian RTL personal finance SaaS — track income & expenses, budgets, bank SMS
 - Savings goals with progress & contribute
 - Tags on transactions + rule-based category suggestions from title
 - Sync account balance from latest bank SMS `مانده`
+- Guided onboarding tour + persistent **راهنما** page (`/help`) for new users
+- Mobile UX: auto-hide bottom navbar while the soft keyboard opens, and keep modals/sheets from breaking page scroll
 - Dark / light theme, Vazirmatn RTL, Toman + Jalali dates
-- Ant Design UI (RTL) with mobile drawer nav and responsive layouts
+- Themed scrollbars (light/dark) + smooth mobile interactions (RTL)
+- Ant Design UI (RTL) with responsive layouts, action sheets, and modals
 
 ## Prerequisites
 
@@ -93,6 +96,7 @@ pocketa-app/
 - Production cookies: `Secure` + `SameSite=Lax` (keeps iOS Home Screen PWA sessions)
 - Zustand only holds the current user object in memory
 - Register seeds default categories + a default bank account
+- Onboarding tour state is persisted locally (zustand `persist`) per user
 
 ## License
 
