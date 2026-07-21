@@ -9,20 +9,30 @@ Persian RTL personal finance SaaS — track income & expenses, budgets, bank SMS
 
 ## Features
 
-- Multi bank accounts with per-account balances and global filter
-- Transactions CRUD, filters, CSV export, needs-review flow
-- Bank SMS import (Pasargad / Melli) with preview → confirm → rename
-- Categories & monthly budgets with 80% / 100% alerts
-- Financial reports (monthly + by category)
-- Recurring payments (generate transaction on due date)
-- Savings goals with progress & contribute
-- Tags on transactions + rule-based category suggestions from title
-- Sync account balance from latest bank SMS `مانده`
-- Guided onboarding tour + persistent **راهنما** page (`/help`) for new users
-- Mobile UX: auto-hide bottom navbar while the soft keyboard opens, and keep modals/sheets from breaking page scroll
-- Dark / light theme, Vazirmatn RTL, Toman + Jalali dates
-- Themed scrollbars (light/dark) + smooth mobile interactions (RTL)
-- Ant Design UI (RTL) with responsive layouts, action sheets, and modals
+- **Accounts & balances**: multiple bank accounts with a global account filter and balance reconciliation from bank SMS.
+- **Transactions**: CRUD, transfers, needs-review flow, search & filters, and **CSV export**.
+- **Bank SMS import**: Pasargad/Melli-style SMS import with **preview → confirm → rename**.
+- **Categories, Tags & suggestions**: structured categorization + rule-based category suggestions from title.
+- **Budgets**: monthly category budgets with progress and alerts (80% / 100%).
+- **Reports**: monthly + by-category reports with charts and summaries.
+- **Recurring & due items**: recurring payments plus due/settlement flow that can generate transactions.
+- **Savings goals**: goals with progress and contribution tracking.
+- **Dashboard UX**: due banners and a motivation banner (dismissible per Jalali month).
+
+### Guided onboarding & help
+- **Interactive onboarding tour** that auto-starts for new users after registration (desktop/mobile steps).
+- Persistent **Help page** at **`/help`** with full guides and a button to restart the tour.
+
+### Mobile UX & quality fixes
+- On small screens (`< sm`), the **bottom navbar** hides when the soft keyboard opens for **page-level text inputs** (and doesn’t get stuck after closing modals).
+- Scroll/overlay reliability: shared handling for action sheets + Ant Design Modal so body scroll doesn’t break after closing.
+- Mobile reliability fixes: prevent iOS focus-zoom on inputs, read-only Jalali date picker inputs, and clamp native time input width to avoid horizontal overflow in modals.
+- Dropdown scroll-chain fixes so Select/Picker lists scroll smoothly without fighting the page scroller.
+
+### UI styling
+- Dark/Light theme, **Vazirmatn RTL**, Persian formatting (Toman + Jalali).
+- Themed scrollbars (light/dark) for desktop.
+- Ant Design UI (RTL) + Tailwind with responsive layouts, action sheets, and modals.
 
 ## Prerequisites
 
@@ -97,6 +107,7 @@ pocketa-app/
 - Zustand only holds the current user object in memory
 - Register seeds default categories + a default bank account
 - Onboarding tour state is persisted locally (zustand `persist`) per user
+- RequireAuth gate revalidates session from `/api/auth/me` (cookie-based).
 
 ## License
 
