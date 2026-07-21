@@ -16,6 +16,7 @@ import {
   SettingOutlined,
   SwapOutlined,
   QuestionCircleOutlined,
+  CodeOutlined,
 } from "@ant-design/icons";
 
 export type NavItem = {
@@ -90,6 +91,12 @@ export const MORE_NAV_ITEMS: NavItem[] = [
     href: "/help",
     label: "راهنما",
     icon: <QuestionCircleOutlined />,
+  },
+  {
+    key: "about",
+    href: "/about",
+    label: "درباره توسعه‌دهنده",
+    icon: <CodeOutlined />,
   },
 ].filter((it) => !BOTTOM_PRIMARY_BASES.has(it.href.split("?")[0] ?? it.href));
 
@@ -268,6 +275,12 @@ export const SIDEBAR_NAV_ITEMS: NavItem[] = [
     href: "/help",
     label: "راهنما",
     icon: <QuestionCircleOutlined />,
+  },
+  {
+    key: "about",
+    href: "/about",
+    label: "درباره توسعه‌دهنده",
+    icon: <CodeOutlined />,
   },
 ];
 
