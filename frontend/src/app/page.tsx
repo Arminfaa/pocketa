@@ -5,7 +5,11 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { Button, Flex, Space, Typography } from "antd";
 
-const FEATURES = ["ایمپورت پیامک بانکی", "بودجه و گزارش شمسی", "چند حساب بانکی"];
+const FEATURES = [
+  "📩 ایمپورت پیامک‌های بانکی",
+  "📈 بودجه‌بندی و گزارش‌های پیشرفته",
+  "🏦 مدیریت چند حساب، کارت و کیف پول",
+];
 
 export default function HomePage() {
   return (
@@ -35,10 +39,14 @@ export default function HomePage() {
                 priority
                 className="h-[72px] w-[72px] object-contain"
               />
-              <Typography.Title level={1} className="!mb-0 !text-4xl md:!text-5xl">
+              <Typography.Text className="!text-2xl md:!text-3xl !font-semibold">
                 Pocketa
-              </Typography.Title>
+              </Typography.Text>
             </Flex>
+
+            <Typography.Title level={1} className="!mb-0 !text-3xl md:!text-4xl !leading-snug">
+              همه چیز برای مدیریت هوشمند امور مالی شخصی
+            </Typography.Title>
 
             <motion.div
               initial={{ opacity: 0, y: 8 }}
@@ -49,7 +57,8 @@ export default function HomePage() {
                 type="secondary"
                 className="!mb-0 !text-lg md:!text-xl !leading-relaxed"
               >
-                مدیریت مالی شخصی به فارسی — تراکنش، بودجه، و گزارش با تاریخ شمسی و تومان.
+                از ثبت تراکنش و دسته‌بندی هزینه‌ها تا بودجه‌بندی، اهداف پس‌انداز، مدیریت
+                سرمایه‌گذاری و گزارش‌های تحلیلی؛ همه در یک پلتفرم فارسی.
               </Typography.Paragraph>
             </motion.div>
 
@@ -75,14 +84,13 @@ export default function HomePage() {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.35, duration: 0.45 }}
             >
-              <Space wrap size={[20, 8]} className="pt-2">
+              <Flex vertical gap={10} className="pt-2">
                 {FEATURES.map((f) => (
-                  <Flex key={f} align="center" gap={8}>
-                    <span className="h-1.5 w-1.5 rounded-full bg-brand-500" />
-                    <Typography.Text type="secondary">{f}</Typography.Text>
-                  </Flex>
+                  <Typography.Text key={f} type="secondary" className="!text-base">
+                    {f}
+                  </Typography.Text>
                 ))}
-              </Space>
+              </Flex>
             </motion.div>
           </Flex>
         </motion.div>
