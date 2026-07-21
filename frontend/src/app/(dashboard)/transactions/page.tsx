@@ -24,6 +24,7 @@ import {
   PlusOutlined,
   DeleteOutlined,
   ExclamationCircleOutlined,
+  SearchOutlined,
   SwapOutlined,
 } from "@ant-design/icons";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
@@ -533,35 +534,35 @@ export default function TransactionsPage() {
       />
 
       <FilterBar>
-        <FilterField label="جستجو" className="sm:min-w-[14rem] sm:flex-[2]">
-          <Input
-            className="w-full"
-            placeholder="جستجو در عنوان یا توضیحات..."
-            value={searchInput}
-            onChange={(e) => {
-              const value = e.target.value;
-              setSearchInput(value);
-              // × / emptying the field should also clear the applied query
-              if (!value.trim() && filters.search) {
-                setPage(1);
-                setSelectedIds([]);
-                setFilters((f) => ({ ...f, search: "" }));
-              }
-            }}
-            onClear={clearSearch}
-            onPressEnter={applySearch}
-            allowClear
-            suffix={
-              <Button
-                type="primary"
-                size="small"
-                onClick={applySearch}
-                className="!-me-1 !h-8 !rounded-xl !px-3"
-              >
-                جستجو
-              </Button>
-            }
-          />
+        <FilterField label="جستجو" className="sm:min-w-[12rem] sm:flex-[1.5]">
+          <div className="flex w-full min-w-0 items-stretch gap-1.5">
+            <Input
+              className="min-w-0 flex-1"
+              prefix={<SearchOutlined className="text-app-muted" />}
+              placeholder="عنوان یا توضیحات..."
+              value={searchInput}
+              onChange={(e) => {
+                const value = e.target.value;
+                setSearchInput(value);
+                // × / emptying the field should also clear the applied query
+                if (!value.trim() && filters.search) {
+                  setPage(1);
+                  setSelectedIds([]);
+                  setFilters((f) => ({ ...f, search: "" }));
+                }
+              }}
+              onClear={clearSearch}
+              onPressEnter={applySearch}
+              allowClear
+            />
+            <Button
+              type="primary"
+              icon={<SearchOutlined />}
+              aria-label="جستجو"
+              onClick={applySearch}
+              className="!shrink-0"
+            />
+          </div>
         </FilterField>
 
         <FilterField label="نوع" className="sm:max-w-[10rem]">
