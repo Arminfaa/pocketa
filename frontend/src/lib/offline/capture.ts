@@ -25,7 +25,7 @@ export async function captureTransaction(opts: {
   payload: TransactionInput;
   accountName?: string;
   categoryName?: string;
-  /** Force queue even when online (quick-capture UX). Still tries sync right away. */
+  /** Force queue even when offline. When online with preferQueue, still tries sync right away. */
   preferQueue?: boolean;
 }): Promise<CaptureResult> {
   const { userId, payload, accountName, categoryName, preferQueue } = opts;

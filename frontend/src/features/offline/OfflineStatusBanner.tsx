@@ -48,7 +48,7 @@ export function OfflineStatusBanner() {
   return (
     <div
       className={cn(
-        "pointer-events-none fixed inset-x-0 z-[1050] flex justify-center px-3",
+        "pointer-events-none fixed inset-x-0 z-[900] flex justify-center px-3",
         "bottom-[calc(var(--bottom-nav-height,5.5rem)+0.75rem)] lg:bottom-4"
       )}
     >

@@ -8,12 +8,11 @@ import { fetchCategories } from "@/services/transactions";
 import { saveAccountsSnapshot, saveCategoriesSnapshot } from "@/lib/offline/snapshots";
 import { syncOutbox } from "@/lib/offline/sync";
 import { useOnlineStatus } from "@/hooks/use-online-status";
-import { QuickCaptureModalHost } from "@/features/offline/QuickCaptureModalHost";
 import { OfflineStatusBanner } from "@/features/offline/OfflineStatusBanner";
 
 /**
  * Keeps accounts/categories snapshots fresh, runs outbox sync when back online,
- * and mounts global quick-capture + status banner.
+ * and mounts the offline status banner.
  */
 export function OfflineSyncProvider({ children }: { children: React.ReactNode }) {
   const userId = useAuthStore((s) => s.user?.id ?? "");
@@ -101,12 +100,7 @@ export function OfflineSyncProvider({ children }: { children: React.ReactNode })
   return (
     <>
       {children}
-      {userId ? (
-        <>
-          <OfflineStatusBanner />
-          <QuickCaptureModalHost />
-        </>
-      ) : null}
+      {userId ? <OfflineStatusBanner /> : null}
     </>
   );
 }
