@@ -2,9 +2,16 @@
 
 import type { ReactNode } from "react";
 import { Button } from "antd";
-import { ArrowDownOutlined, ArrowUpOutlined, PlusOutlined } from "@ant-design/icons";
+import {
+  ArrowDownOutlined,
+  ArrowUpOutlined,
+  EyeInvisibleOutlined,
+  EyeOutlined,
+  PlusOutlined,
+} from "@ant-design/icons";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
+import { HIDDEN_AMOUNT, useHideAmountsStore } from "@/stores/hide-amounts.store";
 
 type Props = {
   label?: ReactNode;
@@ -31,6 +38,14 @@ export function HeroBalanceCard({
   ctaLabel = "تراکنش جدید",
   className,
 }: Props) {
+  const hideAmounts = useHideAmountsStore((s) => s.hideAmounts);
+  const toggleHideAmounts = useHideAmountsStore((s) => s.toggleHideAmounts);
+
+  const shownBalance = hideAmounts ? HIDDEN_AMOUNT : balance;
+  const shownIncome = hideAmounts ? HIDDEN_AMOUNT : incomeValue;
+  const shownExpense = hideAmounts ? HIDDEN_AMOUNT : expenseValue;
+  const shownHint = hint ? (hideAmounts ? `پس‌انداز عملیاتی این ماه: ${HIDDEN_AMOUNT}` : hint) : null;
+
   return (
     <section
       className={cn(
@@ -51,11 +66,28 @@ export function HeroBalanceCard({
 
       <div className="relative flex flex-col gap-5 text-center sm:text-start">
         <div>
-          <div className="text-sm text-app-muted">{label}</div>
-          <div className="mt-1.5 text-3xl font-bold tracking-tight text-brand-600 tabular-nums dark:text-brand-300 sm:text-4xl">
-            {balance}
+          <div className="flex items-center justify-center gap-2 sm:justify-start">
+            <div className="text-sm text-app-muted">{label}</div>
+            <button
+              type="button"
+              onClick={toggleHideAmounts}
+              aria-pressed={hideAmounts}
+              aria-label={hideAmounts ? "نمایش مبالغ" : "مخفی کردن مبالغ"}
+              className={cn(
+                "inline-flex h-8 w-8 items-center justify-center rounded-xl",
+                "text-app-muted transition-colors",
+                "hover:bg-black/5 hover:text-app-fg",
+                "dark:hover:bg-white/10",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
+              )}
+            >
+              {hideAmounts ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+            </button>
           </div>
-          {hint ? <div className="mt-1.5 text-xs text-app-muted">{hint}</div> : null}
+          <div className="mt-1.5 text-3xl font-bold tracking-tight text-brand-600 tabular-nums dark:text-brand-300 sm:text-4xl">
+            {shownBalance}
+          </div>
+          {shownHint ? <div className="mt-1.5 text-xs text-app-muted">{shownHint}</div> : null}
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -65,7 +97,7 @@ export function HeroBalanceCard({
             </span>
             <div className="min-w-0">
               <div className="text-xs text-app-muted">{incomeLabel}</div>
-              <div className="font-bold tabular-nums text-emerald-600">{incomeValue}</div>
+              <div className="font-bold tabular-nums text-emerald-600">{shownIncome}</div>
             </div>
           </div>
           <div className="flex items-center gap-2.5 rounded-2xl bg-red-500/10 px-3 py-3 text-start backdrop-blur-sm">
@@ -74,7 +106,7 @@ export function HeroBalanceCard({
             </span>
             <div className="min-w-0">
               <div className="text-xs text-app-muted">{expenseLabel}</div>
-              <div className="font-bold tabular-nums text-red-500">{expenseValue}</div>
+              <div className="font-bold tabular-nums text-red-500">{shownExpense}</div>
             </div>
           </div>
         </div>
