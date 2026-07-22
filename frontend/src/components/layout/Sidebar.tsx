@@ -7,6 +7,7 @@ import { Menu, Typography } from "antd";
 import type { MenuProps } from "antd";
 import { useUiStore } from "@/stores/ui.store";
 import { matchNavHref, SIDEBAR_NAV_ITEMS } from "./nav-items";
+import { useOnlineStatus } from "@/hooks/use-online-status";
 
 type Props = {
   onNavigate?: () => void;
@@ -23,6 +24,7 @@ export function Sidebar({
 }: Props) {
   const pathname = usePathname();
   const router = useRouter();
+  const online = useOnlineStatus();
   const storeCollapsed = useUiStore((s) => s.sidebarCollapsed);
   const collapsed = forceExpanded ? false : storeCollapsed;
 
@@ -35,34 +37,56 @@ export function Sidebar({
     key: it.href,
     icon: it.icon,
     label: <span data-tour={`nav-${it.key}`}>{it.label}</span>,
+    disabled: !online,
   }));
 
   return (
     <div className="h-full min-h-0 flex flex-col overflow-hidden" data-tour="sidebar">
       {!hideBrand ? (
         <div className="px-4 py-5 flex items-center gap-3 shrink-0">
-          <Link
-            href="/dashboard"
-            onClick={onNavigate}
-            className="flex items-center gap-3 min-w-0"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/logo.png"
-              alt="Pocketa"
-              className="h-10 w-10 object-contain shrink-0"
-            />
-            {!collapsed ? (
-              <div className="min-w-0">
-                <Typography.Text strong className="!text-app-fg !text-base block truncate">
-                  Pocketa
-                </Typography.Text>
-                <Typography.Text type="secondary" className="!text-xs">
-                  مدیریت مالی شخصی
-                </Typography.Text>
-              </div>
-            ) : null}
-          </Link>
+          {online ? (
+            <Link
+              href="/dashboard"
+              onClick={onNavigate}
+              className="flex items-center gap-3 min-w-0"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/logo.png"
+                alt="Pocketa"
+                className="h-10 w-10 object-contain shrink-0"
+              />
+              {!collapsed ? (
+                <div className="min-w-0">
+                  <Typography.Text strong className="!text-app-fg !text-base block truncate">
+                    Pocketa
+                  </Typography.Text>
+                  <Typography.Text type="secondary" className="!text-xs">
+                    مدیریت مالی شخصی
+                  </Typography.Text>
+                </div>
+              ) : null}
+            </Link>
+          ) : (
+            <div className="flex items-center gap-3 min-w-0 opacity-50">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/logo.png"
+                alt="Pocketa"
+                className="h-10 w-10 object-contain shrink-0"
+              />
+              {!collapsed ? (
+                <div className="min-w-0">
+                  <Typography.Text strong className="!text-app-fg !text-base block truncate">
+                    Pocketa
+                  </Typography.Text>
+                  <Typography.Text type="secondary" className="!text-xs">
+                    حالت آفلاین
+                  </Typography.Text>
+                </div>
+              ) : null}
+            </div>
+          )}
         </div>
       ) : null}
 
@@ -73,6 +97,7 @@ export function Sidebar({
         items={menuItems}
         className="!border-none !bg-transparent flex-1 min-h-0 max-sm:scroll-none overflow-y-auto overscroll-contain px-2"
         onClick={({ key }) => {
+          if (!online) return;
           router.push(String(key));
           onNavigate?.();
         }}
