@@ -688,6 +688,7 @@ export default function TransactionsPage() {
                 cancelText="انصراف"
                 okButtonProps={{ danger: true, loading: bulkDeleteMutation.isPending }}
                 onConfirm={() => bulkDeleteMutation.mutate(selectedIds)}
+                disabled={!online}
               >
                 <Button
                   danger
@@ -696,6 +697,7 @@ export default function TransactionsPage() {
                   className={actionBtnClass}
                   icon={<DeleteOutlined />}
                   loading={bulkDeleteMutation.isPending}
+                  disabled={!online}
                 >
                   حذف انتخاب‌شده‌ها ({toPersianDigits(String(selectedIds.length))})
                 </Button>
@@ -714,7 +716,10 @@ export default function TransactionsPage() {
                 className={cn(headerActionBtnClass, "min-w-0 !px-2.5 sm:!px-4")}
                 icon={<SwapOutlined />}
                 disabled={!online}
-                onClick={() => setTransferOpen(true)}
+                onClick={() => {
+                  if (!online) return;
+                  setTransferOpen(true);
+                }}
               >
                 انتقال بین حساب
               </Button>

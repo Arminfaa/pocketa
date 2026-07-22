@@ -25,6 +25,8 @@ import api from "@/services/api";
 import { PageMotion } from "@/components/ui/page-motion";
 import { OnboardingTour } from "@/features/tour/OnboardingTour";
 import { useHideOnSoftKeyboard } from "@/hooks/use-hide-on-soft-keyboard";
+import { useOnlineStatus } from "@/hooks/use-online-status";
+import { OfflineBannerContent } from "@/features/offline/OfflineBannerContent";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -57,6 +59,7 @@ export default function AppLayout({ children }: PropsWithChildren) {
   const [loggingOut, setLoggingOut] = useState(false);
   const [bottomNavHeight, setBottomNavHeight] = useState(DEFAULT_BOTTOM_NAV_HEIGHT);
   const hideBottomNavForKeyboard = useHideOnSoftKeyboard();
+  const online = useOnlineStatus();
 
   const requestMore = useCallback((open: boolean) => {
     setMoreOpen(open);
@@ -87,6 +90,10 @@ export default function AppLayout({ children }: PropsWithChildren) {
     setMoreOpen(false);
     setAddOpen(false);
   }, [pathname, tourActive]);
+
+  useEffect(() => {
+    if (!online) setMoreOpen(false);
+  }, [online]);
 
   const onBottomNavHeightChange = useCallback((height: number) => {
     if (height > 0) setBottomNavHeight(height);
@@ -163,15 +170,28 @@ export default function AppLayout({ children }: PropsWithChildren) {
                   </div>
                 </Link>
                 <Flex align="center" gap={8} className="shrink-0">
-                  <Link href="/help" aria-label="راهنما">
+                  {!online ? <OfflineBannerContent compact /> : null}
+                  {online ? (
+                    <Link href="/help" aria-label="راهنما">
+                      <Button
+                        type="text"
+                        shape="circle"
+                        className="!bg-brand-500/10 !text-brand-600"
+                        icon={<QuestionCircleOutlined />}
+                        aria-label="راهنما"
+                      />
+                    </Link>
+                  ) : (
                     <Button
                       type="text"
                       shape="circle"
+                      disabled
                       className="!bg-brand-500/10 !text-brand-600"
                       icon={<QuestionCircleOutlined />}
                       aria-label="راهنما"
+                      title="در حالت آفلاین در دسترس نیست"
                     />
-                  </Link>
+                  )}
                   <Button
                     type="text"
                     shape="circle"
@@ -223,13 +243,24 @@ export default function AppLayout({ children }: PropsWithChildren) {
                 />
               </div>
               <Flex align="center" gap={8} className="!ms-auto shrink-0">
-                <Link href="/help" aria-label="راهنما">
+                {!online ? <OfflineBannerContent compact /> : null}
+                {online ? (
+                  <Link href="/help" aria-label="راهنما">
+                    <Button
+                      type="default"
+                      icon={<QuestionCircleOutlined />}
+                      aria-label="راهنما"
+                    />
+                  </Link>
+                ) : (
                   <Button
                     type="default"
+                    disabled
                     icon={<QuestionCircleOutlined />}
                     aria-label="راهنما"
+                    title="در حالت آفلاین در دسترس نیست"
                   />
-                </Link>
+                )}
                 <Button
                   type="default"
                   icon={<BulbOutlined />}
@@ -242,6 +273,7 @@ export default function AppLayout({ children }: PropsWithChildren) {
                   icon={<LogoutOutlined />}
                   onClick={onLogout}
                   loading={loggingOut}
+                  disabled={!online}
                   aria-label="خروج از حساب"
                 />
               </Flex>

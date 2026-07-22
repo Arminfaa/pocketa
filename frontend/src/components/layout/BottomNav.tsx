@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { PlusOutlined } from "@ant-design/icons";
 import { BOTTOM_NAV_ITEMS, type NavItem } from "./nav-items";
 import { cn } from "@/lib/cn";
+import { useOnlineStatus } from "@/hooks/use-online-status";
 
 interface BottomNavProps {
   onMore?: () => void;
@@ -38,6 +39,7 @@ export function BottomNav({
   hideForKeyboard = false,
 }: BottomNavProps) {
   const pathname = usePathname();
+  const online = useOnlineStatus();
   const navRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -47,9 +49,7 @@ export function BottomNav({
     const publish = () => {
       const height = Math.ceil(el.getBoundingClientRect().height);
       onHeightChange?.(height);
-      document.documentElement.style.setProperty("--bottom-nav-height", `${height}px`);
     };
-
     publish();
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(publish) : null;
     ro?.observe(el);
@@ -74,11 +74,11 @@ export function BottomNav({
       aria-label="ناوبری اصلی"
       aria-hidden={hideForKeyboard}
     >
-      {/* Top pad = half FAB so the raised button isn't clipped */}
       <div className="mx-auto max-w-lg px-3 pb-1.5 pt-7">
         <div className="relative flex h-[3.75rem] items-center justify-between gap-0.5 rounded-[1.6rem] border border-[color-mix(in_srgb,var(--muted)_22%,transparent)] bg-app-card/95 px-1.5 py-1 shadow-soft backdrop-blur-xl dark:border-[color-mix(in_srgb,var(--muted)_32%,transparent)]">
           {BOTTOM_NAV_ITEMS.map((item) => {
             const active = isItemActive(pathname, item, moreOpen, addOpen);
+            const allowed = online || item.key === "add";
 
             if (item.key === "add") {
               return (
@@ -124,12 +124,14 @@ export function BottomNav({
               );
             }
 
-            // Match shell radius (1.6rem) minus horizontal/vertical inset (~0.35rem)
             const className = cn(
               "flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-[1.25rem] px-1 transition-all",
-              active
+              !allowed && "pointer-events-none cursor-not-allowed opacity-40",
+              allowed && active
                 ? "bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300"
-                : "text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
+                : allowed
+                  ? "text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
+                  : "text-slate-400 dark:text-slate-500"
             );
 
             if (item.key === "more") {
@@ -137,10 +139,13 @@ export function BottomNav({
                 <button
                   key={item.key}
                   type="button"
-                  onClick={onMore}
+                  onClick={allowed ? onMore : undefined}
+                  disabled={!allowed}
                   className={className}
                   aria-label={item.label}
                   aria-expanded={moreOpen}
+                  aria-disabled={!allowed}
+                  title={!allowed ? "در حالت آفلاین در دسترس نیست" : undefined}
                   data-tour="nav-more"
                 >
                   <span className={cn("text-lg leading-none", active ? "scale-105" : "opacity-80")}>
@@ -148,6 +153,22 @@ export function BottomNav({
                   </span>
                   <span className="truncate text-[10px] font-medium leading-none">{item.label}</span>
                 </button>
+              );
+            }
+
+            if (!allowed) {
+              return (
+                <span
+                  key={item.key}
+                  className={className}
+                  aria-label={item.label}
+                  aria-disabled="true"
+                  title="در حالت آفلاین در دسترس نیست"
+                  data-tour={`nav-${item.key}`}
+                >
+                  <span className="text-lg leading-none opacity-80">{item.icon}</span>
+                  <span className="truncate text-[10px] font-medium leading-none">{item.label}</span>
+                </span>
               );
             }
 

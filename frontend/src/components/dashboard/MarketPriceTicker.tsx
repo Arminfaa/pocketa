@@ -5,6 +5,11 @@ import { createPortal } from "react-dom";
 import { TickerSkeleton } from "@/components/skeletons";
 import { toPersianDigits } from "@/lib/format";
 import { cn } from "@/lib/cn";
+import { useOnlineStatus } from "@/hooks/use-online-status";
+import { OfflineBannerContent } from "@/features/offline/OfflineBannerContent";
+import { Grid } from "antd";
+
+const { useBreakpoint } = Grid;
 
 export type MarketTickerData = {
   gold: {
@@ -251,6 +256,9 @@ function staleHint(market?: MarketTickerData): string | null {
 }
 
 export function MarketPriceTicker({ market, loading, errorMessage, className }: Props) {
+  const online = useOnlineStatus();
+  const screens = useBreakpoint();
+  const isMobile = !screens.lg;
   const items = buildItems(market);
   const staleMessage = staleHint(market);
   const updatedLabel = resolveLastUpdated(market);
@@ -325,6 +333,23 @@ export function MarketPriceTicker({ market, loading, errorMessage, className }: 
   function scheduleClose() {
     clearCloseTimer();
     closeTimerRef.current = setTimeout(() => setMenuOpen(false), 120);
+  }
+
+  if (!online) {
+    return (
+      <div
+        className={cn(
+          "w-full",
+          isMobile &&
+            "-mx-3 w-[calc(100%+1.5rem)] sm:-mx-4 sm:w-[calc(100%+2rem)]",
+          className
+        )}
+      >
+        <OfflineBannerContent
+          className={cn(isMobile ? "!rounded-none" : undefined)}
+        />
+      </div>
+    );
   }
 
   if (loading) {
