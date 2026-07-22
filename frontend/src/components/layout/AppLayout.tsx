@@ -159,7 +159,7 @@ export default function AppLayout({ children }: PropsWithChildren) {
               <Flex align="center" justify="space-between" gap={8}>
                 <Link href="/dashboard" className="flex items-center gap-2.5 min-w-0">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/logo.png" alt="Pocketa" className="h-9 w-9 object-contain" />
+                  <img src="/logo.webp" alt="Pocketa" className="h-9 w-9 object-contain" />
                   <div className="min-w-0">
                     <Text strong className="!text-app-fg !text-base block leading-tight">
                       Pocketa

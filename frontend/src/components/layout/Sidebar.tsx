@@ -52,7 +52,7 @@ export function Sidebar({
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/logo.png"
+                src="/logo.webp"
                 alt="Pocketa"
                 className="h-10 w-10 object-contain shrink-0"
               />
@@ -71,7 +71,7 @@ export function Sidebar({
             <div className="flex items-center gap-3 min-w-0 opacity-50">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/logo.png"
+                src="/logo.webp"
                 alt="Pocketa"
                 className="h-10 w-10 object-contain shrink-0"
               />

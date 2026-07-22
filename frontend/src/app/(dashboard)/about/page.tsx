@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import {
   CodeOutlined,
   EnvironmentOutlined,
@@ -17,8 +18,8 @@ import { Flex, Typography } from "antd";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
-import { SectionCard } from "@/components/ui/section-card";
 import { SoftAvatar, SoftList, SoftListItem, SoftListRow } from "@/components/ui/soft-list";
+import { SectionCard } from "@/components/ui/section-card";
 
 const { Paragraph, Text } = Typography;
 
@@ -110,20 +111,30 @@ export default function AboutDeveloperPage() {
 
       <SectionCard>
         <Flex vertical gap={16}>
-          <div>
-            <Text className="!block !text-xl !font-semibold !text-app-fg sm:!text-2xl">
-              آرمین فاتحی
-            </Text>
-            <Text type="secondary" className="!mt-1.5 !block !text-sm sm:!text-base">
-              توسعه‌دهنده فرانت‌اند | React • Next.js • TypeScript
-            </Text>
-            <Flex align="center" gap={6} className="mt-3 text-app-muted">
-              <EnvironmentOutlined className="text-brand-600 dark:text-brand-300" />
-              <Text type="secondary" className="!text-sm">
-                ایران
+          <Flex align="center" gap={16}>
+            <Image
+              src="/ArminFatehi.webp"
+              alt="آرمین فاتحی"
+              width={88}
+              height={88}
+              priority
+              className="h-[72px] w-[72px] shrink-0 rounded-2xl object-cover sm:h-[88px] sm:w-[88px]"
+            />
+            <div className="min-w-0">
+              <Text className="!block !text-xl !font-semibold !text-app-fg sm:!text-2xl">
+                آرمین فاتحی
               </Text>
-            </Flex>
-          </div>
+              <Text type="secondary" className="!mt-1.5 !block !text-sm sm:!text-base">
+                توسعه‌دهنده فرانت‌اند | React • Next.js • TypeScript
+              </Text>
+              <Flex align="center" gap={6} className="mt-3 text-app-muted">
+                <EnvironmentOutlined className="text-brand-600 dark:text-brand-300" />
+                <Text type="secondary" className="!text-sm">
+                  ایران
+                </Text>
+              </Flex>
+            </div>
+          </Flex>
 
           <div className="space-y-3">
             {BIO.map((paragraph) => (
