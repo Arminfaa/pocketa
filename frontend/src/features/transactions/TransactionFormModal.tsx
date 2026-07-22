@@ -179,7 +179,7 @@ export function TransactionFormModal({
         type: "expense",
         amount: "",
         categoryId: "",
-        accountId: defaultAccountId ?? accounts[0]?.id ?? "",
+        accountId: "",
         title: "",
         description: "",
         date: getTodayJalali(),
@@ -194,7 +194,7 @@ export function TransactionFormModal({
       setTags([]);
     }
     setSuggestLabel(null);
-  }, [open, initial, defaultAccountId, accounts, form]);
+  }, [open, initial, defaultAccountId, form]);
 
   useEffect(() => {
     const current = form.getFieldValue("categoryId");

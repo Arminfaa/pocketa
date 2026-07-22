@@ -816,7 +816,7 @@ export default function TransactionsPage() {
         accounts={accountsQ.data ?? []}
         categories={categoriesQ.data ?? []}
         initial={editing}
-        defaultAccountId={selectedAccountId ?? accountsQ.data?.[0]?.id ?? null}
+        defaultAccountId={null}
         submitting={saveMutation.isPending}
         onSubmit={async (values) => {
           await saveMutation.mutateAsync(values);

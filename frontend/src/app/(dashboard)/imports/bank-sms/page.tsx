@@ -29,7 +29,6 @@ import {
   type ImportParseMode,
   type ParsedImportItem,
 } from "@/services/imports";
-import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { formatToman, formatJalaliDate, toPersianDigits } from "@/lib/format";
 import { Sk } from "@/components/ui/skeleton";
 import { cn } from "@/lib/cn";
@@ -83,13 +82,11 @@ export default function BankSmsImportPage() {
   const { message } = App.useApp();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const selectedAccountId = useAccountFilterStore((s) => s.selectedAccountId);
-
   const accountsQ = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
 
   const [mode, setMode] = useState<ImportParseMode>("sms");
   const [rawText, setRawText] = useState("");
-  const [accountId, setAccountId] = useState(selectedAccountId ?? "");
+  const [accountId, setAccountId] = useState("");
   const [jalaliYear, setJalaliYear] = useState(String(currentJalaliYearGuess()));
   const [items, setItems] = useState<ParsedImportItem[]>([]);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
@@ -99,7 +96,6 @@ export default function BankSmsImportPage() {
     duplicateCount: number;
   } | null>(null);
 
-  const effectiveAccountId = accountId || accountsQ.data?.[0]?.id || "";
   const isReceiptMode = mode === "card_receipt";
 
   function resetPreview() {
@@ -113,7 +109,7 @@ export default function BankSmsImportPage() {
     mutationFn: () =>
       previewBankSms({
         rawText,
-        accountId: effectiveAccountId,
+        accountId,
         jalaliYear: Number(jalaliYear),
         mode,
       }),
@@ -147,7 +143,7 @@ export default function BankSmsImportPage() {
         .map((i) => i.importHash);
       return confirmBankSms({
         rawText,
-        accountId: effectiveAccountId,
+        accountId,
         jalaliYear: Number(jalaliYear),
         mode,
         selectedHashes,
@@ -218,7 +214,8 @@ export default function BankSmsImportPage() {
               ) : (
                 <Select
                   className="w-full"
-                  value={effectiveAccountId}
+                  placeholder="انتخاب حساب مقصد"
+                  value={accountId || undefined}
                   onChange={setAccountId}
                   options={(accountsQ.data ?? []).map((a) => ({
                     value: a.id,
@@ -256,7 +253,7 @@ export default function BankSmsImportPage() {
           <Button
             type="primary"
             loading={previewMutation.isPending}
-            disabled={rawText.trim().length < 10 || !effectiveAccountId}
+            disabled={rawText.trim().length < 10 || !accountId}
             onClick={() => previewMutation.mutate()}
           >
             پیش‌نمایش
