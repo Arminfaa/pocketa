@@ -77,6 +77,10 @@ export default function LoginPage() {
               <Input.Password autoComplete="current-password" />
             </Form.Item>
 
+            <div className="mb-4 -mt-2 text-end">
+              <Typography.Link href="/forgot-password">رمز عبور را فراموش کرده‌اید؟</Typography.Link>
+            </div>
+
             <Form.Item className="!mb-2">
               <Button type="primary" htmlType="submit" block loading={submitting}>
                 {submitting ? "در حال ورود..." : "ورود"}

@@ -33,3 +33,23 @@ export const ChangePasswordSchema = z
       });
     }
   });
+
+export const ForgotPasswordSchema = z.object({
+  email: z.string().email().max(120).trim(),
+});
+
+export const ResetPasswordSchema = z
+  .object({
+    token: z.string().min(20).max(200).trim(),
+    newPassword: z.string().min(8).max(200),
+    confirmPassword: z.string().min(1).max(200),
+  })
+  .superRefine((data, ctx) => {
+    if (data.newPassword !== data.confirmPassword) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "تکرار رمز جدید یکسان نیست",
+        path: ["confirmPassword"],
+      });
+    }
+  });
