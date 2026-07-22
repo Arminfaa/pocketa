@@ -12,19 +12,17 @@ import type { BackupPayload } from "../validations/backup";
 
 const BACKUP_VERSION = 1 as const;
 
+type BackupDoc = BackupPayload["accounts"][number];
+
 /** JSON-safe clone: ObjectIds → strings, Dates → ISO */
-function toPlain<T>(docs: T[]): Record<string, unknown>[] {
-  return JSON.parse(JSON.stringify(docs)) as Record<string, unknown>[];
+function toPlain(docs: unknown[]): BackupDoc[] {
+  return JSON.parse(JSON.stringify(docs)) as BackupDoc[];
 }
 
-function withUserId(
-  docs: Array<Record<string, unknown>>,
-  userId: string
-): Record<string, unknown>[] {
+function withUserId(docs: BackupDoc[], userId: string): BackupDoc[] {
   return docs.map((doc) => {
-    const next = { ...doc, userId };
-    delete next.__v;
-    return next;
+    const { __v: _ignored, ...rest } = doc as BackupDoc & { __v?: unknown };
+    return { ...rest, userId } as BackupDoc;
   });
 }
 
@@ -95,14 +93,14 @@ export async function restoreUserBackup(
   await CategoryModel.deleteMany(filter);
   await BankAccountModel.deleteMany(filter);
 
-  const accounts = withUserId(backup.accounts as Record<string, unknown>[], userId);
-  const categories = withUserId(backup.categories as Record<string, unknown>[], userId);
-  const goals = withUserId(backup.goals as Record<string, unknown>[], userId);
-  const investments = withUserId(backup.investments as Record<string, unknown>[], userId);
-  const recurring = withUserId(backup.recurring as Record<string, unknown>[], userId);
-  const transactions = withUserId(backup.transactions as Record<string, unknown>[], userId);
-  const budgets = withUserId(backup.budgets as Record<string, unknown>[], userId);
-  const bankImports = withUserId((backup.bankImports ?? []) as Record<string, unknown>[], userId);
+  const accounts = withUserId(backup.accounts, userId);
+  const categories = withUserId(backup.categories, userId);
+  const goals = withUserId(backup.goals, userId);
+  const investments = withUserId(backup.investments, userId);
+  const recurring = withUserId(backup.recurring, userId);
+  const transactions = withUserId(backup.transactions, userId);
+  const budgets = withUserId(backup.budgets, userId);
+  const bankImports = withUserId(backup.bankImports ?? [], userId);
 
   // Insert parents before children; investments ↔ recurring may cross-link — both after goals
   if (accounts.length) await BankAccountModel.insertMany(accounts, { ordered: true });
