@@ -6,13 +6,11 @@ import { asyncHandler } from "../middleware/asyncHandler";
 import { env } from "../config/env";
 import { sendSuccess } from "../utils/apiResponse";
 import { AppError } from "../utils/AppError";
-import { RegisterSchema, LoginSchema, ChangePasswordSchema, ForgotPasswordSchema, ResetPasswordSchema } from "../validations/auth";
+import { RegisterSchema, LoginSchema, ChangePasswordSchema } from "../validations/auth";
 import { UserModel } from "../models/User";
 import { CategoryModel } from "../models/Category";
 import { RefreshTokenModel } from "../models/RefreshToken";
 import { BankAccountModel } from "../models/BankAccount";
-import { getAppUrl } from "../config/env";
-import { sendPasswordResetEmail } from "../services/mail.service";
 
 const ACCESS_COOKIE = "accessToken";
 const REFRESH_COOKIE = "refreshToken";
@@ -260,74 +258,6 @@ export const changePassword = asyncHandler(async (req: Request, res: Response) =
   setAuthCookies(res, accessToken, refreshToken, expiresAt);
 
   return sendSuccess(res, {}, "رمز عبور با موفقیت تغییر کرد");
-});
-
-const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
-const FORGOT_PASSWORD_OK_MESSAGE =
-  "اگر این ایمیل ثبت شده باشد، لینک بازیابی رمز عبور برایتان ارسال می‌شود";
-
-export const forgotPassword = asyncHandler(async (req: Request, res: Response) => {
-  const parsed = ForgotPasswordSchema.safeParse(req.body);
-  if (!parsed.success) throw new AppError(400, "خطا در اعتبارسنجی داده‌ها", parsed.error.flatten());
-
-  const email = parsed.data.email.toLowerCase().trim();
-  const user = await UserModel.findOne({ email });
-
-  // Always return the same message to avoid email enumeration.
-  if (!user) {
-    return sendSuccess(res, {}, FORGOT_PASSWORD_OK_MESSAGE);
-  }
-
-  const rawToken = crypto.randomBytes(32).toString("hex");
-  user.passwordResetTokenHash = sha256(rawToken);
-  user.passwordResetExpiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS);
-  await user.save();
-
-  const resetUrl = `${getAppUrl()}/reset-password?token=${encodeURIComponent(rawToken)}`;
-
-  try {
-    await sendPasswordResetEmail({
-      to: user.email,
-      name: user.name,
-      resetUrl,
-    });
-  } catch (err) {
-    user.passwordResetTokenHash = null;
-    user.passwordResetExpiresAt = null;
-    await user.save();
-    throw err;
-  }
-
-  return sendSuccess(res, {}, FORGOT_PASSWORD_OK_MESSAGE);
-});
-
-export const resetPassword = asyncHandler(async (req: Request, res: Response) => {
-  const parsed = ResetPasswordSchema.safeParse(req.body);
-  if (!parsed.success) throw new AppError(400, "خطا در اعتبارسنجی داده‌ها", parsed.error.flatten());
-
-  const { token, newPassword } = parsed.data;
-  const tokenHash = sha256(token);
-
-  const user = await UserModel.findOne({
-    passwordResetTokenHash: tokenHash,
-    passwordResetExpiresAt: { $gt: new Date() },
-  }).select("+password +passwordResetTokenHash +passwordResetExpiresAt");
-
-  if (!user) throw new AppError(400, "لینک بازیابی نامعتبر یا منقضی شده است");
-
-  user.password = await bcrypt.hash(newPassword, 12);
-  user.passwordResetTokenHash = null;
-  user.passwordResetExpiresAt = null;
-  await user.save();
-
-  await RefreshTokenModel.updateMany(
-    { userId: user._id, revokedAt: null },
-    { $set: { revokedAt: new Date() } }
-  );
-
-  clearAuthCookies(res);
-
-  return sendSuccess(res, {}, "رمز عبور با موفقیت تغییر کرد. اکنون وارد شوید");
 });
 
 export const refresh = asyncHandler(async (req: Request, res: Response) => {
