@@ -43,7 +43,7 @@ export default function NotFoundPage() {
         >
           <Flex align="center" gap={12} className="mb-10">
             <Image
-              src="/logo.png"
+              src="/logo.webp"
               alt="Pocketa"
               width={48}
               height={48}

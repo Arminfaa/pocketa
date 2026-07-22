@@ -33,7 +33,7 @@ export default function HomePage() {
             <Flex vertical align="start" gap={24} className="md:max-w-2xl lg:max-w-3xl">
               <Flex align="center" gap={16}>
                 <Image
-                  src="/logo.png"
+                  src="/logo.webp"
                   alt="Pocketa"
                   width={72}
                   height={72}
@@ -106,17 +106,17 @@ export default function HomePage() {
           <Typography.Paragraph
             type="secondary"
             className="!mb-0 !text-sm !leading-relaxed"
-            dir="ltr"
           >
-            © All rights reserved for{" "}
+            © تمامی حقوق برای{" "}
             <a
-              href="https://arminfatehi.ir/en"
+              href="https://arminfatehi.ir"
               target="_blank"
               rel="noopener noreferrer"
               className="text-brand-600 no-underline transition-colors hover:text-brand-500 dark:text-brand-300 dark:hover:text-brand-200"
             >
-              Armin Fatehi
-            </a>
+              آرمین فاتحی
+            </a>{" "}
+            محفوظ است
           </Typography.Paragraph>
         </motion.footer>
       </div>
