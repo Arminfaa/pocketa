@@ -4,7 +4,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 /** Fixed-width mask so layout does not jump when amounts are hidden. */
-export const HIDDEN_AMOUNT = "••••••••";
+export const HIDDEN_AMOUNT = "******";
 
 type HideAmountsState = {
   hideAmounts: boolean;
