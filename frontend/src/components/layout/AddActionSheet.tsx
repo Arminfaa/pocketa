@@ -16,7 +16,7 @@ import {
 import { ADD_SHORTCUT_ITEMS } from "./nav-items";
 import { cn } from "@/lib/cn";
 import { useBodyScrollLock } from "@/lib/body-scroll-lock";
-import { useQuickCaptureStore } from "@/stores/quick-capture.store";
+import { useOnlineStatus } from "@/hooks/use-online-status";
 
 type Props = {
   open: boolean;
@@ -30,6 +30,9 @@ const SPRING = { type: "spring" as const, stiffness: 440, damping: 40, mass: 0.8
 const EASE_OUT = { type: "tween" as const, duration: 0.3, ease: [0.32, 0.72, 0, 1] as const };
 
 const PRIMARY_KEY = "add-transaction";
+
+/** Keys that still work without a network connection (outbox / local snapshots). */
+const OFFLINE_ALLOWED_KEYS = new Set([PRIMARY_KEY]);
 
 const GROUPS: Array<{ title: string; keys: string[] }> = [
   { title: "جابه‌جایی پول", keys: ["add-transfer", "add-import"] },
@@ -46,8 +49,12 @@ type BodyGesture = {
   velocityY: number;
 };
 
+function isOfflineAllowed(key: string, online: boolean) {
+  return online || OFFLINE_ALLOWED_KEYS.has(key);
+}
+
 export function AddActionSheet({ open, onClose }: Props) {
-  const openQuickCapture = useQuickCaptureStore((s) => s.openQuickCapture);
+  const online = useOnlineStatus();
   const [mounted, setMounted] = useState(false);
   const [present, setPresent] = useState(false);
   const [interactive, setInteractive] = useState(true);
@@ -328,55 +335,37 @@ export function AddActionSheet({ open, onClose }: Props) {
           onPointerCancel={onBodyPointerUp}
         >
           <div className="space-y-4">
-            <button
-              type="button"
-              onClick={() => {
-                requestClose();
-                openQuickCapture();
-              }}
-              className={cn(
-                "flex w-full items-center gap-3 rounded-[1.35rem] px-4 py-3.5 text-right transition-transform active:scale-[0.99]",
-                "bg-gradient-to-l from-cyan-600 to-teal-500 text-white",
-                "shadow-[0_12px_28px_rgba(8,145,178,0.32)]",
-                "dark:from-brand-500 dark:to-teal-500 dark:shadow-[0_12px_28px_rgba(34,211,238,0.18)]"
-              )}
-            >
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/18 text-xl">
-                {primary?.icon}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[15px] font-semibold leading-tight">
-                  ثبت سریع
-                </span>
-                <span className="mt-0.5 block text-[11px] text-white/80">
-                  حتی بدون اینترنت — مبلغ، عنوان، حساب و دسته
-                </span>
-              </span>
-              <RightOutlined className="rotate-180 text-sm text-white/75" />
-            </button>
+            {!online ? (
+              <div className="rounded-2xl bg-slate-900/5 px-3 py-2 text-[11px] text-slate-600 dark:bg-white/6 dark:text-app-muted">
+                حالت آفلاین — فقط ثبت تراکنش فعال است؛ بقیه بعد از اتصال در دسترس‌اند.
+              </div>
+            ) : null}
 
             {primary ? (
               <Link
                 href={primary.href}
                 onClick={requestClose}
                 className={cn(
-                  "flex items-center gap-3 rounded-[1.25rem] px-3.5 py-3 no-underline transition-colors",
-                  "bg-white/80 text-slate-900 ring-1 ring-slate-900/5",
-                  "hover:bg-cyan-500/8 dark:bg-[color-mix(in_srgb,var(--card)_88%,#000)] dark:text-app-fg dark:ring-white/8 dark:hover:bg-brand-500/10"
+                  "flex items-center gap-3 rounded-[1.35rem] px-4 py-3.5 no-underline transition-transform active:scale-[0.99]",
+                  "bg-gradient-to-l from-cyan-600 to-teal-500 text-white",
+                  "shadow-[0_12px_28px_rgba(8,145,178,0.32)]",
+                  "dark:from-brand-500 dark:to-teal-500 dark:shadow-[0_12px_28px_rgba(34,211,238,0.18)]"
                 )}
               >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-cyan-500/12 text-base text-cyan-700 dark:bg-brand-500/18 dark:text-brand-200">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/18 text-xl">
                   {primary.icon}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-medium leading-tight">
-                    تراکنش کامل
+                  <span className="block text-[15px] font-semibold leading-tight">
+                    تراکنش جدید
                   </span>
-                  <span className="mt-0.5 block text-[11px] text-slate-500 dark:text-app-muted">
-                    بدهی، طلب، تگ و جزئیات بیشتر
+                  <span className="mt-0.5 block text-[11px] text-white/80">
+                    {online
+                      ? "درآمد یا هزینه را همین حالا ثبت کنید"
+                      : "بدون اینترنت ذخیره می‌شود و بعداً همگام می‌شود"}
                   </span>
                 </span>
-                <RightOutlined className="rotate-180 text-[11px] text-slate-400 dark:text-app-muted" />
+                <RightOutlined className="rotate-180 text-sm text-white/75" />
               </Link>
             ) : null}
 
@@ -392,27 +381,56 @@ export function AddActionSheet({ open, onClose }: Props) {
                     {group.title}
                   </div>
                   <div className="overflow-hidden rounded-[1.25rem] bg-white/80 ring-1 ring-slate-900/5 dark:bg-[color-mix(in_srgb,var(--card)_88%,#000)] dark:ring-white/8">
-                    {items.map((item, index) => (
-                      <Link
-                        key={item.key}
-                        href={item.href}
-                        onClick={requestClose}
-                        className={cn(
-                          "flex items-center gap-3 px-3.5 py-3 no-underline transition-colors",
-                          "text-slate-900 hover:bg-cyan-500/8 dark:text-app-fg dark:hover:bg-brand-500/10",
-                          index > 0 &&
-                            "border-t border-slate-900/6 dark:border-white/8"
-                        )}
-                      >
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-cyan-500/12 text-base text-cyan-700 dark:bg-brand-500/18 dark:text-brand-200">
-                          {item.icon}
-                        </span>
-                        <span className="min-w-0 flex-1 text-sm font-medium leading-tight">
-                          {item.label}
-                        </span>
-                        <RightOutlined className="rotate-180 text-[11px] text-slate-400 dark:text-app-muted" />
-                      </Link>
-                    ))}
+                    {items.map((item, index) => {
+                      const allowed = isOfflineAllowed(item.key, online);
+                      const rowClass = cn(
+                        "flex items-center gap-3 px-3.5 py-3 no-underline transition-colors",
+                        index > 0 && "border-t border-slate-900/6 dark:border-white/8",
+                        allowed
+                          ? "text-slate-900 hover:bg-cyan-500/8 dark:text-app-fg dark:hover:bg-brand-500/10"
+                          : "pointer-events-none cursor-not-allowed opacity-45 text-slate-500 dark:text-app-muted"
+                      );
+
+                      if (!allowed) {
+                        return (
+                          <div
+                            key={item.key}
+                            className={rowClass}
+                            aria-disabled="true"
+                            title="در حالت آفلاین در دسترس نیست"
+                          >
+                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-cyan-500/12 text-base text-cyan-700 dark:bg-brand-500/18 dark:text-brand-200">
+                              {item.icon}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-sm font-medium leading-tight">
+                                {item.label}
+                              </span>
+                              <span className="mt-0.5 block text-[11px] opacity-80">
+                                نیاز به اینترنت
+                              </span>
+                            </span>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <Link
+                          key={item.key}
+                          href={item.href}
+                          onClick={requestClose}
+                          className={rowClass}
+                        >
+                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-cyan-500/12 text-base text-cyan-700 dark:bg-brand-500/18 dark:text-brand-200">
+                            {item.icon}
+                          </span>
+                          <span className="min-w-0 flex-1 text-sm font-medium leading-tight">
+                            {item.label}
+                          </span>
+                          <RightOutlined className="rotate-180 text-[11px] text-slate-400 dark:text-app-muted" />
+                        </Link>
+                      );
+                    })}
                   </div>
                 </div>
               );

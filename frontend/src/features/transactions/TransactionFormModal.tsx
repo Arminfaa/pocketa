@@ -38,6 +38,7 @@ import {
 } from "@/lib/amount";
 import { formatToman } from "@/lib/format";
 import { cn } from "@/lib/cn";
+import { useOnlineStatus } from "@/hooks/use-online-status";
 
 export type TransactionFormValues = {
   type: "income" | "expense";
@@ -113,6 +114,7 @@ export function TransactionFormModal({
   defaultAccountId,
   submitting,
 }: Props) {
+  const online = useOnlineStatus();
   const screens = Grid.useBreakpoint();
   const modalWidth = screens.sm ? 640 : "calc(100vw - 24px)";
   const isCreate = !initial;
@@ -133,8 +135,20 @@ export function TransactionFormModal({
   const recurringQ = useQuery({
     queryKey: ["recurring"],
     queryFn: fetchRecurring,
-    enabled: open && isCreate && linkToRecurring,
+    enabled: open && isCreate && linkToRecurring && online,
   });
+
+  useEffect(() => {
+    if (online || !open || !isCreate) return;
+    form.setFieldsValue({
+      registerAsDebt: false,
+      debtDueDate: undefined,
+      linkToRecurring: false,
+      settleRecurringId: undefined,
+      settleMode: "full",
+      remainderDueDate: undefined,
+    });
+  }, [online, open, isCreate, form]);
 
   const filteredCategories = useMemo(
     () => categories.filter((c) => c.type === type),
@@ -228,6 +242,7 @@ export function TransactionFormModal({
   }, [type, linkToRecurring, form]);
 
   async function applySuggestion() {
+    if (!online) return;
     const t = title.trim();
     if (t.length < 2) return;
     setSuggesting(true);
@@ -250,8 +265,10 @@ export function TransactionFormModal({
       form.setFields([{ name: "amount", errors: ["مبلغ معتبر نیست"] }]);
       return;
     }
-    const asDebt = Boolean(isCreate && values.registerAsDebt);
-    const asSettle = Boolean(isCreate && values.linkToRecurring && values.settleRecurringId);
+    const asDebt = Boolean(isCreate && online && values.registerAsDebt);
+    const asSettle = Boolean(
+      isCreate && online && values.linkToRecurring && values.settleRecurringId
+    );
 
     if (asDebt && !values.debtDueDate?.trim()) {
       form.setFields([{ name: "debtDueDate", errors: ["تاریخ سررسید را وارد کنید"] }]);
@@ -329,7 +346,11 @@ export function TransactionFormModal({
       open={open}
       onClose={onClose}
       title={initial ? "ویرایش تراکنش" : "افزودن تراکنش"}
-      subtitle="مبلغ به تومان و تاریخ به صورت شمسی وارد شود"
+      subtitle={
+        online
+          ? "مبلغ به تومان و تاریخ به صورت شمسی وارد شود"
+          : "آفلاین — ثبت ساده محلی می‌شود؛ بدهی/طلب و تسویه فقط آنلاین"
+      }
       width={modalWidth}
       footer={
         <Flex justify="end" gap="small" wrap="wrap" className="w-full">
@@ -359,7 +380,10 @@ export function TransactionFormModal({
         {isCreate ? (
           <>
             <Form.Item name="registerAsDebt" valuePropName="checked" className="!mb-2">
-              <Checkbox disabled={linkToRecurring}>{obligationLabel(type)}</Checkbox>
+              <Checkbox disabled={!online || linkToRecurring}>
+                {obligationLabel(type)}
+                {!online ? " (نیاز به اینترنت)" : ""}
+              </Checkbox>
             </Form.Item>
 
             {registerAsDebt ? (
@@ -369,8 +393,9 @@ export function TransactionFormModal({
             ) : null}
 
             <Form.Item name="linkToRecurring" valuePropName="checked" className="!mb-2">
-              <Checkbox disabled={registerAsDebt}>
+              <Checkbox disabled={!online || registerAsDebt}>
                 اتصال به سررسید موجود (تسویه از جریان دوره‌ای)
+                {!online ? " (نیاز به اینترنت)" : ""}
               </Checkbox>
             </Form.Item>
           </>

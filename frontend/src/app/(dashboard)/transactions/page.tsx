@@ -26,12 +26,10 @@ import {
   ExclamationCircleOutlined,
   SearchOutlined,
   SwapOutlined,
-  ThunderboltOutlined,
   CloudUploadOutlined,
 } from "@ant-design/icons";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { useAuthStore } from "@/stores/auth.store";
-import { useQuickCaptureStore } from "@/stores/quick-capture.store";
 import { fetchAccounts } from "@/services/accounts";
 import {
   bulkDeleteTransactions,
@@ -117,7 +115,6 @@ export default function TransactionsPage() {
   const searchParams = useSearchParams();
   const selectedAccountId = useAccountFilterStore((s) => s.selectedAccountId);
   const userId = useAuthStore((s) => s.user?.id ?? "");
-  const openQuickCapture = useQuickCaptureStore((s) => s.openQuickCapture);
   const online = useOnlineStatus();
   const { items: outboxItems } = useOfflineOutbox();
   const screens = useBreakpoint();
@@ -138,13 +135,12 @@ export default function TransactionsPage() {
   const [transferOpen, setTransferOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [snapAccounts, setSnapAccounts] = useState<Awaited<ReturnType<typeof fetchAccounts>>>([]);
+  const [snapCategories, setSnapCategories] = useState<
+    Awaited<ReturnType<typeof fetchCategories>>
+  >([]);
 
   useEffect(() => {
-    if (searchParams.get("quick") === "1") {
-      openQuickCapture();
-      router.replace("/transactions", { scroll: false });
-      return;
-    }
     if (searchParams.get("new") === "1") {
       setEditing(null);
       setModalOpen(true);
@@ -152,10 +148,15 @@ export default function TransactionsPage() {
       return;
     }
     if (searchParams.get("transfer") === "1") {
+      if (!navigator.onLine) {
+        message.warning("انتقال بین حساب فقط با اینترنت ممکن است");
+        router.replace("/transactions", { scroll: false });
+        return;
+      }
       setTransferOpen(true);
       router.replace("/transactions", { scroll: false });
     }
-  }, [searchParams, router, openQuickCapture]);
+  }, [searchParams, router, message]);
 
   const accountsQ = useQuery({
     queryKey: ["accounts"],
@@ -167,6 +168,33 @@ export default function TransactionsPage() {
     queryFn: fetchCategories,
     staleTime: 5 * 60_000,
   });
+
+  useEffect(() => {
+    if (!userId) return;
+    void (async () => {
+      const { getAccountsSnapshot, getCategoriesSnapshot } = await import(
+        "@/lib/offline/snapshots"
+      );
+      const [a, c] = await Promise.all([
+        getAccountsSnapshot(userId),
+        getCategoriesSnapshot(userId),
+      ]);
+      setSnapAccounts(a);
+      setSnapCategories(c);
+    })();
+  }, [userId, accountsQ.data, categoriesQ.data]);
+
+  const formAccounts = useMemo(() => {
+    const live = accountsQ.data;
+    if (live && live.length > 0) return live;
+    return snapAccounts;
+  }, [accountsQ.data, snapAccounts]);
+
+  const formCategories = useMemo(() => {
+    const live = categoriesQ.data;
+    if (live && live.length > 0) return live;
+    return snapCategories;
+  }, [categoriesQ.data, snapCategories]);
 
   const listKey = useMemo(
     () => ["transactions", selectedAccountId, page, pageSize, filters] as const,
@@ -236,8 +264,8 @@ export default function TransactionsPage() {
 
       if (!userId) throw new Error("برای ثبت باید وارد شوید");
 
-      const account = (accountsQ.data ?? []).find((a) => a.id === payload.accountId);
-      const category = (categoriesQ.data ?? []).find((c) => c._id === payload.categoryId);
+      const account = formAccounts.find((a) => a.id === payload.accountId);
+      const category = formCategories.find((c) => c._id === payload.categoryId);
       const result = await captureTransaction({
         userId,
         payload,
@@ -678,44 +706,31 @@ export default function TransactionsPage() {
                 className={cn(headerActionBtnClass, "min-w-0 !px-2.5 sm:!px-4")}
                 icon={<DownloadOutlined />}
                 onClick={() => void handleExport()}
+                disabled={!online}
               >
                 {isMobile ? "خروجی" : "خروجی CSV"}
               </Button>
               <Button
                 className={cn(headerActionBtnClass, "min-w-0 !px-2.5 sm:!px-4")}
                 icon={<SwapOutlined />}
+                disabled={!online}
                 onClick={() => setTransferOpen(true)}
               >
                 انتقال بین حساب
               </Button>
             </div>
-            <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:flex sm:w-auto">
-              <Button
-                block={isMobile}
-                className={headerActionBtnClass}
-                icon={<ThunderboltOutlined />}
-                onClick={() => openQuickCapture()}
-              >
-                ثبت سریع
-              </Button>
-              <Button
-                type="primary"
-                block={isMobile}
-                className={headerActionBtnClass}
-                icon={<PlusOutlined />}
-                onClick={() => {
-                  if (!online) {
-                    message.info("بدون اینترنت از «ثبت سریع» استفاده کنید");
-                    openQuickCapture();
-                    return;
-                  }
-                  setEditing(null);
-                  setModalOpen(true);
-                }}
-              >
-                تراکنش جدید
-              </Button>
-            </div>
+            <Button
+              type="primary"
+              block={isMobile}
+              className={headerActionBtnClass}
+              icon={<PlusOutlined />}
+              onClick={() => {
+                setEditing(null);
+                setModalOpen(true);
+              }}
+            >
+              تراکنش جدید
+            </Button>
           </div>
         }
       />
@@ -1042,8 +1057,8 @@ export default function TransactionsPage() {
           setModalOpen(false);
           setEditing(null);
         }}
-        accounts={accountsQ.data ?? []}
-        categories={categoriesQ.data ?? []}
+        accounts={formAccounts}
+        categories={formCategories}
         initial={editing}
         defaultAccountId={null}
         submitting={saveMutation.isPending}
@@ -1055,8 +1070,8 @@ export default function TransactionsPage() {
       <TransferFormModal
         open={transferOpen}
         onClose={() => setTransferOpen(false)}
-        accounts={accountsQ.data ?? []}
-        defaultFromAccountId={selectedAccountId ?? accountsQ.data?.[0]?.id ?? null}
+        accounts={formAccounts}
+        defaultFromAccountId={selectedAccountId ?? formAccounts[0]?.id ?? null}
         submitting={transferMutation.isPending}
         onSubmit={async (values) => {
           await transferMutation.mutateAsync(values);
