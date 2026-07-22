@@ -4,6 +4,7 @@ import { useState } from "react";
 import { App, Button, Card, Flex, Form, Input, Space, Typography } from "antd";
 import api from "@/services/api";
 import { useAuthStore } from "@/stores/auth.store";
+import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { useTourStore } from "@/stores/tour.store";
 import { useRouter } from "next/navigation";
 
@@ -40,6 +41,7 @@ export default function RegisterPage() {
       const user = loginPayload?.user ?? null;
       setUser(user);
       setSessionChecked(true);
+      useAccountFilterStore.getState().setSelectedAccountId(null);
       if (user?.id) {
         useTourStore.getState().markPendingForUser(user.id);
       }
