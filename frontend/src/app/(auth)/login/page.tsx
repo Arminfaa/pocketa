@@ -4,6 +4,7 @@ import { useState } from "react";
 import { App, Button, Card, Flex, Form, Input, Space, Typography } from "antd";
 import api from "@/services/api";
 import { useAuthStore, type AuthUser } from "@/stores/auth.store";
+import { useAccountFilterStore } from "@/stores/account-filter.store";
 import { useRouter } from "next/navigation";
 
 type LoginForm = {
@@ -29,6 +30,7 @@ export default function LoginPage() {
 
       setUser(user);
       setSessionChecked(true);
+      useAccountFilterStore.getState().setSelectedAccountId(null);
       message.success("ورود موفقیت‌آمیز بود");
       router.replace("/dashboard");
     } catch (err: unknown) {
