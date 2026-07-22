@@ -5,6 +5,7 @@ import { useState } from "react";
 import { ThemeInitializer } from "@/components/theme/ThemeInitializer";
 import { AntdProvider } from "@/components/providers/AntdProvider";
 import { PwaRegister } from "@/components/pwa/PwaRegister";
+import { OfflineSyncProvider } from "@/features/offline/OfflineSyncProvider";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -25,7 +26,9 @@ export default function Providers({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <ThemeInitializer />
       <PwaRegister />
-      <AntdProvider>{children}</AntdProvider>
+      <AntdProvider>
+        <OfflineSyncProvider>{children}</OfflineSyncProvider>
+      </AntdProvider>
     </QueryClientProvider>
   );
 }

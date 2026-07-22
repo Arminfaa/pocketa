@@ -71,6 +71,15 @@ export type TransactionInput = {
   remainderDueDate?: string | null;
   /** کارمزد کارت‌به‌کارت (تومان) — مبلغ نهایی = انتقال + کارمزد */
   feeAmount?: number;
+  /** Offline outbox idempotency key */
+  clientId?: string | null;
+};
+
+/** Local-only fields when a row comes from the offline outbox */
+export type PendingSyncMeta = {
+  syncStatus?: "pending" | "syncing" | "failed";
+  syncError?: string;
+  clientId?: string;
 };
 
 export type TransactionsListResponse = {
