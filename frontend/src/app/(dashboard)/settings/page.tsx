@@ -1,13 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/auth.store";
 import api from "@/services/api";
+import {
+  downloadFullBackup,
+  readBackupFile,
+  restoreFullBackup,
+} from "@/services/backup";
 import { useRouter } from "next/navigation";
 import { App, Button, Flex, Input, Space, Tag, Typography } from "antd";
 import {
   BellOutlined,
+  CloudDownloadOutlined,
+  CloudUploadOutlined,
   KeyOutlined,
   LogoutOutlined,
   SettingOutlined,
@@ -25,8 +32,16 @@ import {
 
 const { Text } = Typography;
 
+function apiErrorMessage(err: unknown, fallback: string): string {
+  const fromApi = (err as { response?: { data?: { message?: string } } })?.response?.data
+    ?.message;
+  if (typeof fromApi === "string" && fromApi.trim()) return fromApi;
+  if (err instanceof Error && err.message) return err.message;
+  return fallback;
+}
+
 export default function SettingsPage() {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
@@ -34,6 +49,9 @@ export default function SettingsPage() {
   const router = useRouter();
   const [name, setName] = useState(user?.name ?? "");
   const [saving, setSaving] = useState(false);
+  const [downloadingBackup, setDownloadingBackup] = useState(false);
+  const [restoringBackup, setRestoringBackup] = useState(false);
+  const restoreInputRef = useRef<HTMLInputElement>(null);
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -117,13 +135,71 @@ export default function SettingsPage() {
       if (nextUser) setUser(nextUser);
       message.success("پروفایل ذخیره شد");
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        "خطا در ذخیره پروفایل";
-      message.error(msg);
+      message.error(apiErrorMessage(err, "خطا در ذخیره پروفایل"));
     } finally {
       setSaving(false);
     }
+  }
+
+  async function onDownloadBackup() {
+    setDownloadingBackup(true);
+    try {
+      await downloadFullBackup();
+      message.success("بکاپ کامل دانلود شد — فایل را در جای امن نگه دارید");
+    } catch (err: unknown) {
+      message.error(apiErrorMessage(err, "دانلود بکاپ ناموفق بود"));
+    } finally {
+      setDownloadingBackup(false);
+    }
+  }
+
+  function onPickRestoreFile() {
+    restoreInputRef.current?.click();
+  }
+
+  async function onRestoreFileSelected(file: File | undefined) {
+    if (!file) return;
+    if (restoreInputRef.current) restoreInputRef.current.value = "";
+
+    let backup: unknown;
+    try {
+      backup = await readBackupFile(file);
+    } catch (err: unknown) {
+      message.error(apiErrorMessage(err, "خواندن فایل بکاپ ناموفق بود"));
+      return;
+    }
+
+    modal.confirm({
+      title: "بازیابی کامل داده؟",
+      content:
+        "همه داده‌های فعلی این حساب (حساب‌ها، تراکنش‌ها، بودجه‌ها، اهداف و …) پاک می‌شود و با محتوای این فایل جایگزین می‌شود. این کار برگشت‌ناپذیر است.",
+      okText: "بازیابی کن",
+      okType: "danger",
+      cancelText: "انصراف",
+      centered: true,
+      onOk: async () => {
+        setRestoringBackup(true);
+        try {
+          const summary = await restoreFullBackup(backup);
+          await queryClient.invalidateQueries();
+          if (summary && typeof (backup as { user?: { name?: string } }).user?.name === "string") {
+            const nextName = (backup as { user: { name: string } }).user.name.trim();
+            if (nextName.length >= 2) {
+              setName(nextName);
+              if (user) setUser({ ...user, name: nextName });
+            }
+          }
+          message.success(
+            `بازیابی انجام شد (${summary.transactions} تراکنش، ${summary.accounts} حساب)`
+          );
+        } catch (err: unknown) {
+          message.error(apiErrorMessage(err, "بازیابی ناموفق بود"));
+          throw err;
+        } finally {
+          setRestoringBackup(false);
+        }
+      },
+    });
   }
 
   const pushConfigured = pushStatusQ.data?.configured !== false;
@@ -135,7 +211,7 @@ export default function SettingsPage() {
       <PageHeader
         icon={<SettingOutlined />}
         title="تنظیمات پروفایل"
-        description="نام نمایشی، تغییر رمز، یادآوری پوش و خروج از حساب."
+        description="نام نمایشی، تغییر رمز، بکاپ کامل، یادآوری پوش و خروج از حساب."
       />
 
       {!user ? (
@@ -212,6 +288,47 @@ export default function SettingsPage() {
               >
                 تغییر رمز
               </Button>
+            </Space>
+          </SectionCard>
+
+          <SectionCard
+            title={
+              <Space>
+                <CloudDownloadOutlined className="text-brand-500" />
+                پشتیبان‌گیری و بازیابی
+              </Space>
+            }
+            description="کل داده‌هایتان (حساب‌ها، دسته‌ها، تراکنش‌ها، بودجه‌ها، بدهی/اقساط، اهداف و سرمایه‌گذاری‌ها) را روی دستگاه خود ذخیره کنید و در صورت نیاز همان فایل را برگردانید."
+          >
+            <input
+              ref={restoreInputRef}
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={(e) => void onRestoreFileSelected(e.target.files?.[0])}
+            />
+            <Space orientation="vertical" size="middle" className="w-full">
+              <Text type="secondary" className="text-xs leading-relaxed block">
+                رمز عبور و نشست‌های ورود در بکاپ نیستند. بازیابی داده‌های فعلی را کاملاً جایگزین
+                می‌کند.
+              </Text>
+              <Flex gap="small" wrap="wrap">
+                <Button
+                  type="primary"
+                  icon={<CloudDownloadOutlined />}
+                  loading={downloadingBackup}
+                  onClick={() => void onDownloadBackup()}
+                >
+                  دانلود بکاپ کامل
+                </Button>
+                <Button
+                  icon={<CloudUploadOutlined />}
+                  loading={restoringBackup}
+                  onClick={onPickRestoreFile}
+                >
+                  بازیابی از فایل
+                </Button>
+              </Flex>
             </Space>
           </SectionCard>
 
