@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
+import { HIDDEN_AMOUNT, useHideAmountsStore } from "@/stores/hide-amounts.store";
 
 type Props = {
   children: ReactNode;
@@ -36,14 +37,22 @@ export function AmountText({
   className,
   caption,
 }: Props) {
+  const hideAmounts = useHideAmountsStore((s) => s.hideAmounts);
+
   return (
     <div className={cn("text-left", className)}>
       <div className={cn("font-bold tabular-nums leading-tight", TONE[tone], SIZE[size])}>
-        {prefix}
-        {children}
-        {suffix}
+        {hideAmounts ? (
+          HIDDEN_AMOUNT
+        ) : (
+          <>
+            {prefix}
+            {children}
+            {suffix}
+          </>
+        )}
       </div>
-      {caption ? (
+      {caption && !hideAmounts ? (
         <div className="mt-0.5 text-[11px] text-app-muted leading-none">{caption}</div>
       ) : null}
     </div>
