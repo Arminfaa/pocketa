@@ -15,6 +15,8 @@ const BACKUP_VERSION = 1 as const;
 
 type BackupDoc = BackupPayload["accounts"][number];
 
+const OBJECT_ID_HEX = /^[a-fA-F0-9]{24}$/;
+
 /** ObjectId-like fields where empty string / null must be omitted (not cast). */
 const OBJECT_ID_KEYS = new Set([
   "_id",
@@ -30,6 +32,23 @@ const OBJECT_ID_KEYS = new Set([
   "goalId",
   "recurringId",
 ]);
+
+/** Refs remapped to new ids so restore works on a different account (no _id collisions). */
+const REMAP_KEYS = new Set([
+  "_id",
+  "accountId",
+  "categoryId",
+  "transferGroupId",
+  "linkedTransactionId",
+  "settledRecurringId",
+  "createdDebtId",
+  "deferredDebtId",
+  "investmentId",
+  "goalId",
+  "recurringId",
+]);
+
+const SETTLE_SNAPSHOT_ID_KEYS = ["recurringId", "deferredDebtId"] as const;
 
 /**
  * Drop null/undefined (and empty strings on ObjectId fields) so Mongoose enum/cast
@@ -65,12 +84,126 @@ function toPlain(docs: unknown[]): BackupDoc[] {
   return cloned.map((doc) => deepSanitize(doc) as BackupDoc);
 }
 
-function prepareDocs(docs: BackupDoc[], userId: string): Record<string, unknown>[] {
-  return docs.map((doc) => {
-    const cleaned = deepSanitize(doc) as Record<string, unknown>;
-    cleaned.userId = userId;
-    return cleaned;
-  });
+function sanitizeDocs(docs: BackupDoc[]): Record<string, unknown>[] {
+  return docs.map((doc) => deepSanitize(doc) as Record<string, unknown>);
+}
+
+function collectId(value: unknown, into: Set<string>) {
+  if (typeof value === "string" && OBJECT_ID_HEX.test(value)) {
+    into.add(value);
+  }
+}
+
+function collectIdsFromDoc(doc: Record<string, unknown>, into: Set<string>) {
+  for (const [key, value] of Object.entries(doc)) {
+    if (key === "userId") continue;
+    if (REMAP_KEYS.has(key)) {
+      collectId(value, into);
+      continue;
+    }
+    if (key === "settleSnapshot" && value && typeof value === "object" && !Array.isArray(value)) {
+      const snap = value as Record<string, unknown>;
+      for (const sk of SETTLE_SNAPSHOT_ID_KEYS) {
+        collectId(snap[sk], into);
+      }
+    }
+  }
+}
+
+function buildIdMap(ids: Set<string>): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const id of ids) {
+    map.set(id, new mongoose.Types.ObjectId().toString());
+  }
+  return map;
+}
+
+function remapId(value: unknown, idMap: Map<string, string>): unknown {
+  if (typeof value === "string" && idMap.has(value)) return idMap.get(value);
+  return value;
+}
+
+/**
+ * Rewrite every document `_id` and FK to fresh ObjectIds, then attach the current userId.
+ * Required for restoring a backup onto a different account without colliding with the source.
+ */
+function remapDoc(
+  doc: Record<string, unknown>,
+  idMap: Map<string, string>,
+  userId: string
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(doc)) {
+    if (key === "userId") {
+      out.userId = userId;
+      continue;
+    }
+    if (key === "settleSnapshot" && value && typeof value === "object" && !Array.isArray(value)) {
+      const snap: Record<string, unknown> = { ...(value as Record<string, unknown>) };
+      for (const sk of SETTLE_SNAPSHOT_ID_KEYS) {
+        if (sk in snap) snap[sk] = remapId(snap[sk], idMap);
+      }
+      out[key] = snap;
+      continue;
+    }
+    if (REMAP_KEYS.has(key)) {
+      out[key] = remapId(value, idMap);
+      continue;
+    }
+    out[key] = value;
+  }
+  out.userId = userId;
+  return out;
+}
+
+function prepareCollectionsForRestore(
+  backup: BackupPayload,
+  userId: string
+): {
+  accounts: Record<string, unknown>[];
+  categories: Record<string, unknown>[];
+  goals: Record<string, unknown>[];
+  investments: Record<string, unknown>[];
+  recurring: Record<string, unknown>[];
+  transactions: Record<string, unknown>[];
+  budgets: Record<string, unknown>[];
+  bankImports: Record<string, unknown>[];
+} {
+  const accounts = sanitizeDocs(backup.accounts);
+  const categories = sanitizeDocs(backup.categories);
+  const goals = sanitizeDocs(backup.goals);
+  const investments = sanitizeDocs(backup.investments);
+  const recurring = sanitizeDocs(backup.recurring);
+  const transactions = sanitizeDocs(backup.transactions);
+  const budgets = sanitizeDocs(backup.budgets);
+  const bankImports = sanitizeDocs(backup.bankImports ?? []);
+
+  const allIds = new Set<string>();
+  for (const docs of [
+    accounts,
+    categories,
+    goals,
+    investments,
+    recurring,
+    transactions,
+    budgets,
+    bankImports,
+  ]) {
+    for (const doc of docs) collectIdsFromDoc(doc, allIds);
+  }
+
+  const idMap = buildIdMap(allIds);
+
+  return {
+    accounts: accounts.map((d) => remapDoc(d, idMap, userId)),
+    categories: categories.map((d) => remapDoc(d, idMap, userId)),
+    goals: goals.map((d) => remapDoc(d, idMap, userId)),
+    investments: investments.map((d) => remapDoc(d, idMap, userId)),
+    recurring: recurring.map((d) => remapDoc(d, idMap, userId)),
+    transactions: transactions.map((d) => remapDoc(d, idMap, userId)),
+    budgets: budgets.map((d) => remapDoc(d, idMap, userId)),
+    bankImports: bankImports.map((d) => remapDoc(d, idMap, userId)),
+  };
 }
 
 function restoreFailureMessage(err: unknown, stage: string): string {
@@ -155,7 +288,8 @@ export type RestoreSummary = {
 
 /**
  * Replace-all restore for the authenticated user.
- * Preserves document `_id`s so cross-links (transfers, debts, goals, …) stay valid.
+ * Always remaps document ids/FKs so a backup from another (or lost) account can be
+ * restored onto a newly registered account without `_id` collisions.
  * Does not change password or email; optionally updates display name from backup.
  */
 export async function restoreUserBackup(
@@ -165,15 +299,17 @@ export async function restoreUserBackup(
   const userOid = new mongoose.Types.ObjectId(userId);
   const filter = { userId: userOid };
 
-  // Sanitize BEFORE wipe so a bad file does not empty the account first.
-  const accounts = prepareDocs(backup.accounts, userId);
-  const categories = prepareDocs(backup.categories, userId);
-  const goals = prepareDocs(backup.goals, userId);
-  const investments = prepareDocs(backup.investments, userId);
-  const recurring = prepareDocs(backup.recurring, userId);
-  const transactions = prepareDocs(backup.transactions, userId);
-  const budgets = prepareDocs(backup.budgets, userId);
-  const bankImports = prepareDocs(backup.bankImports ?? [], userId);
+  // Sanitize + remap BEFORE wipe so a bad file does not empty the account first.
+  const {
+    accounts,
+    categories,
+    goals,
+    investments,
+    recurring,
+    transactions,
+    budgets,
+    bankImports,
+  } = prepareCollectionsForRestore(backup, userId);
 
   for (const [label, Model, docs] of [
     ["accounts", BankAccountModel, accounts],
@@ -204,7 +340,6 @@ export async function restoreUserBackup(
   await CategoryModel.deleteMany(filter);
   await BankAccountModel.deleteMany(filter);
 
-  // Insert parents before children; investments ↔ recurring may cross-link — both after goals
   await insertPrepared(BankAccountModel, accounts, "accounts");
   await insertPrepared(CategoryModel, categories, "categories");
   await insertPrepared(SavingsGoalModel, goals, "goals");
