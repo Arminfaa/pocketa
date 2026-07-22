@@ -16,6 +16,7 @@ import {
 import { ADD_SHORTCUT_ITEMS } from "./nav-items";
 import { cn } from "@/lib/cn";
 import { useBodyScrollLock } from "@/lib/body-scroll-lock";
+import { useQuickCaptureStore } from "@/stores/quick-capture.store";
 
 type Props = {
   open: boolean;
@@ -46,6 +47,7 @@ type BodyGesture = {
 };
 
 export function AddActionSheet({ open, onClose }: Props) {
+  const openQuickCapture = useQuickCaptureStore((s) => s.openQuickCapture);
   const [mounted, setMounted] = useState(false);
   const [present, setPresent] = useState(false);
   const [interactive, setInteractive] = useState(true);
@@ -326,29 +328,55 @@ export function AddActionSheet({ open, onClose }: Props) {
           onPointerCancel={onBodyPointerUp}
         >
           <div className="space-y-4">
+            <button
+              type="button"
+              onClick={() => {
+                requestClose();
+                openQuickCapture();
+              }}
+              className={cn(
+                "flex w-full items-center gap-3 rounded-[1.35rem] px-4 py-3.5 text-right transition-transform active:scale-[0.99]",
+                "bg-gradient-to-l from-cyan-600 to-teal-500 text-white",
+                "shadow-[0_12px_28px_rgba(8,145,178,0.32)]",
+                "dark:from-brand-500 dark:to-teal-500 dark:shadow-[0_12px_28px_rgba(34,211,238,0.18)]"
+              )}
+            >
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/18 text-xl">
+                {primary?.icon}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[15px] font-semibold leading-tight">
+                  ثبت سریع
+                </span>
+                <span className="mt-0.5 block text-[11px] text-white/80">
+                  حتی بدون اینترنت — مبلغ، عنوان، حساب و دسته
+                </span>
+              </span>
+              <RightOutlined className="rotate-180 text-sm text-white/75" />
+            </button>
+
             {primary ? (
               <Link
                 href={primary.href}
                 onClick={requestClose}
                 className={cn(
-                  "flex items-center gap-3 rounded-[1.35rem] px-4 py-3.5 no-underline transition-transform active:scale-[0.99]",
-                  "bg-gradient-to-l from-cyan-600 to-teal-500 text-white",
-                  "shadow-[0_12px_28px_rgba(8,145,178,0.32)]",
-                  "dark:from-brand-500 dark:to-teal-500 dark:shadow-[0_12px_28px_rgba(34,211,238,0.18)]"
+                  "flex items-center gap-3 rounded-[1.25rem] px-3.5 py-3 no-underline transition-colors",
+                  "bg-white/80 text-slate-900 ring-1 ring-slate-900/5",
+                  "hover:bg-cyan-500/8 dark:bg-[color-mix(in_srgb,var(--card)_88%,#000)] dark:text-app-fg dark:ring-white/8 dark:hover:bg-brand-500/10"
                 )}
               >
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/18 text-xl">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-cyan-500/12 text-base text-cyan-700 dark:bg-brand-500/18 dark:text-brand-200">
                   {primary.icon}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[15px] font-semibold leading-tight">
-                    تراکنش جدید
+                  <span className="block text-sm font-medium leading-tight">
+                    تراکنش کامل
                   </span>
-                  <span className="mt-0.5 block text-[11px] text-white/80">
-                    درآمد یا هزینه را همین حالا ثبت کنید
+                  <span className="mt-0.5 block text-[11px] text-slate-500 dark:text-app-muted">
+                    بدهی، طلب، تگ و جزئیات بیشتر
                   </span>
                 </span>
-                <RightOutlined className="rotate-180 text-sm text-white/75" />
+                <RightOutlined className="rotate-180 text-[11px] text-slate-400 dark:text-app-muted" />
               </Link>
             ) : null}
 

@@ -94,6 +94,8 @@ export const TransactionCreateSchema = z
   .object({
     ...TransactionBaseFields,
     ...ObligationAndSettleFields,
+    /** Offline outbox idempotency key (UUID or similar) */
+    clientId: z.string().trim().min(8).max(80).optional().nullable(),
   })
   .superRefine(refineObligationAndSettle);
 

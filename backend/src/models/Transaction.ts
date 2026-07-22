@@ -27,6 +27,8 @@ const TransactionSchema = new Schema(
     tags: { type: [String], default: [] },
 
     importHash: { type: String, required: false },
+    /** Client-generated id for offline outbox idempotency */
+    clientId: { type: String, required: false },
     bankMeta: {
       bankName: { type: String },
       accountHint: { type: String },
@@ -80,6 +82,13 @@ TransactionSchema.index(
   {
     unique: true,
     partialFilterExpression: { importHash: { $type: "string" } },
+  }
+);
+TransactionSchema.index(
+  { userId: 1, clientId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { clientId: { $type: "string" } },
   }
 );
 

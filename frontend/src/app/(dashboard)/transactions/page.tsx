@@ -26,8 +26,12 @@ import {
   ExclamationCircleOutlined,
   SearchOutlined,
   SwapOutlined,
+  ThunderboltOutlined,
+  CloudUploadOutlined,
 } from "@ant-design/icons";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
+import { useAuthStore } from "@/stores/auth.store";
+import { useQuickCaptureStore } from "@/stores/quick-capture.store";
 import { fetchAccounts } from "@/services/accounts";
 import {
   bulkDeleteTransactions,
@@ -38,7 +42,7 @@ import {
   fetchTransactions,
   updateTransaction,
 } from "@/services/transactions";
-import type { Transaction } from "@/types/transaction";
+import type { PendingSyncMeta, Transaction } from "@/types/transaction";
 import { formatJalaliDate, formatToman, toPersianDigits } from "@/lib/format";
 import { formatTransactionDateTime, transactionTimeOf } from "@/lib/transaction-time";
 import { accountName, categoryName } from "@/lib/transaction-helpers";
@@ -56,6 +60,14 @@ import { TransferFormModal } from "@/features/transactions/TransferFormModal";
 import { PageShell } from "@/components/ui/page-shell";
 import { PageHeader } from "@/components/ui/page-header";
 import { cn } from "@/lib/cn";
+import { useOfflineOutbox } from "@/hooks/use-offline-outbox";
+import { useOnlineStatus } from "@/hooks/use-online-status";
+import { captureTransaction } from "@/lib/offline/capture";
+import { outboxToPendingTransaction, isPendingTransactionId } from "@/lib/offline/pending-tx";
+import { removeOutboxItem } from "@/lib/offline/outbox";
+import { syncOutbox } from "@/lib/offline/sync";
+
+type ListTransaction = Transaction & PendingSyncMeta;
 
 function isTransferTx(tx: Pick<Transaction, "source">): boolean {
   return tx.source === "transfer";
@@ -104,6 +116,10 @@ export default function TransactionsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const selectedAccountId = useAccountFilterStore((s) => s.selectedAccountId);
+  const userId = useAuthStore((s) => s.user?.id ?? "");
+  const openQuickCapture = useQuickCaptureStore((s) => s.openQuickCapture);
+  const online = useOnlineStatus();
+  const { items: outboxItems } = useOfflineOutbox();
   const screens = useBreakpoint();
   const isMobile = !screens.md;
 
@@ -124,6 +140,11 @@ export default function TransactionsPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   useEffect(() => {
+    if (searchParams.get("quick") === "1") {
+      openQuickCapture();
+      router.replace("/transactions", { scroll: false });
+      return;
+    }
     if (searchParams.get("new") === "1") {
       setEditing(null);
       setModalOpen(true);
@@ -134,7 +155,7 @@ export default function TransactionsPage() {
       setTransferOpen(true);
       router.replace("/transactions", { scroll: false });
     }
-  }, [searchParams, router]);
+  }, [searchParams, router, openQuickCapture]);
 
   const accountsQ = useQuery({
     queryKey: ["accounts"],
@@ -152,6 +173,32 @@ export default function TransactionsPage() {
     [selectedAccountId, page, pageSize, filters]
   );
 
+  const pendingTxs = useMemo(() => {
+    if (filters.needsReviewOnly || filters.transfersOnly) return [] as ListTransaction[];
+    const q = filters.search.trim().toLowerCase();
+    return outboxItems
+      .map(outboxToPendingTransaction)
+      .filter((tx) => {
+        if (selectedAccountId) {
+          const accId =
+            typeof tx.accountId === "string" ? tx.accountId : tx.accountId._id;
+          if (accId !== selectedAccountId) return false;
+        }
+        if (filters.type && tx.type !== filters.type) return false;
+        if (filters.categoryId) {
+          const catId =
+            typeof tx.categoryId === "string" ? tx.categoryId : tx.categoryId._id;
+          if (catId !== filters.categoryId) return false;
+        }
+        if (filters.tag && !(tx.tags ?? []).includes(filters.tag)) return false;
+        if (q) {
+          const hay = `${tx.title} ${tx.description ?? ""}`.toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      }) as ListTransaction[];
+  }, [outboxItems, filters, selectedAccountId]);
+
   const listQ = useQuery({
     queryKey: listKey,
     queryFn: () =>
@@ -168,26 +215,61 @@ export default function TransactionsPage() {
         sortBy: "date",
         sortOrder: "desc",
       }),
+    retry: online ? 1 : 0,
   });
 
   const saveMutation = useMutation({
-    mutationFn: async (payload: Parameters<typeof createTransaction>[0]) => {
-      if (editing) return updateTransaction(editing._id, payload);
-      return createTransaction(payload);
+    mutationFn: async (payload: Parameters<typeof captureTransaction>[0]["payload"]) => {
+      if (editing) {
+        if (!online) throw new Error("برای ویرایش به اینترنت نیاز است");
+        return updateTransaction(editing._id, payload);
+      }
+
+      const complex =
+        Boolean(payload.registerAsDebt) || Boolean(payload.settleRecurringId);
+      if (complex && !online) {
+        throw new Error("ثبت بدهی/طلب و تسویه فقط با اینترنت ممکن است");
+      }
+      if (complex) {
+        return createTransaction(payload);
+      }
+
+      if (!userId) throw new Error("برای ثبت باید وارد شوید");
+
+      const account = (accountsQ.data ?? []).find((a) => a.id === payload.accountId);
+      const category = (categoriesQ.data ?? []).find((c) => c._id === payload.categoryId);
+      const result = await captureTransaction({
+        userId,
+        payload,
+        accountName: account?.name,
+        categoryName: category?.name,
+        preferQueue: !online,
+      });
+      return result;
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: (data, variables) => {
       const asDebt = Boolean(variables.registerAsDebt);
       const asSettle = Boolean(variables.settleRecurringId);
+      const queued =
+        data &&
+        typeof data === "object" &&
+        "mode" in data &&
+        (data as { mode: string }).mode === "queued";
+
       message.success(
         editing
           ? "تراکنش به‌روزرسانی شد"
-          : asSettle
-            ? "تراکنش ثبت و سررسید تسویه شد"
-            : asDebt
-              ? variables.type === "income"
-                ? "تراکنش مثبت و بدهی یک‌باره ثبت شد"
-                : "تراکنش منفی و طلب یک‌باره ثبت شد"
-              : "تراکنش ثبت شد"
+          : queued
+            ? online
+              ? "در صف ارسال قرار گرفت"
+              : "آفلاین ذخیره شد — بعد از اتصال ارسال می‌شود"
+            : asSettle
+              ? "تراکنش ثبت و سررسید تسویه شد"
+              : asDebt
+                ? variables.type === "income"
+                  ? "تراکنش مثبت و بدهی یک‌باره ثبت شد"
+                  : "تراکنش منفی و طلب یک‌باره ثبت شد"
+                : "تراکنش ثبت شد"
       );
       setModalOpen(false);
       setEditing(null);
@@ -200,7 +282,9 @@ export default function TransactionsPage() {
     },
     onError: (err: unknown) => {
       const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        (err as { response?: { data?: { message?: string } }; message?: string })?.response
+          ?.data?.message ??
+        (err as { message?: string })?.message ??
         "خطا در ذخیره تراکنش";
       message.error(msg);
     },
@@ -224,8 +308,19 @@ export default function TransactionsPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => deleteTransaction(id),
+    mutationFn: async (id: string) => {
+      if (isPendingTransactionId(id)) {
+        const clientId = id.replace(/^pending:/, "");
+        await removeOutboxItem(clientId);
+        return;
+      }
+      await deleteTransaction(id);
+    },
     onMutate: async (id) => {
+      if (isPendingTransactionId(id)) {
+        setSelectedIds((ids) => ids.filter((x) => x !== id));
+        return { previous: undefined };
+      }
       await queryClient.cancelQueries({ queryKey: ["transactions"] });
       const previous = queryClient.getQueryData(listKey);
       queryClient.setQueryData(listKey, (old: unknown) => {
@@ -247,8 +342,8 @@ export default function TransactionsPage() {
         "حذف ناموفق بود";
       message.error(msg);
     },
-    onSuccess: () => {
-      message.success("تراکنش حذف شد");
+    onSuccess: (_data, id) => {
+      message.success(isPendingTransactionId(id) ? "از صف حذف شد" : "تراکنش حذف شد");
       void queryClient.invalidateQueries({ queryKey: ["transactions"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       void queryClient.invalidateQueries({ queryKey: ["accounts"] });
@@ -259,7 +354,18 @@ export default function TransactionsPage() {
   });
 
   const bulkDeleteMutation = useMutation({
-    mutationFn: (ids: string[]) => bulkDeleteTransactions(ids),
+    mutationFn: async (ids: string[]) => {
+      const pendingIds = ids.filter(isPendingTransactionId);
+      const serverIds = ids.filter((id) => !isPendingTransactionId(id));
+      for (const id of pendingIds) {
+        await removeOutboxItem(id.replace(/^pending:/, ""));
+      }
+      if (serverIds.length === 0) {
+        return { deletedCount: pendingIds.length };
+      }
+      const result = await bulkDeleteTransactions(serverIds);
+      return { deletedCount: result.deletedCount + pendingIds.length };
+    },
     onSuccess: (data) => {
       message.success(`${toPersianDigits(String(data.deletedCount))} تراکنش حذف شد`);
       setSelectedIds([]);
@@ -275,14 +381,19 @@ export default function TransactionsPage() {
     },
   });
 
-  const items = listQ.data?.items ?? [];
-  const total = listQ.data?.pagination.total ?? 0;
+  const serverItems = listQ.data?.items ?? [];
+  const items: ListTransaction[] =
+    page === 1 ? [...pendingTxs, ...serverItems] : serverItems;
+  const total = (listQ.data?.pagination.total ?? 0) + pendingTxs.length;
   const rowOffset = (page - 1) * pageSize;
-  const pageIds = items.map((t) => t._id);
+  const pageIds = items
+    .filter((t) => !isPendingTransactionId(t._id))
+    .map((t) => t._id);
   const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
   const somePageSelected = pageIds.some((id) => selectedIds.includes(id));
 
   function toggleSelect(id: string, checked: boolean) {
+    if (isPendingTransactionId(id)) return;
     setSelectedIds((prev) => {
       if (checked) return prev.includes(id) ? prev : [...prev, id];
       return prev.filter((x) => x !== id);
@@ -337,9 +448,53 @@ export default function TransactionsPage() {
     setFilters((f) => ({ ...f, tag }));
   }
 
-  function openEdit(tx: Transaction) {
+  function openEdit(tx: ListTransaction) {
+    if (isPendingTransactionId(tx._id)) {
+      message.info("این تراکنش هنوز همگام نشده و قابل ویرایش نیست");
+      return;
+    }
+    if (!online) {
+      message.warning("برای ویرایش به اینترنت نیاز است");
+      return;
+    }
     setEditing(tx);
     setModalOpen(true);
+  }
+
+  async function retryPendingSync() {
+    if (!userId || !online) return;
+    const result = await syncOutbox(userId);
+    if (result.synced > 0) {
+      message.success(`${toPersianDigits(String(result.synced))} تراکنش همگام‌سازی شد`);
+      void queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      void queryClient.invalidateQueries({ queryKey: ["accounts"] });
+    } else if (result.failed > 0) {
+      message.error("برخی تراکنش‌ها همگام‌سازی نشدند");
+    }
+  }
+
+  function syncStatusTag(tx: ListTransaction) {
+    if (!tx.syncStatus) return null;
+    if (tx.syncStatus === "failed") {
+      return (
+        <Tag color="error" className="!m-0">
+          خطا در ارسال
+        </Tag>
+      );
+    }
+    if (tx.syncStatus === "syncing") {
+      return (
+        <Tag color="processing" className="!m-0">
+          در حال ارسال
+        </Tag>
+      );
+    }
+    return (
+      <Tag icon={<CloudUploadOutlined />} color="default" className="!m-0">
+        در صف
+      </Tag>
+    );
   }
 
   async function handleExport() {
@@ -364,7 +519,7 @@ export default function TransactionsPage() {
     }
   }
 
-  const columns: TableColumnsType<Transaction> = [
+  const columns: TableColumnsType<ListTransaction> = [
     {
       title: "ردیف",
       key: "rowNumber",
@@ -407,9 +562,10 @@ export default function TransactionsPage() {
       dataIndex: "title",
       key: "title",
       ellipsis: true,
-      render: (title: string, tx) => (
+      render: (title: string, tx: ListTransaction) => (
         <Space size={4} wrap>
           <span>{title}</span>
+          {syncStatusTag(tx)}
           {tx.needsReview ? (
             <Tag icon={<ExclamationCircleOutlined />} color="warning">
               بررسی
@@ -436,20 +592,36 @@ export default function TransactionsPage() {
     {
       title: "عملیات",
       key: "actions",
-      width: 100,
+      width: 120,
       fixed: "right",
-      render: (_, tx) => (
+      render: (_, tx: ListTransaction) => (
         <Space size={4}>
-          <Button
-            type="text"
-            size="small"
-            className={actionBtnClass}
-            icon={<EditOutlined />}
-            aria-label="ویرایش"
-            onClick={() => openEdit(tx)}
-          />
+          {tx.syncStatus === "failed" && online ? (
+            <Button
+              type="text"
+              size="small"
+              className={actionBtnClass}
+              icon={<CloudUploadOutlined />}
+              aria-label="تلاش مجدد"
+              onClick={() => void retryPendingSync()}
+            />
+          ) : null}
+          {!isPendingTransactionId(tx._id) ? (
+            <Button
+              type="text"
+              size="small"
+              className={actionBtnClass}
+              icon={<EditOutlined />}
+              aria-label="ویرایش"
+              onClick={() => openEdit(tx)}
+            />
+          ) : null}
           <Popconfirm
-            title="این تراکنش حذف شود؟"
+            title={
+              isPendingTransactionId(tx._id)
+                ? "از صف حذف شود؟"
+                : "این تراکنش حذف شود؟"
+            }
             okText="حذف"
             cancelText="انصراف"
             okButtonProps={{ danger: true }}
@@ -517,18 +689,33 @@ export default function TransactionsPage() {
                 انتقال بین حساب
               </Button>
             </div>
-            <Button
-              type="primary"
-              block={isMobile}
-              className={headerActionBtnClass}
-              icon={<PlusOutlined />}
-              onClick={() => {
-                setEditing(null);
-                setModalOpen(true);
-              }}
-            >
-              تراکنش جدید
-            </Button>
+            <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:flex sm:w-auto">
+              <Button
+                block={isMobile}
+                className={headerActionBtnClass}
+                icon={<ThunderboltOutlined />}
+                onClick={() => openQuickCapture()}
+              >
+                ثبت سریع
+              </Button>
+              <Button
+                type="primary"
+                block={isMobile}
+                className={headerActionBtnClass}
+                icon={<PlusOutlined />}
+                onClick={() => {
+                  if (!online) {
+                    message.info("بدون اینترنت از «ثبت سریع» استفاده کنید");
+                    openQuickCapture();
+                    return;
+                  }
+                  setEditing(null);
+                  setModalOpen(true);
+                }}
+              >
+                تراکنش جدید
+              </Button>
+            </div>
           </div>
         }
       />
@@ -643,9 +830,26 @@ export default function TransactionsPage() {
         </FilterField>
       </FilterBar>
 
-      {listQ.isLoading ? <TransactionsListSkeleton /> : null}
-      {listQ.error ? (
+      {listQ.isLoading && items.length === 0 ? <TransactionsListSkeleton /> : null}
+      {listQ.error && items.length === 0 ? (
         <QueryError message="خطا در دریافت تراکنش‌ها." onRetry={() => void listQ.refetch()} />
+      ) : null}
+      {listQ.error && pendingTxs.length > 0 ? (
+        <Text type="secondary" className="text-xs">
+          لیست سرور در دسترس نیست — موارد در صف محلی نمایش داده می‌شود.
+          {online ? (
+            <>
+              {" "}
+              <button
+                type="button"
+                className="text-brand-600 underline dark:text-brand-300"
+                onClick={() => void listQ.refetch()}
+              >
+                تلاش مجدد
+              </button>
+            </>
+          ) : null}
+        </Text>
       ) : null}
 
       {!listQ.isLoading && items.length === 0 ? (
@@ -675,11 +879,15 @@ export default function TransactionsPage() {
             <SoftListItem key={tx._id}>
               <SoftListRow
                 leading={
-                  <Checkbox
-                    className="mt-1"
-                    checked={selectedIds.includes(tx._id)}
-                    onChange={(e) => toggleSelect(tx._id, e.target.checked)}
-                  />
+                  isPendingTransactionId(tx._id) ? (
+                    <span className="mt-1 inline-block w-4" />
+                  ) : (
+                    <Checkbox
+                      className="mt-1"
+                      checked={selectedIds.includes(tx._id)}
+                      onChange={(e) => toggleSelect(tx._id, e.target.checked)}
+                    />
+                  )
                 }
                 title={
                   <Space size={4} wrap>
@@ -687,6 +895,7 @@ export default function TransactionsPage() {
                       #{rowOffset + index + 1}
                     </Text>
                     <span>{tx.title}</span>
+                    {syncStatusTag(tx)}
                     {tx.needsReview ? (
                       <Tag icon={<ExclamationCircleOutlined />} color="warning">
                         بررسی
@@ -731,17 +940,33 @@ export default function TransactionsPage() {
                   </AmountText>
                 }
                 footer={
-                  <Flex gap="small">
-                    <Button
-                      size="small"
-                      className={actionBtnClass}
-                      icon={<EditOutlined />}
-                      onClick={() => openEdit(tx)}
-                    >
-                      ویرایش
-                    </Button>
+                  <Flex gap="small" wrap="wrap">
+                    {tx.syncStatus === "failed" && online ? (
+                      <Button
+                        size="small"
+                        className={actionBtnClass}
+                        icon={<CloudUploadOutlined />}
+                        onClick={() => void retryPendingSync()}
+                      >
+                        تلاش مجدد
+                      </Button>
+                    ) : null}
+                    {!isPendingTransactionId(tx._id) ? (
+                      <Button
+                        size="small"
+                        className={actionBtnClass}
+                        icon={<EditOutlined />}
+                        onClick={() => openEdit(tx)}
+                      >
+                        ویرایش
+                      </Button>
+                    ) : null}
                     <Popconfirm
-                      title="این تراکنش حذف شود؟"
+                      title={
+                        isPendingTransactionId(tx._id)
+                          ? "از صف حذف شود؟"
+                          : "این تراکنش حذف شود؟"
+                      }
                       okText="حذف"
                       cancelText="انصراف"
                       okButtonProps={{ danger: true }}
@@ -770,7 +995,7 @@ export default function TransactionsPage() {
           flush
           bodyClassName="!p-0"
         >
-          <Table<Transaction>
+          <Table<ListTransaction>
             rowKey="_id"
             columns={columns}
             dataSource={items}
@@ -779,7 +1004,11 @@ export default function TransactionsPage() {
             size="middle"
             rowSelection={{
               selectedRowKeys: selectedIds,
-              onChange: (keys) => setSelectedIds(keys.map(String)),
+              onChange: (keys) =>
+                setSelectedIds(keys.map(String).filter((id) => !isPendingTransactionId(id))),
+              getCheckboxProps: (record) => ({
+                disabled: isPendingTransactionId(record._id),
+              }),
             }}
           />
         </SectionCard>

@@ -129,7 +129,18 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
     settleRecurringId,
     settleMode,
     remainderDueDate,
+    clientId: rawClientId,
   } = parsed.data;
+
+  const clientId =
+    rawClientId && String(rawClientId).trim() ? String(rawClientId).trim() : undefined;
+
+  if (clientId) {
+    const existing = await TransactionModel.findOne({ userId, clientId });
+    if (existing) {
+      return sendSuccess(res, { item: existing, debt: null, settle: null }, "تراکنش از قبل ثبت شده", 200);
+    }
+  }
 
   const [category, account] = await Promise.all([
     CategoryModel.findOne({ _id: categoryId, userId }),
@@ -148,20 +159,37 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
     throw new AppError(400, "ساعت باید به صورت HH:mm باشد");
   }
 
-  const tx = await TransactionModel.create({
-    userId,
-    accountId,
-    type,
-    amount,
-    categoryId,
-    title,
-    description: description ?? "",
-    date: normalizedDate,
-    time: normalizedTime,
-    tags: tags ?? [],
-    source: "manual",
-    needsReview: false,
-  });
+  let tx;
+  try {
+    tx = await TransactionModel.create({
+      userId,
+      accountId,
+      type,
+      amount,
+      categoryId,
+      title,
+      description: description ?? "",
+      date: normalizedDate,
+      time: normalizedTime,
+      tags: tags ?? [],
+      source: "manual",
+      needsReview: false,
+      ...(clientId ? { clientId } : {}),
+    });
+  } catch (err) {
+    if (clientId && "code" in (err as object) && (err as { code: number }).code === 11000) {
+      const existing = await TransactionModel.findOne({ userId, clientId });
+      if (existing) {
+        return sendSuccess(
+          res,
+          { item: existing, debt: null, settle: null },
+          "تراکنش از قبل ثبت شده",
+          200
+        );
+      }
+    }
+    throw err;
+  }
 
   let debt = null;
   let settle = null;

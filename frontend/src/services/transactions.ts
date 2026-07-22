@@ -37,7 +37,9 @@ export async function fetchTransactions(
   return res.data.data as TransactionsListResponse;
 }
 
-export async function createTransaction(payload: TransactionInput): Promise<Transaction> {
+export async function createTransaction(
+  payload: TransactionInput & { clientId?: string | null }
+): Promise<Transaction> {
   const res = await api.post("/api/transactions", payload);
   return res.data.data.item as Transaction;
 }
