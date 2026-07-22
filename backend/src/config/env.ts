@@ -31,21 +31,6 @@ const EnvSchema = z.object({
 
   // Navasan — http://api.navasan.tech (daily cache, refresh ~14:00 Tehran)
   NAVASAN_API_KEY: z.string().optional().default(""),
-
-  // Public app URL for links in emails (defaults to first CORS_ORIGIN)
-  APP_URL: z.string().optional().default(""),
-
-  // SMTP (password-reset emails) — used locally, or on Vercel mail-relay
-  SMTP_HOST: z.string().optional().default(""),
-  SMTP_PORT: z.coerce.number().int().positive().default(465),
-  SMTP_SECURE: z.coerce.boolean().default(true),
-  SMTP_USER: z.string().optional().default(""),
-  SMTP_PASS: z.string().optional().default(""),
-  MAIL_FROM: z.string().optional().default(""),
-
-  // Production on Render Free: call Vercel mail-relay over HTTPS (SMTP ports blocked on Render)
-  MAIL_RELAY_URL: z.string().optional().default(""),
-  MAIL_RELAY_SECRET: z.string().optional().default(""),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
@@ -54,17 +39,4 @@ export const env: Env = EnvSchema.parse(process.env);
 
 export function isWebPushConfigured(): boolean {
   return Boolean(env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY);
-}
-
-export function isMailConfigured(): boolean {
-  const relayReady = Boolean(env.MAIL_RELAY_URL.trim() && env.MAIL_RELAY_SECRET.trim());
-  const smtpReady = Boolean(env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS);
-  return relayReady || smtpReady;
-}
-
-/** Base URL for frontend deep links (reset password, etc.). */
-export function getAppUrl(): string {
-  if (env.APP_URL.trim()) return env.APP_URL.trim().replace(/\/$/, "");
-  const first = env.CORS_ORIGIN.split(",")[0]?.trim() ?? "";
-  return first.replace(/\/$/, "");
 }
