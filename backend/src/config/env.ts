@@ -35,13 +35,17 @@ const EnvSchema = z.object({
   // Public app URL for links in emails (defaults to first CORS_ORIGIN)
   APP_URL: z.string().optional().default(""),
 
-  // SMTP (password-reset emails)
+  // SMTP (password-reset emails) — used locally, or on Vercel mail-relay
   SMTP_HOST: z.string().optional().default(""),
   SMTP_PORT: z.coerce.number().int().positive().default(465),
   SMTP_SECURE: z.coerce.boolean().default(true),
   SMTP_USER: z.string().optional().default(""),
   SMTP_PASS: z.string().optional().default(""),
   MAIL_FROM: z.string().optional().default(""),
+
+  // Production on Render Free: call Vercel mail-relay over HTTPS (SMTP ports blocked on Render)
+  MAIL_RELAY_URL: z.string().optional().default(""),
+  MAIL_RELAY_SECRET: z.string().optional().default(""),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
@@ -53,7 +57,9 @@ export function isWebPushConfigured(): boolean {
 }
 
 export function isMailConfigured(): boolean {
-  return Boolean(env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS);
+  const relayReady = Boolean(env.MAIL_RELAY_URL.trim() && env.MAIL_RELAY_SECRET.trim());
+  const smtpReady = Boolean(env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS);
+  return relayReady || smtpReady;
 }
 
 /** Base URL for frontend deep links (reset password, etc.). */
