@@ -14,6 +14,10 @@ const BaseFields = {
   active: z.boolean().optional().default(true),
   /** ساعت یادآور پوش (۰–۲۳)، پیش‌فرض ۲۰ */
   reminderHour: z.coerce.number().int().min(0).max(23).optional().default(20),
+  /** بدهی/طلب طلا یا دلار — برای قیمت‌گذاری مجدد هنگام تسویه */
+  assetQuantity: z.coerce.number().positive().optional().nullable(),
+  assetType: z.enum(["gold", "usd", "rial"]).optional().nullable(),
+  goldKind: z.enum(["melted", "quarter_coin"]).optional().nullable(),
 };
 
 const RecurringKindSchema = z.object({
@@ -39,6 +43,22 @@ export const RecurringCreateSchema = z
           code: z.ZodIssueCode.custom,
           message: "تعداد ماه‌ها را وارد کنید",
           path: ["endMonths"],
+        });
+      }
+    }
+    if (data.assetQuantity != null && data.assetQuantity > 0) {
+      if (data.assetType !== "gold" && data.assetType !== "usd" && data.assetType !== "rial") {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "نوع دارایی را مشخص کنید",
+          path: ["assetType"],
+        });
+      }
+      if (data.assetType === "gold" && !data.goldKind) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "نوع طلا را مشخص کنید",
+          path: ["goldKind"],
         });
       }
     }
@@ -85,6 +105,8 @@ export const RecurringGenerateSchema = z
     accountId: z.string().min(1).optional(),
     mode: z.enum(["full", "partial", "postpone"]).default("full"),
     paidAmount: z.coerce.number().positive().optional(),
+    /** مبلغ واقعی دریافتی/پرداختی هنگام تسویه کامل (مثلاً بعد از کارمزد یا اختلاف قیمت) */
+    settledAmount: z.coerce.number().positive().optional(),
     remainderHandling: z.enum(["next_month", "new_debt"]).optional(),
     remainderDueDate: JalaliDateSchema.optional(),
     postponeDueDate: JalaliDateSchema.optional(),

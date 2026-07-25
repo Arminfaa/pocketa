@@ -152,6 +152,14 @@ export default function RecurringPage() {
       const resolved = resolveMarketUnitTomanAmount(amount, amountUnit, market);
       if ("error" in resolved) throw new Error(resolved.error);
       const value = resolved.amount;
+      const assetFields =
+        resolved.assetQuantity != null && resolved.assetType
+          ? {
+              assetQuantity: resolved.assetQuantity,
+              assetType: resolved.assetType,
+              goldKind: resolved.goldKind ?? null,
+            }
+          : {};
 
       if (kind === "recurring") {
         if (!dayOfMonth || dayOfMonth < 1 || dayOfMonth > 31) {
@@ -170,6 +178,7 @@ export default function RecurringPage() {
           endMonths: endMode === "months" ? endMonths : null,
           categoryId,
           reminderHour,
+          ...assetFields,
         });
       }
 
@@ -183,6 +192,7 @@ export default function RecurringPage() {
         dueDate: normalizedDue,
         categoryId,
         reminderHour,
+        ...assetFields,
       });
     },
     onSuccess: () => {

@@ -27,6 +27,10 @@ import {
   type Frequency,
 } from "../utils/jalaliDate";
 import { normalizeJalaliDate } from "../utils/normalizeDigits";
+import {
+  createVarianceTransaction,
+  planSettlementVariance,
+} from "../services/settlement-variance.service";
 
 function mapItem(item: {
   _id: unknown;
@@ -49,6 +53,7 @@ function mapItem(item: {
   investmentId?: unknown;
   assetQuantity?: number | null;
   assetType?: string | null;
+  goldKind?: string | null;
   scheduleFrequency?: string | null;
   endDate?: string | null;
   liveAmount?: number | null;
@@ -83,6 +88,7 @@ function mapItem(item: {
     investmentId: item.investmentId ?? null,
     assetQuantity: item.assetQuantity ?? null,
     assetType: item.assetType ?? null,
+    goldKind: item.goldKind ?? null,
     scheduleFrequency: item.scheduleFrequency ?? "monthly",
     endDate: item.endDate ?? "",
   };
@@ -166,6 +172,7 @@ export const list = asyncHandler(async (req: Request, res: Response) => {
         investmentId: item.investmentId,
         assetQuantity: item.assetQuantity,
         assetType: item.assetType,
+        goldKind: item.goldKind,
         scheduleFrequency: item.scheduleFrequency,
         endDate: item.endDate,
         liveAmount,
@@ -219,6 +226,18 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
     paymentsMade: 0,
     reminderHour: parsed.data.reminderHour ?? 20,
     reminderSentKeys: [],
+    ...(parsed.data.assetQuantity != null &&
+    parsed.data.assetQuantity > 0 &&
+    parsed.data.assetType
+      ? {
+          assetQuantity: parsed.data.assetQuantity,
+          assetType: parsed.data.assetType,
+          goldKind:
+            parsed.data.assetType === "gold"
+              ? (parsed.data.goldKind ?? "melted")
+              : undefined,
+        }
+      : {}),
   };
 
   let item;
@@ -499,18 +518,63 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
   if (!account) throw new AppError(404, "حساب بانکی یافت نشد");
 
   if (mode === "full") {
+    const settledRaw = parsed.data.settledAmount;
+    const settledAmount =
+      settledRaw != null && Number.isFinite(settledRaw) && settledRaw > 0
+        ? Math.round(settledRaw)
+        : dueAmount;
+
+    const plan = planSettlementVariance(
+      recurring.type as "income" | "expense",
+      dueAmount,
+      settledAmount
+    );
+
+    const txDate = normalizeJalaliDate(recurring.nextPaymentDate);
+    const varianceNote = plan.variance
+      ? ` | مبلغ واقعی ${plan.settledAmount.toLocaleString("en-US")} تومان` +
+        (plan.variance.kind === "fee"
+          ? ` (کارمزد ${plan.variance.amount.toLocaleString("en-US")})`
+          : plan.variance.kind === "excess_profit"
+            ? ` (سود مازاد ${plan.variance.amount.toLocaleString("en-US")})`
+            : ` (مابه‌التفاوت قیمت ${plan.variance.amount.toLocaleString("en-US")})`)
+      : "";
+
     createdTx = await TransactionModel.create({
       userId,
       accountId: parsed.data.accountId,
       categoryId: recurring.categoryId,
       type: recurring.type,
-      amount: dueAmount,
+      amount: plan.primaryAmount,
       title: recurring.title,
-      description: recurring.notes || `ثبت از ${isReceivable ? "طلب" : "بدهی"}/اقساط (${kindLabel})`,
-      date: normalizeJalaliDate(recurring.nextPaymentDate),
+      description:
+        (recurring.notes || `ثبت از ${isReceivable ? "طلب" : "بدهی"}/اقساط (${kindLabel})`) +
+        varianceNote,
+      date: txDate,
       source: "manual",
       needsReview: false,
+      tags: plan.variance ? ["تسویه-با-اختلاف"] : [],
+      settleSnapshot: {
+        expectedAmount: plan.expectedAmount,
+        settledAmount: plan.settledAmount,
+        varianceKind: plan.variance?.kind ?? null,
+        varianceAmount: plan.variance?.amount ?? 0,
+      },
     });
+
+    const varianceTx = await createVarianceTransaction({
+      userId,
+      accountId: parsed.data.accountId!,
+      date: txDate,
+      plan,
+      parentTitle: recurring.title,
+      linkedTransactionId: createdTx._id,
+    });
+
+    if (varianceTx) {
+      createdTx.linkedTransactionId = varianceTx._id;
+      await createdTx.save();
+    }
 
     recurring.paymentsMade = (recurring.paymentsMade ?? 0) + 1;
     recurring.lastPaymentDate = todayJalali();
@@ -519,18 +583,27 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
     advanceRecurringSchedule(recurring);
     await recurring.save();
 
+    const settleMsg = plan.variance
+      ? kind === "one_time" || !recurring.active
+        ? `تراکنش با مبلغ واقعی ${plan.settledAmount.toLocaleString("en-US")} تومان ثبت شد و مورد بسته شد`
+        : `تراکنش با مبلغ واقعی ${plan.settledAmount.toLocaleString("en-US")} تومان ثبت شد و موعد بعدی به‌روز شد`
+      : kind === "one_time" || !recurring.active
+        ? "تراکنش ثبت شد و مورد بسته شد"
+        : "تراکنش ثبت شد و موعد بعدی به‌روز شد";
+
     return sendSuccess(
       res,
       {
         transaction: createdTx,
+        varianceTransaction: varianceTx,
+        settledAmount: plan.settledAmount,
+        expectedAmount: plan.expectedAmount,
         nextPaymentDate: recurring.nextPaymentDate,
         nextAmount: recurring.amount,
         active: recurring.active,
         paymentsMade: recurring.paymentsMade,
       },
-      kind === "one_time" || !recurring.active
-        ? "تراکنش ثبت شد و مورد بسته شد"
-        : "تراکنش ثبت شد و موعد بعدی به‌روز شد"
+      settleMsg
     );
   }
 

@@ -170,12 +170,19 @@ export function MarketUnitAmountInput({
   );
 }
 
-/** Resolve the Toman amount to submit for the selected unit. */
+/** Resolve Toman amount; for gold/usd also returns quantity for asset-linked debts. */
 export function resolveMarketUnitTomanAmount(
   rawValue: string,
   unit: AmountMarketUnit,
   market?: MarketPrices | null
-): { amount: number } | { error: string } {
+):
+  | {
+      amount: number;
+      assetQuantity?: number;
+      assetType?: "gold" | "usd";
+      goldKind?: "melted";
+    }
+  | { error: string } {
   const quantity = parseAmountInput(rawValue);
   if (!Number.isFinite(quantity) || quantity <= 0) {
     return { error: "مبلغ معتبر نیست" };
@@ -190,5 +197,14 @@ export function resolveMarketUnitTomanAmount(
     return { error: `نرخ ${unitRateLabel(unit)} در دسترس نیست` };
   }
 
-  return { amount: Math.max(1, Math.round(quantity * rate)) };
+  const amount = Math.max(1, Math.round(quantity * rate));
+
+  if (unit === "gold") {
+    return { amount, assetQuantity: quantity, assetType: "gold", goldKind: "melted" };
+  }
+  if (unit === "usd") {
+    return { amount, assetQuantity: quantity, assetType: "usd" };
+  }
+  // usdt: convert once to toman (no live re-price asset link yet)
+  return { amount };
 }

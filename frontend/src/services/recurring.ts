@@ -27,12 +27,18 @@ export type RecurringItem = {
   isDue: boolean;
   paidThisMonth: boolean;
   category: { _id: string; name: string; color?: string; type?: string } | string;
+  investmentId?: string | null;
+  assetQuantity?: number | null;
+  assetType?: "gold" | "usd" | "rial" | null;
+  goldKind?: "melted" | "quarter_coin" | null;
 };
 
 export type GenerateRecurringPayload = {
   accountId?: string;
   mode?: RecurringPaymentMode;
   paidAmount?: number;
+  /** مبلغ واقعی دریافتی/پرداختی در تسویه کامل */
+  settledAmount?: number;
   remainderHandling?: RemainderHandling;
   remainderDueDate?: string;
   postponeDueDate?: string;
@@ -50,6 +56,9 @@ export type CreateDebtPayload =
       categoryId: string;
       reminderHour: number;
       notes?: string;
+      assetQuantity?: number | null;
+      assetType?: "gold" | "usd" | "rial" | null;
+      goldKind?: "melted" | "quarter_coin" | null;
     }
   | {
       title: string;
@@ -60,6 +69,9 @@ export type CreateDebtPayload =
       categoryId: string;
       reminderHour: number;
       notes?: string;
+      assetQuantity?: number | null;
+      assetType?: "gold" | "usd" | "rial" | null;
+      goldKind?: "melted" | "quarter_coin" | null;
     };
 
 export async function fetchRecurring(): Promise<{

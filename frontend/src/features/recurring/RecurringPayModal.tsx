@@ -17,6 +17,28 @@ import { formatAmountInputValue, normalizeJalaliDateInput, parseAmountInput } fr
 
 const { Text } = Typography;
 
+function isAssetLinked(item: RecurringItem | null): boolean {
+  if (!item) return false;
+  const qty = item.assetQuantity;
+  const t = item.assetType;
+  return qty != null && qty > 0 && (t === "gold" || t === "usd" || t === "rial");
+}
+
+function variancePreview(
+  item: RecurringItem,
+  expected: number,
+  settled: number
+): { label: string; amount: number } | null {
+  const diff = Math.abs(Math.round(settled) - Math.round(expected));
+  if (diff < 1) return null;
+  if (item.type === "income") {
+    if (settled < expected) return { label: "کارمزد", amount: diff };
+    return { label: "سود مازاد", amount: diff };
+  }
+  if (settled > expected) return { label: "کارمزد", amount: diff };
+  return { label: "مابه‌التفاوت قیمت", amount: diff };
+}
+
 type Props = {
   open: boolean;
   item: RecurringItem | null;
@@ -41,6 +63,7 @@ export function RecurringPayModal({
   const [mode, setMode] = useState<RecurringPaymentMode>("full");
   const [partialEnabled, setPartialEnabled] = useState(false);
   const [paidAmount, setPaidAmount] = useState("");
+  const [settledAmount, setSettledAmount] = useState("");
   const [remainderHandling, setRemainderHandling] =
     useState<RemainderHandling>("next_month");
   const [remainderDueDate, setRemainderDueDate] = useState("");
@@ -52,6 +75,7 @@ export function RecurringPayModal({
     setMode("full");
     setPartialEnabled(false);
     setPaidAmount(formatAmountInputValue(item.amount));
+    setSettledAmount(formatAmountInputValue(item.amount));
     setRemainderHandling(item.kind === "recurring" ? "next_month" : "new_debt");
     setRemainderDueDate(item.nextPaymentDate);
     setPostponeDueDate(item.nextPaymentDate);
@@ -60,10 +84,21 @@ export function RecurringPayModal({
   const dueAmount = item?.amount ?? 0;
   const baseAmount = item?.baseAmount ?? dueAmount;
   const paidNumeric = parseAmountInput(paidAmount);
+  const settledNumeric = parseAmountInput(settledAmount);
   const remainder =
     Number.isFinite(paidNumeric) && paidNumeric > 0 && paidNumeric < dueAmount
       ? dueAmount - paidNumeric
       : 0;
+
+  const assetLinked = isAssetLinked(item);
+  const showSettledField = Boolean(item) && !partialEnabled && mode !== "postpone";
+  const variance =
+    item &&
+    showSettledField &&
+    Number.isFinite(settledNumeric) &&
+    settledNumeric > 0
+      ? variancePreview(item, dueAmount, settledNumeric)
+      : null;
 
   const nextMonthPreview = useMemo(() => {
     if (!item || mode !== "partial" || remainderHandling !== "next_month") return null;
@@ -73,7 +108,6 @@ export function RecurringPayModal({
 
   const postponePreview = useMemo(() => {
     if (!item || mode !== "postpone") return null;
-    // Deferred one-time = dueAmount; next installment stays at baseAmount
     return { deferred: dueAmount, nextInstallment: baseAmount };
   }, [item, mode, dueAmount, baseAmount]);
 
@@ -97,18 +131,34 @@ export function RecurringPayModal({
     }
 
     if (mode === "full" || !partialEnabled) {
-      onSubmit({ mode: "full", accountId: acc });
+      const settled = parseAmountInput(settledAmount);
+      if (!Number.isFinite(settled) || settled <= 0) {
+        message.error(
+          item.type === "income" ? "مبلغ دریافتی معتبر نیست" : "مبلغ پرداختی معتبر نیست"
+        );
+        return;
+      }
+      const payload: GenerateRecurringPayload = {
+        mode: "full",
+        accountId: acc,
+      };
+      if (Math.round(settled) !== Math.round(dueAmount)) {
+        payload.settledAmount = Math.round(settled);
+      } else if (assetLinked) {
+        // always send for asset-linked so server uses explicit actual amount
+        payload.settledAmount = Math.round(settled);
+      }
+      onSubmit(payload);
       return;
     }
 
     const paid = parseAmountInput(paidAmount);
-    const amountWord = item.type === "income" ? "مبلغ دریافتی" : "مبلغ پرداختی";
     if (!Number.isFinite(paid) || paid <= 0) {
-      message.error(`${amountWord} معتبر نیست`);
+      message.error("مبلغ پرداختی معتبر نیست");
       return;
     }
     if (paid >= dueAmount) {
-      message.error(`${amountWord} باید کمتر از مبلغ قسط باشد`);
+      message.error("مبلغ پرداختی باید کمتر از مبلغ قسط باشد");
       return;
     }
 
@@ -133,11 +183,12 @@ export function RecurringPayModal({
 
   if (!item) return null;
 
-  const isReceivable = item.type === "income";
-  const singularLabel = isReceivable ? "طلب" : "بدهی";
   const showPartialOptions = partialEnabled && mode !== "postpone";
   const effectiveMode: RecurringPaymentMode =
     mode === "postpone" ? "postpone" : partialEnabled ? "partial" : "full";
+
+  const settledLabel =
+    item.type === "income" ? "مبلغ دریافتی واقعی (تومان)" : "مبلغ پرداختی واقعی (تومان)";
 
   return (
     <AppModal
@@ -161,7 +212,7 @@ export function RecurringPayModal({
       <Space orientation="vertical" size="middle" className="w-full">
         <div className="rounded-xl border border-slate-400/15 bg-slate-500/5 p-3">
           <Text type="secondary" className="text-xs">
-            مبلغ سررسید
+            {assetLinked ? "مبلغ محاسبه‌شده (قیمت روز)" : "مبلغ سررسید"}
           </Text>
           <div>
             <Text strong className="text-base">
@@ -173,6 +224,15 @@ export function RecurringPayModal({
               </Text>
             ) : null}
           </div>
+          {assetLinked && item.assetQuantity != null ? (
+            <Text type="secondary" className="text-xs block">
+              {item.assetType === "usd"
+                ? `${item.assetQuantity} دلار`
+                : item.goldKind === "quarter_coin"
+                  ? `${item.assetQuantity} ربع سکه`
+                  : `${item.assetQuantity} گرم طلا`}
+            </Text>
+          ) : null}
           <Text type="secondary" className="text-xs">
             موعد: {formatJalaliDate(item.nextPaymentDate)}
           </Text>
@@ -188,10 +248,7 @@ export function RecurringPayModal({
               if (next === "postpone") setPartialEnabled(false);
             }}
             options={[
-              {
-                value: "full",
-                label: isReceivable ? "تسویه / دریافت" : "تسویه / پرداخت",
-              },
+              { value: "full", label: "تسویه / پرداخت" },
               { value: "postpone", label: "تعویق قسط" },
             ]}
             optionType="button"
@@ -208,10 +265,7 @@ export function RecurringPayModal({
               if (next === "postpone") setPartialEnabled(false);
             }}
             options={[
-              {
-                value: "full",
-                label: isReceivable ? "تسویه / دریافت" : "تسویه / پرداخت",
-              },
+              { value: "full", label: "تسویه / پرداخت" },
               { value: "postpone", label: "تعویق سررسید" },
             ]}
             optionType="button"
@@ -224,9 +278,7 @@ export function RecurringPayModal({
           <Space orientation="vertical" size="small" className="w-full">
             {item.kind === "recurring" ? (
               <Text type="secondary" className="text-sm">
-                {isReceivable
-                  ? "قسط این ماه دریافت نمی‌شود. یک طلب یک‌باره به مبلغ "
-                  : "قسط این ماه پرداخت نمی‌شود. یک بدهی یک‌باره به مبلغ "}
+                قسط این ماه پرداخت نمی‌شود. یک بدهی یک‌باره به مبلغ{" "}
                 {postponePreview ? formatToman(postponePreview.deferred) : "—"} ثبت
                 می‌شود و قسط ماه بعد{" "}
                 {postponePreview ? formatToman(postponePreview.nextInstallment) : "—"}{" "}
@@ -234,16 +286,12 @@ export function RecurringPayModal({
               </Text>
             ) : (
               <Text type="secondary" className="text-sm">
-                {isReceivable
-                  ? "دریافتی ثبت نمی‌شود و سررسید این طلب به تاریخ جدید منتقل می‌شود."
-                  : "پرداختی ثبت نمی‌شود و سررسید این بدهی به تاریخ جدید منتقل می‌شود."}
+                پرداختی ثبت نمی‌شود و سررسید این بدهی به تاریخ جدید منتقل می‌شود.
               </Text>
             )}
             <div>
               <Text type="secondary" className="mb-1 block text-xs">
-                {item.kind === "recurring"
-                  ? `تاریخ ${singularLabel} تعویق‌شده`
-                  : "تاریخ سررسید جدید"}
+                {item.kind === "recurring" ? "تاریخ بدهی تعویق‌شده" : "تاریخ سررسید جدید"}
               </Text>
               <JalaliDateInput value={postponeDueDate} onChange={setPostponeDueDate} />
             </div>
@@ -257,14 +305,14 @@ export function RecurringPayModal({
                 setMode("full");
               }}
             >
-              {isReceivable ? "دریافت جزئی" : "پرداخت جزئی"}
+              پرداخت جزئی
             </Checkbox>
 
             {showPartialOptions ? (
               <Space orientation="vertical" size="small" className="w-full">
                 <div>
                   <Text type="secondary" className="mb-1 block text-xs">
-                    {isReceivable ? "مبلغ دریافتی (تومان)" : "مبلغ پرداختی (تومان)"}
+                    مبلغ پرداختی (تومان)
                   </Text>
                   <AmountInput value={paidAmount} onChange={setPaidAmount} />
                 </div>
@@ -290,7 +338,7 @@ export function RecurringPayModal({
                       : []),
                     {
                       value: "new_debt" as const,
-                      label: `ثبت مانده به‌صورت ${singularLabel} جدا`,
+                      label: "ثبت مانده به‌صورت بدهی جدا",
                     },
                   ]}
                 />
@@ -313,7 +361,39 @@ export function RecurringPayModal({
                   </div>
                 ) : null}
               </Space>
-            ) : null}
+            ) : (
+              <Space orientation="vertical" size="small" className="w-full">
+                <div>
+                  <Text type="secondary" className="mb-1 block text-xs">
+                    {settledLabel}
+                  </Text>
+                  <AmountInput value={settledAmount} onChange={setSettledAmount} />
+                </div>
+                {assetLinked ? (
+                  <Text type="secondary" className="text-xs">
+                    اگر با مبلغ محاسبه‌شده فرق دارد، اختلاف به‌صورت خودکار ثبت می‌شود.
+                  </Text>
+                ) : (
+                  <Text type="secondary" className="text-xs">
+                    در صورت اختلاف با سررسید، مازاد/کسری به‌صورت کارمزد، سود مازاد یا
+                    مابه‌التفاوت قیمت ثبت می‌شود.
+                  </Text>
+                )}
+                {variance ? (
+                  <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
+                    <Text className="text-sm">
+                      اختلاف: {formatToman(variance.amount)} → {variance.label}
+                    </Text>
+                    <Text type="secondary" className="text-xs block">
+                      اثر خالص روی موجودی:{" "}
+                      {formatToman(
+                        Number.isFinite(settledNumeric) ? Math.round(settledNumeric) : dueAmount
+                      )}
+                    </Text>
+                  </div>
+                ) : null}
+              </Space>
+            )}
 
             <div>
               <Text type="secondary" className="mb-1 block text-xs">
