@@ -28,7 +28,7 @@ export type NavItem = {
   match?: (pathname: string) => boolean;
 };
 
-const BOTTOM_PRIMARY_BASES = new Set(["/dashboard", "/transactions", "/reports"]);
+const BOTTOM_PRIMARY_BASES = new Set(["/dashboard", "/transactions", "/recurring"]);
 
 /** Overflow destinations shown in the mobile «بیشتر» action sheet. */
 export const MORE_NAV_ITEMS: NavItem[] = [
@@ -43,12 +43,6 @@ export const MORE_NAV_ITEMS: NavItem[] = [
     href: "/review",
     label: "نام‌گذاری",
     icon: <FormOutlined />,
-  },
-  {
-    key: "recurring",
-    href: "/recurring",
-    label: "سررسید‌ها",
-    icon: <AccountBookOutlined />,
   },
   {
     key: "investments",
@@ -79,6 +73,12 @@ export const MORE_NAV_ITEMS: NavItem[] = [
     href: "/budgets",
     label: "بودجه",
     icon: <WalletOutlined />,
+  },
+  {
+    key: "reports",
+    href: "/reports",
+    label: "گزارش‌ها",
+    icon: <PieChartOutlined />,
   },
   {
     key: "settings",
@@ -182,10 +182,10 @@ export const BOTTOM_NAV_ITEMS: NavItem[] = [
     match: () => false,
   },
   {
-    key: "reports",
-    href: "/reports",
-    label: "گزارش‌ها",
-    icon: <PieChartOutlined />,
+    key: "recurring",
+    href: "/recurring",
+    label: "سررسید‌ها",
+    icon: <AccountBookOutlined />,
   },
   {
     key: "more",

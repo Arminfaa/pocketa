@@ -32,16 +32,16 @@ export function getTourSteps(shell: TourShell): TourStep[] {
       step("transactions", { target: "nav-transactions", route: "/transactions" }),
       // Spotlight nav only — do not open Add/More action sheets during the tour
       step("add", { target: "nav-add" }),
-      step("reports", { target: "nav-reports", route: "/reports" }),
+      step("recurring", { target: "nav-recurring", route: "/recurring" }),
       step("more", { target: "nav-more" }),
       step("imports", { route: "/imports/bank-sms" }),
       step("review", { route: "/review" }),
-      step("recurring", { route: "/recurring" }),
       step("investments", { route: "/investments" }),
       step("goals", { route: "/goals" }),
       step("accounts", { route: "/accounts" }),
       step("categories", { route: "/categories" }),
       step("budgets", { route: "/budgets" }),
+      step("reports", { route: "/reports" }),
       step("settings", { route: "/settings" }),
       step("help", { route: "/help" }),
     ];
