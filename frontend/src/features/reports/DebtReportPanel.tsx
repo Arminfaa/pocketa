@@ -3,27 +3,33 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { Button, Collapse, Col, Flex, Row, Segmented, Tag, Typography } from "antd";
+import { Button, Col, Flex, Row, Segmented, Tag, Typography } from "antd";
 import {
   AccountBookOutlined,
+  DownOutlined,
   FallOutlined,
   RiseOutlined,
   SwapOutlined,
   WarningOutlined,
 } from "@ant-design/icons";
-import { SoftList, SoftListItem, SoftListRow } from "@/components/ui/soft-list";
+import {
+  SoftAvatar,
+  SoftList,
+  SoftListItem,
+  SoftListRow,
+} from "@/components/ui/soft-list";
 import { KpiCard } from "@/components/ui/kpi-card";
-import { SectionCard } from "@/components/ui/section-card";
 import { FilterBar, FilterField } from "@/components/ui/filter-bar";
 import { AmountText } from "@/components/ui/amount-text";
 import { Sk } from "@/components/ui/skeleton";
 import { QueryError } from "@/components/ui/query-error";
+import { cn } from "@/lib/cn";
 import {
   fetchDebtReport,
   type DebtReportFilter,
   type DebtReportItem,
 } from "@/services/reports";
-import { formatJalaliDate, formatToman } from "@/lib/format";
+import { formatJalaliDate, formatToman, toPersianDigits } from "@/lib/format";
 
 const { Text } = Typography;
 
@@ -32,7 +38,7 @@ function kindLabel(item: DebtReportItem): string {
     return item.role === "liability" ? "بدهی یک‌باره" : "طلب یک‌باره";
   }
   if (item.endMode === "months" && item.endMonths != null) {
-    return `قسط (${item.paymentsMade}/${item.endMonths})`;
+    return `قسط (${toPersianDigits(String(item.paymentsMade))}/${toPersianDigits(String(item.endMonths))})`;
   }
   return item.role === "liability" ? "قسط/هزینه دوره‌ای" : "درآمد دوره‌ای";
 }
@@ -40,10 +46,10 @@ function kindLabel(item: DebtReportItem): string {
 function dueLabel(item: DebtReportItem): string {
   if (item.isOverdue) {
     if (item.daysUntil === 0) return "موعد امروز";
-    return `${Math.abs(item.daysUntil)} روز گذشته`;
+    return `${toPersianDigits(String(Math.abs(item.daysUntil)))} روز گذشته`;
   }
   if (item.daysUntil === 1) return "فردا";
-  return `${item.daysUntil} روز دیگر`;
+  return `${toPersianDigits(String(item.daysUntil))} روز دیگر`;
 }
 
 function ItemPlan({ item }: { item: DebtReportItem }) {
@@ -52,60 +58,68 @@ function ItemPlan({ item }: { item: DebtReportItem }) {
   }
 
   return (
-    <div className="space-y-2">
-      {item.planIsPreview ? (
+    <div className="space-y-3">
+      <Flex justify="space-between" align="center" gap={8} wrap="wrap">
         <Text type="secondary" className="text-xs">
-          پایان مشخص نیست؛ پیش‌نمایش ۶ موعد بعدی.
+          {item.planIsPreview
+            ? "پایان مشخص نیست · پیش‌نمایش ۶ موعد بعدی"
+            : "برنامه تسویه"}
         </Text>
-      ) : null}
-      {item.estimatedRemaining != null ? (
-        <Flex justify="space-between" align="center" className="mb-1">
-          <Text type="secondary" className="text-xs">
-            برآورد مانده کل
-          </Text>
-          <AmountText
-            tone={item.role === "liability" ? "expense" : "income"}
-            size="sm"
-          >
-            {formatToman(item.estimatedRemaining)}
-          </AmountText>
-        </Flex>
-      ) : null}
-      <SoftList className="!shadow-none !rounded-xl">
-        {item.settlementPlan.map((step) => (
-          <SoftListItem key={`${item.id}-${step.index}-${step.date}`}>
-            <SoftListRow
-              title={
-                <span className="text-sm">
-                  {item.kind === "one_time" ? "سررسید" : `قسط ${step.index}`}
-                </span>
-              }
-              subtitle={formatJalaliDate(step.date)}
-              trailing={
-                <AmountText
-                  tone={item.role === "liability" ? "expense" : "income"}
-                  size="sm"
-                >
-                  {formatToman(step.amount)}
-                </AmountText>
-              }
-            />
-          </SoftListItem>
-        ))}
-      </SoftList>
-      <div className="pt-1">
-        <Link href="/recurring">
-          <Button size="small" type="link" className="!px-0">
-            مدیریت در سررسیدها
-          </Button>
-        </Link>
+        {item.estimatedRemaining != null ? (
+          <Flex align="center" gap={6}>
+            <Text type="secondary" className="text-xs">
+              برآورد مانده
+            </Text>
+            <AmountText
+              tone={item.role === "liability" ? "expense" : "income"}
+              size="sm"
+            >
+              {formatToman(item.estimatedRemaining)}
+            </AmountText>
+          </Flex>
+        ) : null}
+      </Flex>
+
+      <div className="overflow-hidden rounded-2xl bg-brand-500/[0.04] dark:bg-brand-500/[0.07]">
+        <div className="flex flex-col divide-y divide-app-border/70">
+          {item.settlementPlan.map((step) => (
+            <div
+              key={`${item.id}-${step.index}-${step.date}`}
+              className="flex items-center justify-between gap-3 px-3.5 py-2.5"
+            >
+              <div className="min-w-0">
+                <div className="text-sm font-medium text-app-fg">
+                  {item.kind === "one_time"
+                    ? "سررسید"
+                    : `قسط ${toPersianDigits(String(step.index))}`}
+                </div>
+                <div className="mt-0.5 text-xs text-app-muted">
+                  {formatJalaliDate(step.date)}
+                </div>
+              </div>
+              <AmountText
+                tone={item.role === "liability" ? "expense" : "income"}
+                size="sm"
+              >
+                {formatToman(step.amount)}
+              </AmountText>
+            </div>
+          ))}
+        </div>
       </div>
+
+      <Link href="/recurring" className="inline-block">
+        <Button size="small" type="link" className="!px-0">
+          مدیریت در سررسیدها
+        </Button>
+      </Link>
     </div>
   );
 }
 
 export function DebtReportPanel() {
   const [filter, setFilter] = useState<DebtReportFilter>("all");
+  const [openId, setOpenId] = useState<string | null>(null);
 
   const debtQ = useQuery({
     queryKey: ["reports-debts", filter],
@@ -122,7 +136,10 @@ export function DebtReportPanel() {
           <Segmented
             block
             value={filter}
-            onChange={(v) => setFilter(v as DebtReportFilter)}
+            onChange={(v) => {
+              setFilter(v as DebtReportFilter);
+              setOpenId(null);
+            }}
             options={[
               { value: "all", label: "همه" },
               { value: "liability", label: "بدهکار" },
@@ -142,7 +159,7 @@ export function DebtReportPanel() {
             icon={<FallOutlined />}
             hint={
               summary
-                ? `${summary.liabilityCount} مورد · برآورد ${formatToman(summary.estimatedLiabilities)}`
+                ? `${toPersianDigits(String(summary.liabilityCount))} مورد · برآورد ${formatToman(summary.estimatedLiabilities)}`
                 : undefined
             }
             size="sm"
@@ -156,7 +173,7 @@ export function DebtReportPanel() {
             icon={<RiseOutlined />}
             hint={
               summary
-                ? `${summary.receivableCount} مورد · برآورد ${formatToman(summary.estimatedReceivables)}`
+                ? `${toPersianDigits(String(summary.receivableCount))} مورد · برآورد ${formatToman(summary.estimatedReceivables)}`
                 : undefined
             }
             size="sm"
@@ -184,104 +201,175 @@ export function DebtReportPanel() {
             value={debtQ.isLoading ? "—" : formatToman(summary?.overdueAmount ?? 0)}
             tone="warning"
             icon={<WarningOutlined />}
-            hint={summary ? `${summary.overdueCount} مورد` : undefined}
+            hint={
+              summary
+                ? `${toPersianDigits(String(summary.overdueCount))} مورد`
+                : undefined
+            }
             size="sm"
           />
         </Col>
       </Row>
 
-      <SectionCard
-        title="اقلام و برنامه تسویه"
-        description="برای هر مورد، موعدهای آینده تا تسویه (یا پیش‌نمایش) را ببینید."
-        extra={
-          <Link href="/recurring">
-            <Button size="small" icon={<AccountBookOutlined />}>
-              سررسیدها
-            </Button>
-          </Link>
-        }
-      >
-        {debtQ.isLoading ? (
-          <div className="space-y-3" aria-busy="true">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Sk key={i} className="h-14 w-full rounded-xl" />
-            ))}
-          </div>
-        ) : null}
+      {debtQ.isLoading ? (
+        <SoftList
+          header={
+            <Text type="secondary" className="text-xs font-medium">
+              اقلام و برنامه تسویه
+            </Text>
+          }
+        >
+          {Array.from({ length: 4 }).map((_, i) => (
+            <SoftListItem key={i}>
+              <div className="flex items-start justify-between gap-3" aria-busy="true">
+                <div className="flex min-w-0 flex-1 items-start gap-3">
+                  <Sk className="h-10 w-10 shrink-0 rounded-xl" />
+                  <div className="min-w-0 flex-1 space-y-2 pt-0.5">
+                    <Sk className="h-4 w-36 max-w-full" />
+                    <Sk className="h-3 w-48 max-w-full" />
+                  </div>
+                </div>
+                <Sk className="h-4 w-20 shrink-0" />
+              </div>
+            </SoftListItem>
+          ))}
+        </SoftList>
+      ) : null}
 
-        {debtQ.error ? (
-          <QueryError
-            message="خطا در دریافت گزارش بدهی/طلب."
-            onRetry={() => void debtQ.refetch()}
-          />
-        ) : null}
+      {debtQ.error ? (
+        <QueryError
+          message="خطا در دریافت گزارش بدهی/طلب."
+          onRetry={() => void debtQ.refetch()}
+        />
+      ) : null}
 
-        {!debtQ.isLoading && !debtQ.error && items.length === 0 ? (
-          <Flex vertical align="center" gap={8} className="py-8">
-            <Text type="secondary">مورد فعالی برای این فیلتر نیست.</Text>
-            <Link href="/recurring?new=1">
-              <Button type="primary">ثبت بدهی یا طلب</Button>
-            </Link>
-          </Flex>
-        ) : null}
+      {!debtQ.isLoading && !debtQ.error && items.length === 0 ? (
+        <SoftList
+          header={
+            <Text type="secondary" className="text-xs font-medium">
+              اقلام و برنامه تسویه
+            </Text>
+          }
+        >
+          <SoftListItem>
+            <Flex vertical align="center" gap={8} className="py-6">
+              <Text type="secondary">مورد فعالی برای این فیلتر نیست.</Text>
+              <Link href="/recurring?new=1">
+                <Button type="primary">ثبت بدهی یا طلب</Button>
+              </Link>
+            </Flex>
+          </SoftListItem>
+        </SoftList>
+      ) : null}
 
-        {!debtQ.isLoading && items.length > 0 ? (
-          <Collapse
-            bordered={false}
-            className="bg-transparent [&_.ant-collapse-item]:mb-2 [&_.ant-collapse-item]:overflow-hidden [&_.ant-collapse-item]:rounded-2xl [&_.ant-collapse-item]:border [&_.ant-collapse-item]:border-app-border/60 [&_.ant-collapse-item]:bg-app-card [&_.ant-collapse-content-box]:!px-3 [&_.ant-collapse-content-box]:!pb-3 [&_.ant-collapse-header]:!items-center [&_.ant-collapse-header]:!px-3 [&_.ant-collapse-header]:!py-3"
-            items={items.map((item) => ({
-              key: item.id,
-              label: (
-                <Flex justify="space-between" align="flex-start" gap={12} className="w-full pe-2">
-                  <div className="min-w-0">
-                    <Flex align="center" gap={6} wrap="wrap" className="mb-1">
-                      <Text strong className="!mb-0">
-                        {item.title}
-                      </Text>
+      {!debtQ.isLoading && items.length > 0 ? (
+        <SoftList
+          header={
+            <Flex justify="space-between" align="center" gap={8} wrap="wrap">
+              <Text type="secondary" className="text-xs font-medium">
+                {toPersianDigits(String(items.length))} مورد · برای دیدن برنامه تسویه لمس کنید
+              </Text>
+              <Link href="/recurring">
+                <Button size="small" type="link" className="!h-auto !px-0" icon={<AccountBookOutlined />}>
+                  سررسیدها
+                </Button>
+              </Link>
+            </Flex>
+          }
+        >
+          {items.map((item) => {
+            const open = openId === item.id;
+            const isLiability = item.role === "liability";
+
+            return (
+              <SoftListItem
+                key={item.id}
+                className={cn(item.isOverdue && "bg-amber-500/5", open && "bg-brand-500/[0.03]")}
+                onClick={() => setOpenId(open ? null : item.id)}
+              >
+                <SoftListRow
+                  leading={
+                    <SoftAvatar
+                      className={cn(
+                        "!h-10 !w-10 !rounded-xl !shadow-none",
+                        isLiability
+                          ? "!bg-red-500/12 !text-red-500"
+                          : "!bg-emerald-500/12 !text-emerald-600"
+                      )}
+                    >
+                      {isLiability ? <FallOutlined /> : <RiseOutlined />}
+                    </SoftAvatar>
+                  }
+                  title={
+                    <Flex align="center" gap={6} wrap="wrap">
+                      <span>{item.title}</span>
                       <Tag
-                        color={item.role === "liability" ? "red" : "green"}
-                        className="!m-0"
+                        color={isLiability ? "red" : "green"}
+                        className="!m-0 !rounded-lg !border-0 !px-2 !text-[11px]"
                       >
-                        {item.role === "liability" ? "بدهکار" : "طلبکار"}
+                        {isLiability ? "بدهکار" : "طلبکار"}
                       </Tag>
                       {item.isOverdue ? (
-                        <Tag color="orange" className="!m-0">
+                        <Tag
+                          color="orange"
+                          className="!m-0 !rounded-lg !border-0 !px-2 !text-[11px]"
+                        >
                           معوق
                         </Tag>
                       ) : null}
                     </Flex>
-                    <Text type="secondary" className="text-xs">
+                  }
+                  subtitle={
+                    <>
                       {kindLabel(item)}
                       {item.category ? ` · ${item.category.name}` : ""}
                       {" · "}
                       {formatJalaliDate(item.nextPaymentDate)}
                       {" · "}
                       {dueLabel(item)}
-                    </Text>
-                  </div>
-                  <div className="shrink-0 text-left">
-                    <AmountText
-                      tone={item.role === "liability" ? "expense" : "income"}
-                      size="sm"
-                    >
-                      {formatToman(item.amount)}
-                    </AmountText>
-                    {item.estimatedRemaining != null &&
-                    item.estimatedRemaining !== item.amount ? (
-                      <div>
-                        <Text type="secondary" className="text-[11px]">
-                          مانده ≈ {formatToman(item.estimatedRemaining)}
-                        </Text>
+                    </>
+                  }
+                  trailing={
+                    <Flex vertical align="flex-end" gap={6}>
+                      <AmountText
+                        tone={isLiability ? "expense" : "income"}
+                        size="sm"
+                        caption={
+                          item.estimatedRemaining != null &&
+                          item.estimatedRemaining !== item.amount
+                            ? `مانده ≈ ${formatToman(item.estimatedRemaining)}`
+                            : undefined
+                        }
+                      >
+                        {formatToman(item.amount)}
+                      </AmountText>
+                      <span
+                        className={cn(
+                          "flex h-7 w-7 items-center justify-center rounded-full bg-brand-500/10 text-[11px] text-brand-600 transition-transform dark:text-brand-300",
+                          open && "rotate-180"
+                        )}
+                        aria-hidden
+                      >
+                        <DownOutlined />
+                      </span>
+                    </Flex>
+                  }
+                  footer={
+                    open ? (
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                      >
+                        <ItemPlan item={item} />
                       </div>
-                    ) : null}
-                  </div>
-                </Flex>
-              ),
-              children: <ItemPlan item={item} />,
-            }))}
-          />
-        ) : null}
-      </SectionCard>
+                    ) : null
+                  }
+                />
+              </SoftListItem>
+            );
+          })}
+        </SoftList>
+      ) : null}
     </>
   );
 }
