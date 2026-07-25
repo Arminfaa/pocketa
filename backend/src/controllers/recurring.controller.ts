@@ -414,7 +414,14 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
 
   const mode = parsed.data.mode;
   const kind = recurring.kind ?? "recurring";
-  const kindLabel = kind === "one_time" ? "بدهی یک‌باره" : "قسط ماهانه";
+  const isReceivable = recurring.type === "income";
+  const singularLabel = isReceivable ? "طلب" : "بدهی";
+  const kindLabel =
+    kind === "one_time"
+      ? `${singularLabel} یک‌باره`
+      : isReceivable
+        ? "طلب ماهانه"
+        : "قسط ماهانه";
 
   // سود سرمایه‌گذاری: مبلغ را با قیمت روز طلا/دلار به‌روز کن
   if (recurring.assetQuantity && recurring.assetType) {
@@ -450,12 +457,12 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
           nextPaymentDate: recurring.nextPaymentDate,
           active: recurring.active,
         },
-        `سررسید بدهی به ${deferDate} تعویق شد`
+        `سررسید ${singularLabel} به ${deferDate} تعویق شد`
       );
     }
 
-    // Postponed due amount becomes a one-time debt only — do NOT also roll it
-    // into next month's installment (that double-counted the liability).
+    // Postponed due amount becomes a one-time debt/receivable only — do NOT also
+    // roll it into next month's installment (that double-counted the amount).
     deferredDebt = await createDeferredOneTimeDebt(
       userId,
       recurring,
@@ -480,7 +487,7 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
         nextAmount: recurring.amount,
         active: recurring.active,
       },
-      `قسط تعویق شد؛ بدهی جدا به مبلغ ${Math.round(dueAmount).toLocaleString("en-US")} تومان ثبت شد و قسط بعدی ${Math.round(baseAmount).toLocaleString("en-US")} تومان است`
+      `قسط تعویق شد؛ ${singularLabel} جدا به مبلغ ${Math.round(dueAmount).toLocaleString("en-US")} تومان ثبت شد و قسط بعدی ${Math.round(baseAmount).toLocaleString("en-US")} تومان است`
     );
   }
 
@@ -499,7 +506,7 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
       type: recurring.type,
       amount: dueAmount,
       title: recurring.title,
-      description: recurring.notes || `ثبت از بدهی/اقساط (${kindLabel})`,
+      description: recurring.notes || `ثبت از ${isReceivable ? "طلب" : "بدهی"}/اقساط (${kindLabel})`,
       date: normalizeJalaliDate(recurring.nextPaymentDate),
       source: "manual",
       needsReview: false,
@@ -544,10 +551,10 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
     categoryId: recurring.categoryId,
     type: recurring.type,
     amount: paidAmount,
-    title: `${recurring.title} (پرداخت جزئی)`,
+    title: `${recurring.title} (${isReceivable ? "دریافت جزئی" : "پرداخت جزئی"})`,
     description:
       recurring.notes ||
-      `پرداخت جزئی — مانده ${Math.round(remainder).toLocaleString("en-US")} تومان`,
+      `${isReceivable ? "دریافت جزئی" : "پرداخت جزئی"} — مانده ${Math.round(remainder).toLocaleString("en-US")} تومان`,
     date: normalizeJalaliDate(recurring.nextPaymentDate),
     source: "manual",
     needsReview: false,
@@ -567,7 +574,7 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
       recurring,
       remainder,
       remainderDate,
-      `مانده پرداخت جزئی تا ${remainderDate}`
+      `مانده ${isReceivable ? "دریافت" : "پرداخت"} جزئی تا ${remainderDate}`
     );
     recurring.amount = baseAmount;
     recurring.baseAmount = baseAmount;
@@ -587,7 +594,7 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
       paymentsMade: recurring.paymentsMade,
     },
     deferredDebt
-      ? "پرداخت جزئی ثبت شد و مانده به‌صورت بدهی جدا ثبت شد"
-      : "پرداخت جزئی ثبت شد و مانده به قسط ماه بعد اضافه شد"
+      ? `${isReceivable ? "دریافت" : "پرداخت"} جزئی ثبت شد و مانده به‌صورت ${singularLabel} جدا ثبت شد`
+      : `${isReceivable ? "دریافت" : "پرداخت"} جزئی ثبت شد و مانده به قسط ماه بعد اضافه شد`
   );
 });

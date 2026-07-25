@@ -102,12 +102,13 @@ export function RecurringPayModal({
     }
 
     const paid = parseAmountInput(paidAmount);
+    const amountWord = item.type === "income" ? "مبلغ دریافتی" : "مبلغ پرداختی";
     if (!Number.isFinite(paid) || paid <= 0) {
-      message.error("مبلغ پرداختی معتبر نیست");
+      message.error(`${amountWord} معتبر نیست`);
       return;
     }
     if (paid >= dueAmount) {
-      message.error("مبلغ پرداختی باید کمتر از مبلغ قسط باشد");
+      message.error(`${amountWord} باید کمتر از مبلغ قسط باشد`);
       return;
     }
 
@@ -132,6 +133,8 @@ export function RecurringPayModal({
 
   if (!item) return null;
 
+  const isReceivable = item.type === "income";
+  const singularLabel = isReceivable ? "طلب" : "بدهی";
   const showPartialOptions = partialEnabled && mode !== "postpone";
   const effectiveMode: RecurringPaymentMode =
     mode === "postpone" ? "postpone" : partialEnabled ? "partial" : "full";
@@ -185,7 +188,10 @@ export function RecurringPayModal({
               if (next === "postpone") setPartialEnabled(false);
             }}
             options={[
-              { value: "full", label: "تسویه / پرداخت" },
+              {
+                value: "full",
+                label: isReceivable ? "تسویه / دریافت" : "تسویه / پرداخت",
+              },
               { value: "postpone", label: "تعویق قسط" },
             ]}
             optionType="button"
@@ -202,7 +208,10 @@ export function RecurringPayModal({
               if (next === "postpone") setPartialEnabled(false);
             }}
             options={[
-              { value: "full", label: "تسویه / پرداخت" },
+              {
+                value: "full",
+                label: isReceivable ? "تسویه / دریافت" : "تسویه / پرداخت",
+              },
               { value: "postpone", label: "تعویق سررسید" },
             ]}
             optionType="button"
@@ -215,7 +224,9 @@ export function RecurringPayModal({
           <Space orientation="vertical" size="small" className="w-full">
             {item.kind === "recurring" ? (
               <Text type="secondary" className="text-sm">
-                قسط این ماه پرداخت نمی‌شود. یک بدهی یک‌باره به مبلغ{" "}
+                {isReceivable
+                  ? "قسط این ماه دریافت نمی‌شود. یک طلب یک‌باره به مبلغ "
+                  : "قسط این ماه پرداخت نمی‌شود. یک بدهی یک‌باره به مبلغ "}
                 {postponePreview ? formatToman(postponePreview.deferred) : "—"} ثبت
                 می‌شود و قسط ماه بعد{" "}
                 {postponePreview ? formatToman(postponePreview.nextInstallment) : "—"}{" "}
@@ -223,12 +234,16 @@ export function RecurringPayModal({
               </Text>
             ) : (
               <Text type="secondary" className="text-sm">
-                پرداختی ثبت نمی‌شود و سررسید این بدهی به تاریخ جدید منتقل می‌شود.
+                {isReceivable
+                  ? "دریافتی ثبت نمی‌شود و سررسید این طلب به تاریخ جدید منتقل می‌شود."
+                  : "پرداختی ثبت نمی‌شود و سررسید این بدهی به تاریخ جدید منتقل می‌شود."}
               </Text>
             )}
             <div>
               <Text type="secondary" className="mb-1 block text-xs">
-                {item.kind === "recurring" ? "تاریخ بدهی تعویق‌شده" : "تاریخ سررسید جدید"}
+                {item.kind === "recurring"
+                  ? `تاریخ ${singularLabel} تعویق‌شده`
+                  : "تاریخ سررسید جدید"}
               </Text>
               <JalaliDateInput value={postponeDueDate} onChange={setPostponeDueDate} />
             </div>
@@ -242,14 +257,14 @@ export function RecurringPayModal({
                 setMode("full");
               }}
             >
-              پرداخت جزئی
+              {isReceivable ? "دریافت جزئی" : "پرداخت جزئی"}
             </Checkbox>
 
             {showPartialOptions ? (
               <Space orientation="vertical" size="small" className="w-full">
                 <div>
                   <Text type="secondary" className="mb-1 block text-xs">
-                    مبلغ پرداختی (تومان)
+                    {isReceivable ? "مبلغ دریافتی (تومان)" : "مبلغ پرداختی (تومان)"}
                   </Text>
                   <AmountInput value={paidAmount} onChange={setPaidAmount} />
                 </div>
@@ -275,7 +290,7 @@ export function RecurringPayModal({
                       : []),
                     {
                       value: "new_debt" as const,
-                      label: "ثبت مانده به‌صورت بدهی جدا",
+                      label: `ثبت مانده به‌صورت ${singularLabel} جدا`,
                     },
                   ]}
                 />

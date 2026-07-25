@@ -81,6 +81,7 @@ async function createDeferredOneTimeDebt(
   amount: number,
   dueDate: string
 ) {
+  const partialWord = recurring.type === "income" ? "دریافت جزئی" : "پرداخت جزئی";
   return RecurringTransactionModel.create({
     userId,
     title: `مانده — ${recurring.title}`,
@@ -90,8 +91,8 @@ async function createDeferredOneTimeDebt(
     kind: "one_time",
     categoryId: recurring.categoryId,
     notes: recurring.notes
-      ? `${recurring.notes} (مانده پرداخت جزئی تا ${dueDate})`
-      : `مانده پرداخت جزئی تا ${dueDate}`,
+      ? `${recurring.notes} (مانده ${partialWord} تا ${dueDate})`
+      : `مانده ${partialWord} تا ${dueDate}`,
     active: true,
     paymentsMade: 0,
     reminderHour: recurring.reminderHour ?? 20,
@@ -179,7 +180,12 @@ export async function settleRecurringWithExistingTransaction(input: {
     throw new AppError(400, "برای تسویه کامل از حالت «تسویه کامل» استفاده کنید");
   }
   if (paid <= 0) {
-    throw new AppError(400, "مبلغ پرداخت جزئی معتبر نیست");
+    throw new AppError(
+      400,
+      recurring.type === "income"
+        ? "مبلغ دریافت جزئی معتبر نیست"
+        : "مبلغ پرداخت جزئی معتبر نیست"
+    );
   }
   if (!input.remainderDueDate) {
     throw new AppError(400, "تاریخ تسویه مانده را وارد کنید");
@@ -203,13 +209,16 @@ export async function settleRecurringWithExistingTransaction(input: {
   advanceRecurringSchedule(recurring);
   await recurring.save();
 
+  const partialWord = recurring.type === "income" ? "دریافت جزئی" : "پرداخت جزئی";
+  const singularLabel = recurring.type === "income" ? "طلب" : "بدهی";
+
   return {
     recurring,
     deferredDebt,
     settled: "partial" as const,
     remainder,
     snapshot,
-    message: `پرداخت جزئی ثبت شد؛ مانده ${Math.round(remainder).toLocaleString("en-US")} تومان تا ${remainderDate} به‌صورت سررسید جدا ثبت شد`,
+    message: `${partialWord} ثبت شد؛ مانده ${Math.round(remainder).toLocaleString("en-US")} تومان تا ${remainderDate} به‌صورت ${singularLabel} جدا ثبت شد`,
   };
 }
 

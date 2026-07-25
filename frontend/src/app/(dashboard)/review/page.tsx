@@ -666,7 +666,9 @@ export default function ReviewPage() {
                       }
                     >
                       <Radio value="full">تسویه کامل</Radio>
-                      <Radio value="partial">پرداخت جزئی</Radio>
+                      <Radio value="partial">
+                        {tx.type === "income" ? "دریافت جزئی" : "پرداخت جزئی"}
+                      </Radio>
                     </Radio.Group>
                     {draft.settleMode === "full" && draft.settleRecurringId ? (
                       <Text type="secondary" className="text-xs">
@@ -687,7 +689,9 @@ export default function ReviewPage() {
                           placeholder="1405/05/01"
                         />
                         <Text type="secondary" className="mt-1 block text-xs">
-                          مانده به‌صورت سررسید جدا با این تاریخ ثبت می‌شود.
+                          مانده به‌صورت{" "}
+                          {tx.type === "income" ? "طلب جدا" : "بدهی جدا"} با این تاریخ ثبت
+                          می‌شود.
                         </Text>
                       </div>
                     ) : null}

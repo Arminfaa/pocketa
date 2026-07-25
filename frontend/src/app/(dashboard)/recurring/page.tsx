@@ -68,10 +68,10 @@ import { AmountText } from "@/components/ui/amount-text";
 
 const { Text } = Typography;
 
-const KIND_LABEL: Record<DebtKind, string> = {
-  recurring: "تکرارشونده (قسط)",
-  one_time: "بدهی یک‌باره",
-};
+function kindLabel(kind: DebtKind, type: "income" | "expense"): string {
+  if (kind === "one_time") return type === "income" ? "طلب یک‌باره" : "بدهی یک‌باره";
+  return type === "income" ? "تکرارشونده (طلب)" : "تکرارشونده (قسط)";
+}
 
 const HOUR_OPTIONS = Array.from({ length: 24 }, (_, h) => ({
   value: h,
@@ -360,7 +360,13 @@ export default function RecurringPage() {
 
           <Input
             placeholder={
-              kind === "one_time" ? "عنوان (مثلاً بدهی به علی)" : "عنوان (مثلاً قسط وام)"
+              kind === "one_time"
+                ? type === "income"
+                  ? "عنوان (مثلاً طلب از علی)"
+                  : "عنوان (مثلاً بدهی به علی)"
+                : type === "income"
+                  ? "عنوان (مثلاً سود ماهانه)"
+                  : "عنوان (مثلاً قسط وام)"
             }
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -369,15 +375,24 @@ export default function RecurringPage() {
           <Row gutter={[12, 12]}>
             <Col xs={24} md={12}>
               <Text type="secondary" className="mb-1 block text-xs">
-                نوع بدهی
+                {type === "income" ? "نوع طلب" : "نوع بدهی"}
               </Text>
               <Select
                 className="w-full"
                 value={kind}
                 onChange={setKind}
                 options={[
-                  { value: "recurring", label: "تکرارشونده (قسط ماهانه)" },
-                  { value: "one_time", label: "بدهی یک‌باره" },
+                  {
+                    value: "recurring",
+                    label:
+                      type === "income"
+                        ? "تکرارشونده (طلب ماهانه)"
+                        : "تکرارشونده (قسط ماهانه)",
+                  },
+                  {
+                    value: "one_time",
+                    label: type === "income" ? "طلب یک‌باره" : "بدهی یک‌باره",
+                  },
                 ]}
               />
             </Col>
@@ -512,7 +527,7 @@ export default function RecurringPage() {
                   title={
                     <Space size="small" wrap>
                       <span>{item.title}</span>
-                      <Tag>{KIND_LABEL[item.kind] ?? item.kind}</Tag>
+                      <Tag>{kindLabel(item.kind, item.type)}</Tag>
                       {item.isDue ? <Tag color="orange">سررسید شده</Tag> : null}
                     </Space>
                   }
