@@ -285,6 +285,13 @@ export default function DashboardPage() {
             <SectionCard
               title="ارزش خالص"
               description="نقد + سرمایه‌گذاری − بدهی + طلب (سررسیدهای فعال)"
+              extra={
+                <Link href="/reports?tab=debts">
+                  <Button size="small" type="link" className="!px-0">
+                    گزارش بدهی/طلب
+                  </Button>
+                </Link>
+              }
             >
               <SoftList className="!shadow-none !rounded-2xl bg-brand-500/[0.05] dark:bg-brand-500/[0.08]">
                 {[
@@ -298,11 +305,13 @@ export default function DashboardPage() {
                     label: "بدهی‌ها",
                     value: dashboard.netWorth.liabilities,
                     tone: "expense" as const,
+                    href: "/reports?tab=debts",
                   },
                   {
                     label: "طلب‌ها",
                     value: dashboard.netWorth.receivables,
                     tone: "income" as const,
+                    href: "/reports?tab=debts",
                   },
                   {
                     label: "ارزش خالص",
@@ -313,9 +322,18 @@ export default function DashboardPage() {
                   <SoftListItem key={row.label}>
                     <SoftListRow
                       title={
-                        <span className={row.tone === "brand" ? "text-brand-600" : undefined}>
-                          {row.label}
-                        </span>
+                        row.href ? (
+                          <Link
+                            href={row.href}
+                            className="text-inherit hover:text-brand-600"
+                          >
+                            {row.label}
+                          </Link>
+                        ) : (
+                          <span className={row.tone === "brand" ? "text-brand-600" : undefined}>
+                            {row.label}
+                          </span>
+                        )
                       }
                       trailing={
                         <AmountText

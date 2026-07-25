@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useOpenOnQuery } from "@/hooks/use-open-on-query";
 import {
@@ -23,6 +24,7 @@ import {
   CaretRightOutlined,
   CheckSquareOutlined,
   DeleteOutlined,
+  PieChartOutlined,
   PlusOutlined,
   AccountBookOutlined,
 } from "@ant-design/icons";
@@ -268,13 +270,18 @@ export default function RecurringPage() {
         icon={<AccountBookOutlined />}
         description="درآمد، سود، اقساط و بدهی‌های زمان‌بندی‌شده — حساب بانکی را موقع ثبت تراکنش انتخاب کنید."
         actions={
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => setFormOpen(true)}
-          >
-            افزودن
-          </Button>
+          <Space wrap>
+            <Link href="/reports?tab=debts">
+              <Button icon={<PieChartOutlined />}>گزارش بدهی/طلب</Button>
+            </Link>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => setFormOpen(true)}
+            >
+              افزودن
+            </Button>
+          </Space>
         }
       />
 

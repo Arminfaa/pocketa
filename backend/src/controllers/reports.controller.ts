@@ -11,6 +11,10 @@ import {
   getActiveAccountIds,
   getNonOperatingCategoryIds,
 } from "../services/accounting.service";
+import {
+  buildDebtReport,
+  type DebtReportFilter,
+} from "../services/debt-report.service";
 
 function currentJalaliMonthYear() {
   const now = new Date();
@@ -233,4 +237,24 @@ export const categories = asyncHandler(async (req: Request, res: Response) => {
           : "—",
     })),
   });
+});
+
+const DEBT_FILTERS = new Set<DebtReportFilter>([
+  "all",
+  "liability",
+  "receivable",
+  "overdue",
+]);
+
+export const debts = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) throw new AppError(401, "عدم دسترسی");
+
+  const raw = typeof req.query.filter === "string" ? req.query.filter.trim() : "all";
+  const filter: DebtReportFilter = DEBT_FILTERS.has(raw as DebtReportFilter)
+    ? (raw as DebtReportFilter)
+    : "all";
+
+  const data = await buildDebtReport(userId, filter);
+  return sendSuccess(res, data);
 });

@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Col,
   Flex,
@@ -32,6 +33,7 @@ import { formatJalaliDate, formatToman } from "@/lib/format";
 import { getJalaliMonthYear, MONTH_LABELS } from "@/lib/finance-ui";
 import { Sk } from "@/components/ui/skeleton";
 import { QueryError } from "@/components/ui/query-error";
+import { DebtReportPanel } from "@/features/reports/DebtReportPanel";
 
 const { Text } = Typography;
 
@@ -57,17 +59,41 @@ const ReportsCategoryCompareChart = dynamic(
   { ssr: false, loading: ChartSkSm }
 );
 
-type ReportMode = "range" | "monthly";
+type ReportMode = "range" | "monthly" | "debts";
+
+function parseReportMode(raw: string | null): ReportMode {
+  if (raw === "debts" || raw === "range" || raw === "monthly") return raw;
+  return "monthly";
+}
 
 export default function ReportsPage() {
   const screens = Grid.useBreakpoint();
   const isMobile = !screens.md;
   const selectedAccountId = useAccountFilterStore((s) => s.selectedAccountId);
   const current = getJalaliMonthYear();
-  const [mode, setMode] = useState<ReportMode>("monthly");
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const [mode, setMode] = useState<ReportMode>(() =>
+    parseReportMode(searchParams.get("tab"))
+  );
   const [months, setMonths] = useState(6);
   const [month, setMonth] = useState(current.month);
   const [year, setYear] = useState(current.year);
+
+  useEffect(() => {
+    const fromUrl = parseReportMode(searchParams.get("tab"));
+    setMode((prev) => (prev === fromUrl ? prev : fromUrl));
+  }, [searchParams]);
+
+  function changeMode(next: ReportMode) {
+    setMode(next);
+    const qs = new URLSearchParams(searchParams.toString());
+    if (next === "monthly") qs.delete("tab");
+    else qs.set("tab", next);
+    const suffix = qs.toString();
+    router.replace(suffix ? `${pathname}?${suffix}` : pathname, { scroll: false });
+  }
 
   const monthlyQ = useQuery({
     queryKey: ["reports-monthly", selectedAccountId, months],
@@ -147,27 +173,31 @@ export default function ReportsPage() {
     { value: 12, label: "۱۲ ماه" },
   ];
 
+  const description =
+    mode === "debts"
+      ? "چقدر بدهکار یا طلبکارید و برنامهٔ تسویه هر مورد."
+      : selectedAccountId
+        ? "گزارش‌ها بر اساس حساب انتخاب‌شده در هدر فیلتر شده‌اند."
+        : "نمایش گزارش همه حساب‌ها. از هدر می‌توانید یک حساب را انتخاب کنید.";
+
   return (
     <PageShell width="full">
       <PageHeader
         title="گزارش‌ها"
         icon={<PieChartOutlined />}
-        description={
-          selectedAccountId
-            ? "گزارش‌ها بر اساس حساب انتخاب‌شده در هدر فیلتر شده‌اند."
-            : "نمایش گزارش همه حساب‌ها. از هدر می‌توانید یک حساب را انتخاب کنید."
-        }
+        description={description}
       />
 
       <FilterBar>
-        <FilterField className="sm:min-w-[14rem] sm:flex-[2]">
+        <FilterField className="sm:min-w-[18rem] sm:flex-[2]">
           <Segmented
             block
             value={mode}
-            onChange={(v) => setMode(v as ReportMode)}
+            onChange={(v) => changeMode(v as ReportMode)}
             options={[
               { value: "monthly", label: "گزارش ماهانه" },
               { value: "range", label: "روند چندماهه" },
+              { value: "debts", label: isMobile ? "بدهی/طلب" : "بدهی و طلب" },
             ]}
           />
         </FilterField>
@@ -195,160 +225,166 @@ export default function ReportsPage() {
         ) : null}
       </FilterBar>
 
-      <Row gutter={[12, 12]}>
-        <Col xs={24} md={8}>
-          <KpiCard
-            label={mode === "monthly" ? "درآمد ماه" : "مجموع درآمد بازه"}
-            value={incomeValue}
-            tone="success"
-            icon={<RiseOutlined />}
-          />
-        </Col>
-        <Col xs={24} md={8}>
-          <KpiCard
-            label={mode === "monthly" ? "هزینه ماه" : "مجموع هزینه بازه"}
-            value={expenseValue}
-            tone="danger"
-            icon={<FallOutlined />}
-          />
-        </Col>
-        <Col xs={24} md={8}>
-          <KpiCard
-            label="خالص"
-            value={netValue}
-            tone="brand"
-            icon={<LineChartOutlined />}
-          />
-        </Col>
-      </Row>
+      {mode === "debts" ? <DebtReportPanel /> : null}
 
-      {mode === "range" ? (
-        <SectionCard
-          title="روند ماهانه درآمد و هزینه"
-          extra={
-            <Select
-              value={months}
-              onChange={setMonths}
-              className={isMobile ? "w-full" : "w-[120px]"}
-              options={monthOptions}
-            />
-          }
-        >
-          {monthlyQ.isLoading ? <ChartSk /> : null}
-          {monthlyQ.error ? (
-            <QueryError
-              message="خطا در دریافت گزارش ماهانه."
-              onRetry={() => void monthlyQ.refetch()}
-            />
-          ) : null}
-          {monthlyQ.data ? (
-            <ReportsTrendLineChart
-              data={monthlyChart}
-              height={isMobile ? 300 : 280}
-              isMobile={isMobile}
-            />
-          ) : null}
-        </SectionCard>
-      ) : (
-        <SectionCard title={`درآمد و هزینه ${MONTH_LABELS[month - 1]} ${year}`}>
-          {categoriesQ.isLoading ? <ChartSk /> : null}
-          {categoriesQ.error ? (
-            <QueryError
-              message="خطا در دریافت گزارش ماهانه."
-              onRetry={() => void categoriesQ.refetch()}
-            />
-          ) : null}
-          {categoriesQ.data ? (
-            <ReportsMonthBarChart
-              data={singleMonthBar}
-              height={isMobile ? 300 : 280}
-              isMobile={isMobile}
-            />
-          ) : null}
-        </SectionCard>
-      )}
-
-      {mode === "monthly" ? (
+      {mode !== "debts" ? (
         <>
-          <Row gutter={[16, 16]}>
-            <Col xs={24} lg={12}>
-              <SectionCard title="هزینه به تفکیک دسته">
-                {categoriesQ.isLoading ? <ChartSkSm /> : null}
-                {categoriesQ.data && expensePie.length > 0 ? (
-                  <ReportsExpensePieChart data={expensePie} />
-                ) : !categoriesQ.isLoading ? (
-                  <Flex align="center" justify="center" className="h-[260px]">
-                    <Text type="secondary">هزینه‌ای در این ماه ثبت نشده است.</Text>
-                  </Flex>
-                ) : null}
-              </SectionCard>
+          <Row gutter={[12, 12]}>
+            <Col xs={24} md={8}>
+              <KpiCard
+                label={mode === "monthly" ? "درآمد ماه" : "مجموع درآمد بازه"}
+                value={incomeValue}
+                tone="success"
+                icon={<RiseOutlined />}
+              />
             </Col>
-
-            <Col xs={24} lg={12}>
-              <SectionCard title="مقایسه دسته‌های هزینه">
-                {categoriesQ.isLoading ? <ChartSkSm /> : null}
-                {categoriesQ.data && (categoriesQ.data.expense?.length ?? 0) > 0 ? (
-                  <ReportsCategoryCompareChart
-                    data={categoriesQ.data.expense.map((c) => ({
-                      name: c.name,
-                      amount: c.amount,
-                    }))}
-                    isMobile={isMobile}
-                  />
-                ) : !categoriesQ.isLoading ? (
-                  <Flex align="center" justify="center" className="h-[260px]">
-                    <Text type="secondary">داده‌ای برای نمودار نیست.</Text>
-                  </Flex>
-                ) : null}
-              </SectionCard>
+            <Col xs={24} md={8}>
+              <KpiCard
+                label={mode === "monthly" ? "هزینه ماه" : "مجموع هزینه بازه"}
+                value={expenseValue}
+                tone="danger"
+                icon={<FallOutlined />}
+              />
+            </Col>
+            <Col xs={24} md={8}>
+              <KpiCard
+                label="خالص"
+                value={netValue}
+                tone="brand"
+                icon={<LineChartOutlined />}
+              />
             </Col>
           </Row>
 
-          <SoftList
-            header={
-              <Text strong>
-                بیشترین هزینه‌های {MONTH_LABELS[month - 1]} {year}
-              </Text>
-            }
-          >
-            {categoriesQ.isLoading ? (
-              <SoftListItem>
-                <div className="space-y-3 py-1" aria-busy="true">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Flex key={i} justify="space-between" align="center" gap="middle">
-                      <div className="min-w-0 flex-1 space-y-2">
-                        <Sk className="h-4 w-36 max-w-full" />
-                        <Sk className="h-3 w-48 max-w-full" />
-                      </div>
-                      <Sk className="h-4 w-20 shrink-0" />
-                    </Flex>
-                  ))}
-                </div>
-              </SoftListItem>
-            ) : null}
-            {!categoriesQ.isLoading && (categoriesQ.data?.topExpenses?.length ?? 0) === 0 ? (
-              <SoftListItem>
-                <Flex align="center" justify="center" className="py-5">
-                  <Text type="secondary">هزینه‌ای برای نمایش وجود ندارد.</Text>
-                </Flex>
-              </SoftListItem>
-            ) : null}
-            {!categoriesQ.isLoading
-              ? (categoriesQ.data?.topExpenses ?? []).map((tx) => (
-                  <SoftListItem key={tx.id}>
-                    <SoftListRow
-                      title={tx.title}
-                      subtitle={`${formatJalaliDate(tx.date)} · ${tx.category} · ${tx.account}`}
-                      trailing={
-                        <AmountText tone="expense" size="sm">
-                          {formatToman(tx.amount)}
-                        </AmountText>
-                      }
-                    />
+          {mode === "range" ? (
+            <SectionCard
+              title="روند ماهانه درآمد و هزینه"
+              extra={
+                <Select
+                  value={months}
+                  onChange={setMonths}
+                  className={isMobile ? "w-full" : "w-[120px]"}
+                  options={monthOptions}
+                />
+              }
+            >
+              {monthlyQ.isLoading ? <ChartSk /> : null}
+              {monthlyQ.error ? (
+                <QueryError
+                  message="خطا در دریافت گزارش ماهانه."
+                  onRetry={() => void monthlyQ.refetch()}
+                />
+              ) : null}
+              {monthlyQ.data ? (
+                <ReportsTrendLineChart
+                  data={monthlyChart}
+                  height={isMobile ? 300 : 280}
+                  isMobile={isMobile}
+                />
+              ) : null}
+            </SectionCard>
+          ) : (
+            <SectionCard title={`درآمد و هزینه ${MONTH_LABELS[month - 1]} ${year}`}>
+              {categoriesQ.isLoading ? <ChartSk /> : null}
+              {categoriesQ.error ? (
+                <QueryError
+                  message="خطا در دریافت گزارش ماهانه."
+                  onRetry={() => void categoriesQ.refetch()}
+                />
+              ) : null}
+              {categoriesQ.data ? (
+                <ReportsMonthBarChart
+                  data={singleMonthBar}
+                  height={isMobile ? 300 : 280}
+                  isMobile={isMobile}
+                />
+              ) : null}
+            </SectionCard>
+          )}
+
+          {mode === "monthly" ? (
+            <>
+              <Row gutter={[16, 16]}>
+                <Col xs={24} lg={12}>
+                  <SectionCard title="هزینه به تفکیک دسته">
+                    {categoriesQ.isLoading ? <ChartSkSm /> : null}
+                    {categoriesQ.data && expensePie.length > 0 ? (
+                      <ReportsExpensePieChart data={expensePie} />
+                    ) : !categoriesQ.isLoading ? (
+                      <Flex align="center" justify="center" className="h-[260px]">
+                        <Text type="secondary">هزینه‌ای در این ماه ثبت نشده است.</Text>
+                      </Flex>
+                    ) : null}
+                  </SectionCard>
+                </Col>
+
+                <Col xs={24} lg={12}>
+                  <SectionCard title="مقایسه دسته‌های هزینه">
+                    {categoriesQ.isLoading ? <ChartSkSm /> : null}
+                    {categoriesQ.data && (categoriesQ.data.expense?.length ?? 0) > 0 ? (
+                      <ReportsCategoryCompareChart
+                        data={categoriesQ.data.expense.map((c) => ({
+                          name: c.name,
+                          amount: c.amount,
+                        }))}
+                        isMobile={isMobile}
+                      />
+                    ) : !categoriesQ.isLoading ? (
+                      <Flex align="center" justify="center" className="h-[260px]">
+                        <Text type="secondary">داده‌ای برای نمودار نیست.</Text>
+                      </Flex>
+                    ) : null}
+                  </SectionCard>
+                </Col>
+              </Row>
+
+              <SoftList
+                header={
+                  <Text strong>
+                    بیشترین هزینه‌های {MONTH_LABELS[month - 1]} {year}
+                  </Text>
+                }
+              >
+                {categoriesQ.isLoading ? (
+                  <SoftListItem>
+                    <div className="space-y-3 py-1" aria-busy="true">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <Flex key={i} justify="space-between" align="center" gap="middle">
+                          <div className="min-w-0 flex-1 space-y-2">
+                            <Sk className="h-4 w-36 max-w-full" />
+                            <Sk className="h-3 w-48 max-w-full" />
+                          </div>
+                          <Sk className="h-4 w-20 shrink-0" />
+                        </Flex>
+                      ))}
+                    </div>
                   </SoftListItem>
-                ))
-              : null}
-          </SoftList>
+                ) : null}
+                {!categoriesQ.isLoading && (categoriesQ.data?.topExpenses?.length ?? 0) === 0 ? (
+                  <SoftListItem>
+                    <Flex align="center" justify="center" className="py-5">
+                      <Text type="secondary">هزینه‌ای برای نمایش وجود ندارد.</Text>
+                    </Flex>
+                  </SoftListItem>
+                ) : null}
+                {!categoriesQ.isLoading
+                  ? (categoriesQ.data?.topExpenses ?? []).map((tx) => (
+                      <SoftListItem key={tx.id}>
+                        <SoftListRow
+                          title={tx.title}
+                          subtitle={`${formatJalaliDate(tx.date)} · ${tx.category} · ${tx.account}`}
+                          trailing={
+                            <AmountText tone="expense" size="sm">
+                              {formatToman(tx.amount)}
+                            </AmountText>
+                          }
+                        />
+                      </SoftListItem>
+                    ))
+                  : null}
+              </SoftList>
+            </>
+          ) : null}
         </>
       ) : null}
     </PageShell>

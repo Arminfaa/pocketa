@@ -34,6 +34,56 @@ export type CategoryReport = {
   }>;
 };
 
+export type DebtReportFilter = "all" | "liability" | "receivable" | "overdue";
+
+export type DebtSettlementInstallment = {
+  date: string;
+  amount: number;
+  index: number;
+};
+
+export type DebtReportItem = {
+  id: string;
+  title: string;
+  role: "liability" | "receivable";
+  type: "income" | "expense";
+  kind: "recurring" | "one_time";
+  amount: number;
+  baseAmount: number;
+  estimatedRemaining: number | null;
+  remainingInstallments: number | null;
+  endMode: "forever" | "months" | null;
+  endMonths: number | null;
+  paymentsMade: number;
+  dayOfMonth: number | null;
+  nextPaymentDate: string;
+  daysUntil: number;
+  isOverdue: boolean;
+  notes: string;
+  category: { id: string; name: string; color?: string } | null;
+  settlementPlan: DebtSettlementInstallment[];
+  planIsPreview: boolean;
+};
+
+export type DebtReport = {
+  asOf: string;
+  filter: DebtReportFilter;
+  summary: {
+    liabilitiesDue: number;
+    receivablesDue: number;
+    netDue: number;
+    estimatedLiabilities: number;
+    estimatedReceivables: number;
+    estimatedNet: number;
+    overdueCount: number;
+    overdueAmount: number;
+    liabilityCount: number;
+    receivableCount: number;
+    openCount: number;
+  };
+  items: DebtReportItem[];
+};
+
 function withAccount(qs: URLSearchParams, accountId?: string | null) {
   if (accountId) qs.set("accountId", accountId);
 }
@@ -59,4 +109,14 @@ export async function fetchCategoryReport(params?: {
   withAccount(qs, params?.accountId);
   const res = await api.get(`/api/reports/categories?${qs.toString()}`);
   return res.data.data as CategoryReport;
+}
+
+export async function fetchDebtReport(params?: {
+  filter?: DebtReportFilter;
+}): Promise<DebtReport> {
+  const qs = new URLSearchParams();
+  if (params?.filter && params.filter !== "all") qs.set("filter", params.filter);
+  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+  const res = await api.get(`/api/reports/debts${suffix}`);
+  return res.data.data as DebtReport;
 }
