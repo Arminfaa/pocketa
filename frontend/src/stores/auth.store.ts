@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { useAccountFilterStore } from "@/stores/account-filter.store";
+import { useAppLockStore } from "@/stores/app-lock.store";
 
 export type AuthUser = {
   id: string;
@@ -67,6 +68,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   logout: () => {
     writeCachedUser(null);
     useAccountFilterStore.getState().setSelectedAccountId(null);
+    useAppLockStore.getState().onLogout();
     set({ user: null, hydrated: true, sessionChecked: true });
   },
 }));

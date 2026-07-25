@@ -29,6 +29,7 @@ import {
   enablePushNotifications,
   fetchPushStatus,
 } from "@/lib/push";
+import { AppLockSettingsSection } from "@/features/app-lock/AppLockSettingsSection";
 
 const { Text } = Typography;
 
@@ -211,7 +212,7 @@ export default function SettingsPage() {
       <PageHeader
         icon={<SettingOutlined />}
         title="تنظیمات پروفایل"
-        description="نام نمایشی، تغییر رمز، بکاپ کامل، یادآوری پوش و خروج از حساب."
+        description="نام نمایشی، قفل اپ، تغییر رمز، بکاپ کامل، یادآوری پوش و خروج از حساب."
       />
 
       {!user ? (
@@ -243,6 +244,8 @@ export default function SettingsPage() {
               </Button>
             </Space>
           </SectionCard>
+
+          <AppLockSettingsSection />
 
           <SectionCard
             title={
