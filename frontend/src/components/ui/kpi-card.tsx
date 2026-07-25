@@ -64,13 +64,13 @@ export function KpiCard({
   return (
     <div
       className={cn(
-        "surface-card flex h-full flex-col gap-2 p-4 sm:p-5",
+        "surface-card flex h-full min-w-0 flex-col gap-2 p-4 sm:p-5",
         t.shell,
         className
       )}
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="text-xs font-medium text-app-muted">{label}</div>
+        <div className="min-w-0 text-xs font-medium text-app-muted">{label}</div>
         {icon ? (
           <span
             className={cn(
@@ -84,16 +84,20 @@ export function KpiCard({
       </div>
       <div
         className={cn(
-          "font-bold tabular-nums tracking-tight leading-none",
+          "min-w-0 break-words font-bold tabular-nums tracking-tight leading-snug",
           size === "lg" && "text-3xl sm:text-4xl",
           size === "md" && "text-xl sm:text-2xl",
-          size === "sm" && "text-lg",
+          size === "sm" && "text-base sm:text-lg",
           t.value
         )}
       >
         {value}
       </div>
-      {hint ? <div className="text-[11px] text-app-muted leading-relaxed">{hint}</div> : null}
+      {hint ? (
+        <div className="min-w-0 break-words text-[11px] text-app-muted leading-relaxed">
+          {hint}
+        </div>
+      ) : null}
     </div>
   );
 }

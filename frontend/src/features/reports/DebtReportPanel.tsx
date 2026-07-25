@@ -6,8 +6,6 @@ import Link from "next/link";
 import { Button, Col, Flex, Input, Row, Segmented, Select, Tag, Typography } from "antd";
 import {
   AccountBookOutlined,
-  CheckCircleOutlined,
-  ClockCircleOutlined,
   DownOutlined,
   FallOutlined,
   RiseOutlined,
@@ -29,6 +27,7 @@ import { QueryError } from "@/components/ui/query-error";
 import { cn } from "@/lib/cn";
 import {
   fetchDebtReport,
+  type DebtMonthBucket,
   type DebtMonthItem,
   type DebtReportFilter,
   type DebtReportItem,
@@ -37,6 +36,79 @@ import { formatJalaliDate, formatToman, toPersianDigits } from "@/lib/format";
 import { getJalaliMonthYear, MONTH_LABELS } from "@/lib/finance-ui";
 
 const { Text } = Typography;
+
+type MonthMetricTone = "expense" | "income" | "brand" | "default";
+
+function MonthSummaryList({
+  title,
+  loading,
+  bucket,
+  labels,
+  tones,
+}: {
+  title: string;
+  loading: boolean;
+  bucket?: DebtMonthBucket;
+  labels: { total: string; done: string; remaining: string };
+  tones: { total: MonthMetricTone; done: MonthMetricTone; remaining: MonthMetricTone };
+}) {
+  const rows = [
+    {
+      key: "total",
+      label: labels.total,
+      value: bucket?.total ?? 0,
+      count: bucket?.totalCount ?? 0,
+      tone: tones.total,
+    },
+    {
+      key: "done",
+      label: labels.done,
+      value: bucket?.done ?? 0,
+      count: bucket?.doneCount ?? 0,
+      tone: tones.done,
+    },
+    {
+      key: "remaining",
+      label: labels.remaining,
+      value: bucket?.remaining ?? 0,
+      count: bucket?.remainingCount ?? 0,
+      tone: tones.remaining,
+    },
+  ] as const;
+
+  return (
+    <SoftList
+      className="!shadow-none !rounded-2xl bg-brand-500/[0.04] dark:bg-brand-500/[0.07]"
+      header={
+        <Text type="secondary" className="text-xs font-medium">
+          {title}
+        </Text>
+      }
+    >
+      {rows.map((row) => (
+        <SoftListItem key={row.key}>
+          <SoftListRow
+            title={row.label}
+            subtitle={
+              loading
+                ? "—"
+                : `${toPersianDigits(String(row.count))} مورد`
+            }
+            trailing={
+              loading ? (
+                <Sk className="h-4 w-24" />
+              ) : (
+                <AmountText tone={row.tone} size="sm">
+                  {formatToman(row.value)}
+                </AmountText>
+              )
+            }
+          />
+        </SoftListItem>
+      ))}
+    </SoftList>
+  );
+}
 
 function kindLabel(item: DebtReportItem): string {
   if (item.kind === "one_time") {
@@ -196,131 +268,31 @@ export function DebtReportPanel() {
       <SectionCard
         title={`خلاصه ${monthName} ${toPersianDigits(String(year))}`}
         description="جمع بدهی/اقساط و طلب/سود/درآمد این ماه — پرداخت‌شده و مانده"
+        flush
       >
-        <div className="space-y-4">
-          <div>
-            <Text className="mb-2 block text-xs font-medium text-app-muted">
-              بدهی و اقساط
-            </Text>
-            <Row gutter={[12, 12]}>
-              <Col xs={8}>
-                <KpiCard
-                  label="کل ماه"
-                  value={
-                    debtQ.isLoading
-                      ? "—"
-                      : formatToman(monthSummary?.liabilities.total ?? 0)
-                  }
-                  tone="danger"
-                  icon={<FallOutlined />}
-                  hint={
-                    monthSummary
-                      ? `${toPersianDigits(String(monthSummary.liabilities.totalCount))} مورد`
-                      : undefined
-                  }
-                  size="sm"
-                />
-              </Col>
-              <Col xs={8}>
-                <KpiCard
-                  label="پرداخت‌شده"
-                  value={
-                    debtQ.isLoading
-                      ? "—"
-                      : formatToman(monthSummary?.liabilities.done ?? 0)
-                  }
-                  tone="success"
-                  icon={<CheckCircleOutlined />}
-                  hint={
-                    monthSummary
-                      ? `${toPersianDigits(String(monthSummary.liabilities.doneCount))} مورد`
-                      : undefined
-                  }
-                  size="sm"
-                />
-              </Col>
-              <Col xs={8}>
-                <KpiCard
-                  label="مانده"
-                  value={
-                    debtQ.isLoading
-                      ? "—"
-                      : formatToman(monthSummary?.liabilities.remaining ?? 0)
-                  }
-                  tone="warning"
-                  icon={<ClockCircleOutlined />}
-                  hint={
-                    monthSummary
-                      ? `${toPersianDigits(String(monthSummary.liabilities.remainingCount))} مورد`
-                      : undefined
-                  }
-                  size="sm"
-                />
-              </Col>
-            </Row>
-          </div>
-
-          <div>
-            <Text className="mb-2 block text-xs font-medium text-app-muted">
-              طلب / سود / درآمد دوره‌ای
-            </Text>
-            <Row gutter={[12, 12]}>
-              <Col xs={8}>
-                <KpiCard
-                  label="کل ماه"
-                  value={
-                    debtQ.isLoading
-                      ? "—"
-                      : formatToman(monthSummary?.receivables.total ?? 0)
-                  }
-                  tone="brand"
-                  icon={<RiseOutlined />}
-                  hint={
-                    monthSummary
-                      ? `${toPersianDigits(String(monthSummary.receivables.totalCount))} مورد`
-                      : undefined
-                  }
-                  size="sm"
-                />
-              </Col>
-              <Col xs={8}>
-                <KpiCard
-                  label="دریافت‌شده"
-                  value={
-                    debtQ.isLoading
-                      ? "—"
-                      : formatToman(monthSummary?.receivables.done ?? 0)
-                  }
-                  tone="success"
-                  icon={<CheckCircleOutlined />}
-                  hint={
-                    monthSummary
-                      ? `${toPersianDigits(String(monthSummary.receivables.doneCount))} مورد`
-                      : undefined
-                  }
-                  size="sm"
-                />
-              </Col>
-              <Col xs={8}>
-                <KpiCard
-                  label="دریافت‌نشده"
-                  value={
-                    debtQ.isLoading
-                      ? "—"
-                      : formatToman(monthSummary?.receivables.remaining ?? 0)
-                  }
-                  tone="warning"
-                  icon={<ClockCircleOutlined />}
-                  hint={
-                    monthSummary
-                      ? `${toPersianDigits(String(monthSummary.receivables.remainingCount))} مورد`
-                      : undefined
-                  }
-                  size="sm"
-                />
-              </Col>
-            </Row>
-          </div>
+        <div className="space-y-3 p-3 sm:p-4">
+          <MonthSummaryList
+            title="بدهی و اقساط"
+            loading={debtQ.isLoading}
+            bucket={monthSummary?.liabilities}
+            labels={{
+              total: "کل ماه",
+              done: "پرداخت‌شده",
+              remaining: "مانده پرداخت‌نشده",
+            }}
+            tones={{ total: "expense", done: "income", remaining: "default" }}
+          />
+          <MonthSummaryList
+            title="طلب / سود / درآمد دوره‌ای"
+            loading={debtQ.isLoading}
+            bucket={monthSummary?.receivables}
+            labels={{
+              total: "کل ماه",
+              done: "دریافت‌شده",
+              remaining: "دریافت‌نشده",
+            }}
+            tones={{ total: "brand", done: "income", remaining: "default" }}
+          />
         </div>
       </SectionCard>
 
@@ -398,7 +370,7 @@ export function DebtReportPanel() {
       ) : null}
 
       <Row gutter={[12, 12]}>
-        <Col xs={12} md={6}>
+        <Col xs={24} sm={12} lg={6}>
           <KpiCard
             label="بدهی باز"
             value={debtQ.isLoading ? "—" : formatToman(summary?.liabilitiesDue ?? 0)}
@@ -406,13 +378,13 @@ export function DebtReportPanel() {
             icon={<FallOutlined />}
             hint={
               summary
-                ? `${toPersianDigits(String(summary.liabilityCount))} مورد · برآورد ${formatToman(summary.estimatedLiabilities)}`
+                ? `${toPersianDigits(String(summary.liabilityCount))} مورد`
                 : undefined
             }
             size="sm"
           />
         </Col>
-        <Col xs={12} md={6}>
+        <Col xs={24} sm={12} lg={6}>
           <KpiCard
             label="طلب باز"
             value={debtQ.isLoading ? "—" : formatToman(summary?.receivablesDue ?? 0)}
@@ -420,13 +392,13 @@ export function DebtReportPanel() {
             icon={<RiseOutlined />}
             hint={
               summary
-                ? `${toPersianDigits(String(summary.receivableCount))} مورد · برآورد ${formatToman(summary.estimatedReceivables)}`
+                ? `${toPersianDigits(String(summary.receivableCount))} مورد`
                 : undefined
             }
             size="sm"
           />
         </Col>
-        <Col xs={12} md={6}>
+        <Col xs={24} sm={12} lg={6}>
           <KpiCard
             label="خالص موقعیت"
             value={debtQ.isLoading ? "—" : formatToman(summary?.estimatedNet ?? 0)}
@@ -442,7 +414,7 @@ export function DebtReportPanel() {
             size="sm"
           />
         </Col>
-        <Col xs={12} md={6}>
+        <Col xs={24} sm={12} lg={6}>
           <KpiCard
             label="معوق باز"
             value={debtQ.isLoading ? "—" : formatToman(summary?.overdueAmount ?? 0)}
