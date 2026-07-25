@@ -65,9 +65,40 @@ export type DebtReportItem = {
   planIsPreview: boolean;
 };
 
+export type DebtMonthBucket = {
+  total: number;
+  done: number;
+  remaining: number;
+  totalCount: number;
+  doneCount: number;
+  remainingCount: number;
+};
+
+export type DebtMonthItem = {
+  id: string;
+  title: string;
+  role: "liability" | "receivable";
+  type: "income" | "expense";
+  kind: "recurring" | "one_time";
+  amount: number;
+  paid: boolean;
+  nextPaymentDate: string;
+  category: { id: string; name: string; color?: string } | null;
+};
+
 export type DebtReport = {
   asOf: string;
   filter: DebtReportFilter;
+  month: {
+    year: number;
+    month: number;
+    label: string;
+  };
+  monthSummary: {
+    liabilities: DebtMonthBucket;
+    receivables: DebtMonthBucket;
+  };
+  monthItems: DebtMonthItem[];
   summary: {
     liabilitiesDue: number;
     receivablesDue: number;
@@ -113,9 +144,13 @@ export async function fetchCategoryReport(params?: {
 
 export async function fetchDebtReport(params?: {
   filter?: DebtReportFilter;
+  month?: number;
+  year?: number;
 }): Promise<DebtReport> {
   const qs = new URLSearchParams();
   if (params?.filter && params.filter !== "all") qs.set("filter", params.filter);
+  if (params?.month) qs.set("month", String(params.month));
+  if (params?.year) qs.set("year", String(params.year));
   const suffix = qs.toString() ? `?${qs.toString()}` : "";
   const res = await api.get(`/api/reports/debts${suffix}`);
   return res.data.data as DebtReport;

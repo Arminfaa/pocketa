@@ -1,8 +1,15 @@
 import mongoose from "mongoose";
+import jalaali from "jalaali-js";
 import { RecurringTransactionModel } from "../models/RecurringTransaction";
+import { TransactionModel } from "../models/Transaction";
+import {
+  belongsToReportMonth,
+  computePaidThisMonth,
+} from "./recurring-month.service";
 import {
   advanceMonthlyByDay,
   isDueOnOrBefore,
+  jalaliDateFromDay,
   jalaliDaysUntil,
   todayJalali,
 } from "../utils/jalaliDate";
@@ -39,9 +46,40 @@ export type DebtReportItem = {
   planIsPreview: boolean;
 };
 
+export type DebtMonthBucket = {
+  total: number;
+  done: number;
+  remaining: number;
+  totalCount: number;
+  doneCount: number;
+  remainingCount: number;
+};
+
+export type DebtMonthItem = {
+  id: string;
+  title: string;
+  role: "liability" | "receivable";
+  type: "income" | "expense";
+  kind: "recurring" | "one_time";
+  amount: number;
+  paid: boolean;
+  nextPaymentDate: string;
+  category: { id: string; name: string; color?: string } | null;
+};
+
 export type DebtReportResult = {
   asOf: string;
   filter: DebtReportFilter;
+  month: {
+    year: number;
+    month: number;
+    label: string;
+  };
+  monthSummary: {
+    liabilities: DebtMonthBucket;
+    receivables: DebtMonthBucket;
+  };
+  monthItems: DebtMonthItem[];
   summary: {
     liabilitiesDue: number;
     receivablesDue: number;
@@ -64,6 +102,41 @@ function dayFromDate(date: string): number {
   const normalized = normalizeJalaliDate(date);
   const day = Number(normalized.split("/")[2]);
   return Number.isFinite(day) && day >= 1 ? day : 1;
+}
+
+function padMonth(month: number): string {
+  return String(month).padStart(2, "0");
+}
+
+function monthRefDate(year: number, month: number): string {
+  const today = todayJalali();
+  const [ty, tm] = today.split("/").map(Number);
+  if (ty === year && tm === month) return today;
+  const len = jalaali.jalaaliMonthLength(year, month);
+  return jalaliDateFromDay(year, month, len);
+}
+
+function emptyBucket(): DebtMonthBucket {
+  return {
+    total: 0,
+    done: 0,
+    remaining: 0,
+    totalCount: 0,
+    doneCount: 0,
+    remainingCount: 0,
+  };
+}
+
+function monthItemAmount(input: {
+  amount: number;
+  baseAmount: number;
+  kind: "recurring" | "one_time";
+  paid: boolean;
+}): number {
+  if (input.paid && input.kind === "recurring" && input.baseAmount > 0) {
+    return input.baseAmount;
+  }
+  return input.amount;
 }
 
 function buildSettlementPlan(input: {
@@ -104,7 +177,6 @@ function buildSettlementPlan(input: {
     return { plan, planIsPreview: false, remainingInstallments: remaining };
   }
 
-  // forever / unknown end: preview next N dues
   const plan: SettlementInstallment[] = [];
   let date = nextDate;
   for (let i = 0; i < FOREVER_PREVIEW_MONTHS; i++) {
@@ -131,7 +203,6 @@ function estimateRemaining(
     const remaining = Math.max(0, endMonths - paymentsMade);
     if (remaining === 0) return 0;
     const base = baseAmount > 0 ? baseAmount : amount;
-    // First due may carry rolled remainder in `amount`; rest are base installments.
     return amount + Math.max(0, remaining - 1) * base;
   }
   return null;
@@ -155,23 +226,65 @@ function mapCategory(categoryId: unknown): DebtReportItem["category"] {
   return null;
 }
 
+async function settledAmountsByRecurring(
+  userId: string | mongoose.Types.ObjectId,
+  year: number,
+  month: number
+): Promise<Map<string, number>> {
+  const prefix = `${year}/${padMonth(month)}/`;
+  const rows = await TransactionModel.aggregate([
+    {
+      $match: {
+        userId: new mongoose.Types.ObjectId(String(userId)),
+        settledRecurringId: { $ne: null },
+        date: { $regex: `^${prefix}` },
+      },
+    },
+    {
+      $group: {
+        _id: "$settledRecurringId",
+        sum: { $sum: "$amount" },
+      },
+    },
+  ]);
+
+  const map = new Map<string, number>();
+  for (const row of rows) {
+    if (row._id) map.set(String(row._id), Number(row.sum) || 0);
+  }
+  return map;
+}
+
 export async function buildDebtReport(
   userId: string | mongoose.Types.ObjectId,
-  filter: DebtReportFilter = "all"
+  filter: DebtReportFilter = "all",
+  monthYear?: { year: number; month: number }
 ): Promise<DebtReportResult> {
   const today = todayJalali();
-  const rows = await RecurringTransactionModel.find({
-    userId,
-    active: true,
-    $or: [{ investmentId: { $exists: false } }, { investmentId: null }],
-  })
-    .populate({ path: "categoryId", select: "name color" })
-    .sort({ nextPaymentDate: 1 })
-    .lean();
+  const [ty, tm] = today.split("/").map(Number);
+  const year = monthYear?.year ?? ty!;
+  const month = monthYear?.month ?? tm!;
+  const refDate = monthRefDate(year, month);
+  const monthLabel = `${year}/${padMonth(month)}`;
+
+  const [activeRows, monthRows, settledMap] = await Promise.all([
+    RecurringTransactionModel.find({
+      userId,
+      active: true,
+      $or: [{ investmentId: { $exists: false } }, { investmentId: null }],
+    })
+      .populate({ path: "categoryId", select: "name color" })
+      .sort({ nextPaymentDate: 1 })
+      .lean(),
+    RecurringTransactionModel.find({ userId })
+      .populate({ path: "categoryId", select: "name color" })
+      .lean(),
+    settledAmountsByRecurring(userId, year, month),
+  ]);
 
   const items: DebtReportItem[] = [];
 
-  for (const row of rows) {
+  for (const row of activeRows) {
     const kind = (row.kind as "recurring" | "one_time" | undefined) ?? "recurring";
     const type = row.type as "income" | "expense";
     const role: "liability" | "receivable" = type === "expense" ? "liability" : "receivable";
@@ -262,9 +375,69 @@ export async function buildDebtReport(
     }
   }
 
+  const liabilities = emptyBucket();
+  const receivables = emptyBucket();
+  const monthItems: DebtMonthItem[] = [];
+
+  for (const row of monthRows) {
+    const kind = (row.kind as "recurring" | "one_time" | undefined) ?? "recurring";
+    const checklistFields = {
+      kind,
+      active: row.active,
+      dayOfMonth: row.dayOfMonth ?? null,
+      lastPaymentDate: row.lastPaymentDate ?? null,
+      nextPaymentDate: normalizeJalaliDate(String(row.nextPaymentDate)),
+      paymentsMade: row.paymentsMade ?? 0,
+    };
+    if (!belongsToReportMonth(checklistFields, refDate)) continue;
+
+    const paid = computePaidThisMonth(checklistFields, refDate);
+    const type = row.type as "income" | "expense";
+    const role: "liability" | "receivable" = type === "expense" ? "liability" : "receivable";
+    const amountRaw = Number(row.amount) || 0;
+    const baseAmount = Number(row.baseAmount ?? row.amount) || 0;
+    const settled = settledMap.get(String(row._id));
+    const amount =
+      paid && settled != null && settled > 0
+        ? settled
+        : monthItemAmount({ amount: amountRaw, baseAmount, kind, paid });
+
+    const bucket = role === "liability" ? liabilities : receivables;
+    bucket.total += amount;
+    bucket.totalCount += 1;
+    if (paid) {
+      bucket.done += amount;
+      bucket.doneCount += 1;
+    } else {
+      bucket.remaining += amount;
+      bucket.remainingCount += 1;
+    }
+
+    monthItems.push({
+      id: String(row._id),
+      title: row.title,
+      role,
+      type,
+      kind,
+      amount,
+      paid,
+      nextPaymentDate: checklistFields.nextPaymentDate,
+      category: mapCategory(row.categoryId),
+    });
+  }
+
+  monthItems.sort((a, b) => {
+    if (a.paid !== b.paid) return a.paid ? 1 : -1;
+    if (a.role !== b.role) return a.role === "liability" ? -1 : 1;
+    return a.nextPaymentDate.localeCompare(b.nextPaymentDate);
+  });
+
   return {
     asOf: today,
     filter,
+    month: { year, month, label: monthLabel },
+    monthSummary: { liabilities, receivables },
+    monthItems,
     summary: {
       liabilitiesDue,
       receivablesDue,

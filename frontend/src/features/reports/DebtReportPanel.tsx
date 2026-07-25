@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { Button, Col, Flex, Row, Segmented, Tag, Typography } from "antd";
+import { Button, Col, Flex, Input, Row, Segmented, Select, Tag, Typography } from "antd";
 import {
   AccountBookOutlined,
+  CheckCircleOutlined,
+  ClockCircleOutlined,
   DownOutlined,
   FallOutlined,
   RiseOutlined,
@@ -19,6 +21,7 @@ import {
   SoftListRow,
 } from "@/components/ui/soft-list";
 import { KpiCard } from "@/components/ui/kpi-card";
+import { SectionCard } from "@/components/ui/section-card";
 import { FilterBar, FilterField } from "@/components/ui/filter-bar";
 import { AmountText } from "@/components/ui/amount-text";
 import { Sk } from "@/components/ui/skeleton";
@@ -26,10 +29,12 @@ import { QueryError } from "@/components/ui/query-error";
 import { cn } from "@/lib/cn";
 import {
   fetchDebtReport,
+  type DebtMonthItem,
   type DebtReportFilter,
   type DebtReportItem,
 } from "@/services/reports";
 import { formatJalaliDate, formatToman, toPersianDigits } from "@/lib/format";
+import { getJalaliMonthYear, MONTH_LABELS } from "@/lib/finance-ui";
 
 const { Text } = Typography;
 
@@ -50,6 +55,13 @@ function dueLabel(item: DebtReportItem): string {
   }
   if (item.daysUntil === 1) return "فردا";
   return `${toPersianDigits(String(item.daysUntil))} روز دیگر`;
+}
+
+function monthKindLabel(item: DebtMonthItem): string {
+  if (item.kind === "one_time") {
+    return item.role === "liability" ? "بدهی یک‌باره" : "طلب یک‌باره";
+  }
+  return item.role === "liability" ? "قسط/بدهی" : "طلب/سود/درآمد";
 }
 
 function ItemPlan({ item }: { item: DebtReportItem }) {
@@ -118,16 +130,29 @@ function ItemPlan({ item }: { item: DebtReportItem }) {
 }
 
 export function DebtReportPanel() {
+  const current = getJalaliMonthYear();
   const [filter, setFilter] = useState<DebtReportFilter>("all");
+  const [month, setMonth] = useState(current.month);
+  const [year, setYear] = useState(current.year);
   const [openId, setOpenId] = useState<string | null>(null);
 
   const debtQ = useQuery({
-    queryKey: ["reports-debts", filter],
-    queryFn: () => fetchDebtReport({ filter }),
+    queryKey: ["reports-debts", filter, month, year],
+    queryFn: () => fetchDebtReport({ filter, month, year }),
   });
 
   const summary = debtQ.data?.summary;
+  const monthSummary = debtQ.data?.monthSummary;
+  const monthItems = debtQ.data?.monthItems ?? [];
   const items = debtQ.data?.items ?? [];
+  const monthName = MONTH_LABELS[month - 1] ?? "";
+
+  const filteredMonthItems = monthItems.filter((item) => {
+    if (filter === "liability") return item.role === "liability";
+    if (filter === "receivable") return item.role === "receivable";
+    if (filter === "overdue") return !item.paid;
+    return true;
+  });
 
   return (
     <>
@@ -148,12 +173,234 @@ export function DebtReportPanel() {
             ]}
           />
         </FilterField>
+        <FilterField label="ماه">
+          <Select
+            className="w-full"
+            value={month}
+            onChange={setMonth}
+            options={MONTH_LABELS.map((label, idx) => ({
+              value: idx + 1,
+              label,
+            }))}
+          />
+        </FilterField>
+        <FilterField label="سال" className="sm:max-w-[8rem]">
+          <Input
+            dir="ltr"
+            value={year}
+            onChange={(e) => setYear(Number(e.target.value) || current.year)}
+          />
+        </FilterField>
       </FilterBar>
+
+      <SectionCard
+        title={`خلاصه ${monthName} ${toPersianDigits(String(year))}`}
+        description="جمع بدهی/اقساط و طلب/سود/درآمد این ماه — پرداخت‌شده و مانده"
+      >
+        <div className="space-y-4">
+          <div>
+            <Text className="mb-2 block text-xs font-medium text-app-muted">
+              بدهی و اقساط
+            </Text>
+            <Row gutter={[12, 12]}>
+              <Col xs={8}>
+                <KpiCard
+                  label="کل ماه"
+                  value={
+                    debtQ.isLoading
+                      ? "—"
+                      : formatToman(monthSummary?.liabilities.total ?? 0)
+                  }
+                  tone="danger"
+                  icon={<FallOutlined />}
+                  hint={
+                    monthSummary
+                      ? `${toPersianDigits(String(monthSummary.liabilities.totalCount))} مورد`
+                      : undefined
+                  }
+                  size="sm"
+                />
+              </Col>
+              <Col xs={8}>
+                <KpiCard
+                  label="پرداخت‌شده"
+                  value={
+                    debtQ.isLoading
+                      ? "—"
+                      : formatToman(monthSummary?.liabilities.done ?? 0)
+                  }
+                  tone="success"
+                  icon={<CheckCircleOutlined />}
+                  hint={
+                    monthSummary
+                      ? `${toPersianDigits(String(monthSummary.liabilities.doneCount))} مورد`
+                      : undefined
+                  }
+                  size="sm"
+                />
+              </Col>
+              <Col xs={8}>
+                <KpiCard
+                  label="مانده"
+                  value={
+                    debtQ.isLoading
+                      ? "—"
+                      : formatToman(monthSummary?.liabilities.remaining ?? 0)
+                  }
+                  tone="warning"
+                  icon={<ClockCircleOutlined />}
+                  hint={
+                    monthSummary
+                      ? `${toPersianDigits(String(monthSummary.liabilities.remainingCount))} مورد`
+                      : undefined
+                  }
+                  size="sm"
+                />
+              </Col>
+            </Row>
+          </div>
+
+          <div>
+            <Text className="mb-2 block text-xs font-medium text-app-muted">
+              طلب / سود / درآمد دوره‌ای
+            </Text>
+            <Row gutter={[12, 12]}>
+              <Col xs={8}>
+                <KpiCard
+                  label="کل ماه"
+                  value={
+                    debtQ.isLoading
+                      ? "—"
+                      : formatToman(monthSummary?.receivables.total ?? 0)
+                  }
+                  tone="brand"
+                  icon={<RiseOutlined />}
+                  hint={
+                    monthSummary
+                      ? `${toPersianDigits(String(monthSummary.receivables.totalCount))} مورد`
+                      : undefined
+                  }
+                  size="sm"
+                />
+              </Col>
+              <Col xs={8}>
+                <KpiCard
+                  label="دریافت‌شده"
+                  value={
+                    debtQ.isLoading
+                      ? "—"
+                      : formatToman(monthSummary?.receivables.done ?? 0)
+                  }
+                  tone="success"
+                  icon={<CheckCircleOutlined />}
+                  hint={
+                    monthSummary
+                      ? `${toPersianDigits(String(monthSummary.receivables.doneCount))} مورد`
+                      : undefined
+                  }
+                  size="sm"
+                />
+              </Col>
+              <Col xs={8}>
+                <KpiCard
+                  label="دریافت‌نشده"
+                  value={
+                    debtQ.isLoading
+                      ? "—"
+                      : formatToman(monthSummary?.receivables.remaining ?? 0)
+                  }
+                  tone="warning"
+                  icon={<ClockCircleOutlined />}
+                  hint={
+                    monthSummary
+                      ? `${toPersianDigits(String(monthSummary.receivables.remainingCount))} مورد`
+                      : undefined
+                  }
+                  size="sm"
+                />
+              </Col>
+            </Row>
+          </div>
+        </div>
+      </SectionCard>
+
+      {!debtQ.isLoading && !debtQ.error ? (
+        <SoftList
+          header={
+            <Text type="secondary" className="text-xs font-medium">
+              اقلام {monthName} · {toPersianDigits(String(filteredMonthItems.length))} مورد
+            </Text>
+          }
+        >
+          {filteredMonthItems.length === 0 ? (
+            <SoftListItem>
+              <Flex align="center" justify="center" className="py-5">
+                <Text type="secondary">برای این ماه موردی نیست.</Text>
+              </Flex>
+            </SoftListItem>
+          ) : (
+            filteredMonthItems.map((item) => {
+              const isLiability = item.role === "liability";
+              return (
+                <SoftListItem
+                  key={`month-${item.id}`}
+                  className={cn(item.paid ? "bg-emerald-500/5" : undefined)}
+                >
+                  <SoftListRow
+                    title={
+                      <Flex align="center" gap={6} wrap="wrap">
+                        <span className={cn(item.paid && "text-app-muted line-through")}>
+                          {item.title}
+                        </span>
+                        <Tag
+                          color={isLiability ? "red" : "green"}
+                          className="!m-0 !rounded-lg !border-0 !px-2 !text-[11px]"
+                        >
+                          {isLiability ? "بدهکار" : "طلبکار"}
+                        </Tag>
+                        <Tag
+                          color={item.paid ? "green" : "orange"}
+                          className="!m-0 !rounded-lg !border-0 !px-2 !text-[11px]"
+                        >
+                          {item.paid
+                            ? isLiability
+                              ? "پرداخت‌شده"
+                              : "دریافت‌شده"
+                            : isLiability
+                              ? "پرداخت‌نشده"
+                              : "دریافت‌نشده"}
+                        </Tag>
+                      </Flex>
+                    }
+                    subtitle={
+                      <>
+                        {monthKindLabel(item)}
+                        {item.category ? ` · ${item.category.name}` : ""}
+                        {" · "}
+                        {formatJalaliDate(item.nextPaymentDate)}
+                      </>
+                    }
+                    trailing={
+                      <AmountText
+                        tone={isLiability ? "expense" : "income"}
+                        size="sm"
+                        className={cn(item.paid && "opacity-60")}
+                      >
+                        {formatToman(item.amount)}
+                      </AmountText>
+                    }
+                  />
+                </SoftListItem>
+              );
+            })
+          )}
+        </SoftList>
+      ) : null}
 
       <Row gutter={[12, 12]}>
         <Col xs={12} md={6}>
           <KpiCard
-            label="بدهی سررسید"
+            label="بدهی باز"
             value={debtQ.isLoading ? "—" : formatToman(summary?.liabilitiesDue ?? 0)}
             tone="danger"
             icon={<FallOutlined />}
@@ -167,7 +414,7 @@ export function DebtReportPanel() {
         </Col>
         <Col xs={12} md={6}>
           <KpiCard
-            label="طلب سررسید"
+            label="طلب باز"
             value={debtQ.isLoading ? "—" : formatToman(summary?.receivablesDue ?? 0)}
             tone="success"
             icon={<RiseOutlined />}
@@ -197,7 +444,7 @@ export function DebtReportPanel() {
         </Col>
         <Col xs={12} md={6}>
           <KpiCard
-            label="معوق"
+            label="معوق باز"
             value={debtQ.isLoading ? "—" : formatToman(summary?.overdueAmount ?? 0)}
             tone="warning"
             icon={<WarningOutlined />}
@@ -215,7 +462,7 @@ export function DebtReportPanel() {
         <SoftList
           header={
             <Text type="secondary" className="text-xs font-medium">
-              اقلام و برنامه تسویه
+              اقلام باز و برنامه تسویه
             </Text>
           }
         >
@@ -247,7 +494,7 @@ export function DebtReportPanel() {
         <SoftList
           header={
             <Text type="secondary" className="text-xs font-medium">
-              اقلام و برنامه تسویه
+              اقلام باز و برنامه تسویه
             </Text>
           }
         >
@@ -267,10 +514,15 @@ export function DebtReportPanel() {
           header={
             <Flex justify="space-between" align="center" gap={8} wrap="wrap">
               <Text type="secondary" className="text-xs font-medium">
-                {toPersianDigits(String(items.length))} مورد · برای دیدن برنامه تسویه لمس کنید
+                {toPersianDigits(String(items.length))} مورد باز · برای دیدن برنامه تسویه لمس کنید
               </Text>
               <Link href="/recurring">
-                <Button size="small" type="link" className="!h-auto !px-0" icon={<AccountBookOutlined />}>
+                <Button
+                  size="small"
+                  type="link"
+                  className="!h-auto !px-0"
+                  icon={<AccountBookOutlined />}
+                >
                   سررسیدها
                 </Button>
               </Link>

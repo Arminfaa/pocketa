@@ -72,6 +72,40 @@ export function belongsToMonthChecklist(
 }
 
 /**
+ * Membership for debt-report month picker.
+ * Past months: only dues scheduled/paid in that month (no multi-month overdue carry).
+ * Current month: also includes overdue carry from earlier months (same as checklist).
+ */
+export function belongsToReportMonth(
+  item: MonthChecklistFields,
+  refDate: string = todayJalali()
+): boolean {
+  const kind = (item.kind as "recurring" | "one_time" | undefined) ?? "recurring";
+  const ym = jalaliYearMonth(refDate);
+  const paid = computePaidThisMonth(item, refDate);
+  const lastPaymentDate = item.lastPaymentDate
+    ? normalizeJalaliDate(item.lastPaymentDate)
+    : null;
+
+  if (kind === "one_time") {
+    if (jalaliYearMonth(item.nextPaymentDate) === ym) return true;
+    if (lastPaymentDate && jalaliYearMonth(lastPaymentDate) === ym) return true;
+    return false;
+  }
+
+  if (paid) return true;
+  if (!item.active) return false;
+
+  const nextYm = jalaliYearMonth(item.nextPaymentDate);
+  if (nextYm === ym) return true;
+
+  const todayYm = jalaliYearMonth(todayJalali());
+  if (ym === todayYm && nextYm < ym) return true;
+
+  return false;
+}
+
+/**
  * Month dues are "clear" when every item on this month's checklist is paid
  * (or postponed out of the month). Empty checklist also counts as clear.
  */

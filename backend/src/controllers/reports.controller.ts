@@ -255,6 +255,16 @@ export const debts = asyncHandler(async (req: Request, res: Response) => {
     ? (raw as DebtReportFilter)
     : "all";
 
-  const data = await buildDebtReport(userId, filter);
+  const current = currentJalaliMonthYear();
+  const year = req.query.year ? Number(req.query.year) : current.year;
+  const month = req.query.month ? Number(req.query.month) : current.month;
+  if (!Number.isFinite(year) || year < 1300 || year > 1600) {
+    throw new AppError(400, "سال نامعتبر است");
+  }
+  if (!Number.isFinite(month) || month < 1 || month > 12) {
+    throw new AppError(400, "ماه نامعتبر است");
+  }
+
+  const data = await buildDebtReport(userId, filter, { year, month });
   return sendSuccess(res, data);
 });
