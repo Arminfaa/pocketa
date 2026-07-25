@@ -130,8 +130,6 @@ export function AppLockOverlay({ open }: Props) {
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-500/15 text-brand-600">
           <LockOutlined className="text-2xl" />
         </div>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.png" alt="Pocketa" className="h-12 w-12 object-contain" />
         <div className="text-center">
           <Title level={4} className="!m-0 !text-app-fg">
             اپ قفل است
