@@ -1,12 +1,12 @@
 import { AppError } from "../utils/AppError";
 import { RecurringTransactionModel } from "../models/RecurringTransaction";
 import { normalizeJalaliDate } from "../utils/normalizeDigits";
+import { todayJalali } from "../utils/jalaliDate";
 import {
-  advanceJalaliDate,
-  advanceMonthlyByDay,
-  todayJalali,
-  type Frequency,
-} from "../utils/jalaliDate";
+  advancePaymentSchedule,
+  currentStageDueAmount,
+  resolveMonthlyAmount,
+} from "./recurring-stages.service";
 
 export type SettleSnapshot = {
   recurringId: string;
@@ -21,52 +21,7 @@ export type SettleSnapshot = {
 };
 
 function resolveBaseAmount(recurring: { amount: number; baseAmount?: number | null }) {
-  return recurring.baseAmount ?? recurring.amount;
-}
-
-function advanceRecurringSchedule(recurring: {
-  kind?: string;
-  dayOfMonth?: number | null;
-  endMode?: string | null;
-  endMonths?: number | null;
-  paymentsMade?: number | null;
-  nextPaymentDate: string;
-  active: boolean;
-  scheduleFrequency?: string | null;
-  endDate?: string | null;
-  amount: number;
-  baseAmount?: number | null;
-}) {
-  const kind = (recurring.kind as "recurring" | "one_time" | undefined) ?? "recurring";
-  if (kind === "one_time") {
-    recurring.active = false;
-    return;
-  }
-
-  const frequency = (recurring.scheduleFrequency as Frequency | undefined) ?? "monthly";
-  const endMode = recurring.endMode ?? "forever";
-  const paymentsMade = recurring.paymentsMade ?? 0;
-  const reachedEnd =
-    endMode === "months" &&
-    recurring.endMonths != null &&
-    paymentsMade >= recurring.endMonths;
-
-  if (frequency === "monthly") {
-    const dayOfMonth =
-      recurring.dayOfMonth ?? Number(recurring.nextPaymentDate.split("/")[2]);
-    recurring.nextPaymentDate = advanceMonthlyByDay(recurring.nextPaymentDate, dayOfMonth);
-  } else {
-    recurring.nextPaymentDate = advanceJalaliDate(recurring.nextPaymentDate, frequency);
-  }
-
-  if (reachedEnd) {
-    recurring.active = false;
-  }
-
-  const endDate = recurring.endDate ? normalizeJalaliDate(recurring.endDate) : "";
-  if (endDate && normalizeJalaliDate(recurring.nextPaymentDate) > endDate) {
-    recurring.active = false;
-  }
+  return resolveMonthlyAmount(recurring);
 }
 
 async function createDeferredOneTimeDebt(
@@ -131,7 +86,7 @@ export async function settleRecurringWithExistingTransaction(input: {
     );
   }
 
-  const dueAmount = recurring.amount;
+  const dueAmount = currentStageDueAmount(recurring);
   const paid = input.paidAmount;
   const kind = recurring.kind ?? "recurring";
   const baseAmount = resolveBaseAmount(recurring);
@@ -156,11 +111,15 @@ export async function settleRecurringWithExistingTransaction(input: {
       );
     }
 
-    recurring.paymentsMade = (recurring.paymentsMade ?? 0) + 1;
     recurring.lastPaymentDate = todayJalali();
     recurring.amount = baseAmount;
     recurring.baseAmount = baseAmount;
-    advanceRecurringSchedule(recurring);
+    if (kind === "one_time") {
+      recurring.paymentsMade = (recurring.paymentsMade ?? 0) + 1;
+      recurring.active = false;
+    } else {
+      advancePaymentSchedule(recurring, { countMonth: true });
+    }
     await recurring.save();
 
     return {
@@ -202,11 +161,15 @@ export async function settleRecurringWithExistingTransaction(input: {
   );
   snapshot.deferredDebtId = String(deferredDebt._id);
 
-  recurring.paymentsMade = (recurring.paymentsMade ?? 0) + 1;
   recurring.lastPaymentDate = todayJalali();
   recurring.amount = baseAmount;
   recurring.baseAmount = baseAmount;
-  advanceRecurringSchedule(recurring);
+  if (kind === "one_time") {
+    recurring.paymentsMade = (recurring.paymentsMade ?? 0) + 1;
+    recurring.active = false;
+  } else {
+    advancePaymentSchedule(recurring, { countMonth: true });
+  }
   await recurring.save();
 
   const partialWord = recurring.type === "income" ? "دریافت جزئی" : "پرداخت جزئی";

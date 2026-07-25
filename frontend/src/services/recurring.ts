@@ -8,14 +8,27 @@ export type DebtEndMode = "forever" | "months";
 export type RecurringPaymentMode = "full" | "partial" | "postpone";
 export type RemainderHandling = "next_month" | "new_debt";
 
+export type SettlementDeduction = {
+  title: string;
+  amount: number;
+  categoryId?: string | null;
+};
+
 export type RecurringItem = {
   id: string;
   title: string;
+  /** مبلغ سررسید فعلی (مرحله جاری) */
   amount: number;
+  /** مبلغ ماهانه کل */
   baseAmount: number;
+  monthlyAmount?: number;
   type: "income" | "expense";
   kind: DebtKind;
   dayOfMonth: number | null;
+  paymentDays?: number[];
+  stageAmounts?: number[];
+  currentStageIndex?: number;
+  stageCount?: number;
   endMode: DebtEndMode | null;
   endMonths: number | null;
   paymentsMade: number;
@@ -39,6 +52,7 @@ export type GenerateRecurringPayload = {
   paidAmount?: number;
   /** مبلغ واقعی دریافتی/پرداختی در تسویه کامل */
   settledAmount?: number;
+  deductions?: SettlementDeduction[];
   remainderHandling?: RemainderHandling;
   remainderDueDate?: string;
   postponeDueDate?: string;
@@ -50,7 +64,9 @@ export type CreateDebtPayload =
       amount: number;
       type: "income" | "expense";
       kind: "recurring";
-      dayOfMonth: number;
+      dayOfMonth?: number;
+      paymentDays?: number[];
+      stageAmounts?: number[];
       endMode: DebtEndMode;
       endMonths?: number | null;
       categoryId: string;
@@ -96,6 +112,8 @@ export async function updateRecurring(
     type: "income" | "expense";
     kind: DebtKind;
     dayOfMonth: number;
+    paymentDays: number[];
+    stageAmounts: number[];
     endMode: DebtEndMode;
     endMonths: number | null;
     dueDate: string;

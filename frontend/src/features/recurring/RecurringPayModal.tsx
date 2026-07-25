@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { App, Button, Checkbox, Flex, Radio, Select, Space, Typography } from "antd";
+import { App, Button, Checkbox, Flex, Input, Radio, Select, Space, Typography } from "antd";
+import { DeleteOutlined, PlusOutlined } from "@ant-design/icons";
 import type { BankAccount } from "@/types/account";
 import type {
   GenerateRecurringPayload,
@@ -12,10 +13,12 @@ import type {
 import { AppModal } from "@/components/ui/modal";
 import { AmountInput } from "@/components/ui/amount-input";
 import { JalaliDateInput } from "@/components/ui/jalali-date-input";
-import { formatJalaliDate, formatToman } from "@/lib/format";
+import { formatJalaliDate, formatToman, toPersianDigits } from "@/lib/format";
 import { formatAmountInputValue, normalizeJalaliDateInput, parseAmountInput } from "@/lib/amount";
 
 const { Text } = Typography;
+
+type DeductionRow = { key: string; title: string; amount: string };
 
 function isAssetLinked(item: RecurringItem | null): boolean {
   if (!item) return false;
@@ -64,6 +67,7 @@ export function RecurringPayModal({
   const [partialEnabled, setPartialEnabled] = useState(false);
   const [paidAmount, setPaidAmount] = useState("");
   const [settledAmount, setSettledAmount] = useState("");
+  const [deductions, setDeductions] = useState<DeductionRow[]>([]);
   const [remainderHandling, setRemainderHandling] =
     useState<RemainderHandling>("next_month");
   const [remainderDueDate, setRemainderDueDate] = useState("");
@@ -76,6 +80,7 @@ export function RecurringPayModal({
     setPartialEnabled(false);
     setPaidAmount(formatAmountInputValue(item.amount));
     setSettledAmount(formatAmountInputValue(item.amount));
+    setDeductions([]);
     setRemainderHandling(item.kind === "recurring" ? "next_month" : "new_debt");
     setRemainderDueDate(item.nextPaymentDate);
     setPostponeDueDate(item.nextPaymentDate);
@@ -90,14 +95,32 @@ export function RecurringPayModal({
       ? dueAmount - paidNumeric
       : 0;
 
+  const deductionTotal = useMemo(() => {
+    return deductions.reduce((sum, row) => {
+      const n = parseAmountInput(row.amount);
+      return sum + (Number.isFinite(n) && n > 0 ? Math.round(n) : 0);
+    }, 0);
+  }, [deductions]);
+
+  const netExpected = Math.max(0, dueAmount - deductionTotal);
+
+  useEffect(() => {
+    if (!open || !item || partialEnabled || mode === "postpone") return;
+    if (item.type !== "income") return;
+    setSettledAmount(formatAmountInputValue(netExpected > 0 ? netExpected : item.amount));
+  }, [deductionTotal, open, item, partialEnabled, mode, netExpected]);
+
   const assetLinked = isAssetLinked(item);
   const showSettledField = Boolean(item) && !partialEnabled && mode !== "postpone";
+  const allowDeductions =
+    Boolean(item) && item?.type === "income" && !partialEnabled && mode !== "postpone";
+
   const variance =
     item &&
     showSettledField &&
     Number.isFinite(settledNumeric) &&
     settledNumeric > 0
-      ? variancePreview(item, dueAmount, settledNumeric)
+      ? variancePreview(item, netExpected > 0 ? netExpected : dueAmount, settledNumeric)
       : null;
 
   const nextMonthPreview = useMemo(() => {
@@ -110,6 +133,9 @@ export function RecurringPayModal({
     if (!item || mode !== "postpone") return null;
     return { deferred: dueAmount, nextInstallment: baseAmount };
   }, [item, mode, dueAmount, baseAmount]);
+
+  const stageCount = item?.stageCount ?? item?.paymentDays?.length ?? 1;
+  const stageIndex = item?.currentStageIndex ?? 0;
 
   function handleSubmit() {
     if (!item) return;
@@ -131,6 +157,21 @@ export function RecurringPayModal({
     }
 
     if (mode === "full" || !partialEnabled) {
+      const parsedDeductions = deductions
+        .map((row) => ({
+          title: row.title.trim(),
+          amount: Math.round(parseAmountInput(row.amount) || 0),
+        }))
+        .filter((d) => d.title.length > 0 && d.amount > 0);
+
+      if (parsedDeductions.length > 0) {
+        const total = parsedDeductions.reduce((s, d) => s + d.amount, 0);
+        if (total >= dueAmount) {
+          message.error("جمع کسورات باید کمتر از مبلغ سررسید باشد");
+          return;
+        }
+      }
+
       const settled = parseAmountInput(settledAmount);
       if (!Number.isFinite(settled) || settled <= 0) {
         message.error(
@@ -142,10 +183,13 @@ export function RecurringPayModal({
         mode: "full",
         accountId: acc,
       };
-      if (Math.round(settled) !== Math.round(dueAmount)) {
+      if (parsedDeductions.length > 0) {
+        payload.deductions = parsedDeductions;
+      }
+      const expectedNet = dueAmount - parsedDeductions.reduce((s, d) => s + d.amount, 0);
+      if (Math.round(settled) !== Math.round(expectedNet)) {
         payload.settledAmount = Math.round(settled);
       } else if (assetLinked) {
-        // always send for asset-linked so server uses explicit actual amount
         payload.settledAmount = Math.round(settled);
       }
       onSubmit(payload);
@@ -188,7 +232,11 @@ export function RecurringPayModal({
     mode === "postpone" ? "postpone" : partialEnabled ? "partial" : "full";
 
   const settledLabel =
-    item.type === "income" ? "مبلغ دریافتی واقعی (تومان)" : "مبلغ پرداختی واقعی (تومان)";
+    item.type === "income"
+      ? deductionTotal > 0
+        ? "مبلغ خالص دریافتی (تومان)"
+        : "مبلغ دریافتی واقعی (تومان)"
+      : "مبلغ پرداختی واقعی (تومان)";
 
   return (
     <AppModal
@@ -212,15 +260,19 @@ export function RecurringPayModal({
       <Space orientation="vertical" size="middle" className="w-full">
         <div className="rounded-xl border border-slate-400/15 bg-slate-500/5 p-3">
           <Text type="secondary" className="text-xs">
-            {assetLinked ? "مبلغ محاسبه‌شده (قیمت روز)" : "مبلغ سررسید"}
+            {assetLinked
+              ? "مبلغ محاسبه‌شده (قیمت روز)"
+              : stageCount > 1
+                ? `مبلغ مرحله ${toPersianDigits(String(stageIndex + 1))} از ${toPersianDigits(String(stageCount))}`
+                : "مبلغ سررسید"}
           </Text>
           <div>
             <Text strong className="text-base">
               {formatToman(dueAmount)}
             </Text>
-            {dueAmount !== baseAmount ? (
+            {stageCount > 1 || dueAmount !== baseAmount ? (
               <Text type="secondary" className="text-xs ms-2">
-                (پایه {formatToman(baseAmount)})
+                (ماهانه {formatToman(baseAmount)})
               </Text>
             ) : null}
           </div>
@@ -238,51 +290,33 @@ export function RecurringPayModal({
           </Text>
         </div>
 
-        {item.kind === "recurring" ? (
-          <Radio.Group
-            className="w-full"
-            value={mode}
-            onChange={(e) => {
-              const next = e.target.value as RecurringPaymentMode;
-              setMode(next);
-              if (next === "postpone") setPartialEnabled(false);
-            }}
-            options={[
-              { value: "full", label: "تسویه / پرداخت" },
-              { value: "postpone", label: "تعویق قسط" },
-            ]}
-            optionType="button"
-            buttonStyle="solid"
-            block
-          />
-        ) : (
-          <Radio.Group
-            className="w-full"
-            value={mode}
-            onChange={(e) => {
-              const next = e.target.value as RecurringPaymentMode;
-              setMode(next);
-              if (next === "postpone") setPartialEnabled(false);
-            }}
-            options={[
-              { value: "full", label: "تسویه / پرداخت" },
-              { value: "postpone", label: "تعویق سررسید" },
-            ]}
-            optionType="button"
-            buttonStyle="solid"
-            block
-          />
-        )}
+        <Radio.Group
+          className="w-full"
+          value={mode}
+          onChange={(e) => {
+            const next = e.target.value as RecurringPaymentMode;
+            setMode(next);
+            if (next === "postpone") setPartialEnabled(false);
+          }}
+          options={[
+            { value: "full", label: "تسویه / پرداخت" },
+            {
+              value: "postpone",
+              label: item.kind === "recurring" ? "تعویق قسط" : "تعویق سررسید",
+            },
+          ]}
+          optionType="button"
+          buttonStyle="solid"
+          block
+        />
 
         {mode === "postpone" ? (
           <Space orientation="vertical" size="small" className="w-full">
             {item.kind === "recurring" ? (
               <Text type="secondary" className="text-sm">
-                قسط این ماه پرداخت نمی‌شود. یک بدهی یک‌باره به مبلغ{" "}
+                قسط این موعد پرداخت نمی‌شود. یک بدهی یک‌باره به مبلغ{" "}
                 {postponePreview ? formatToman(postponePreview.deferred) : "—"} ثبت
-                می‌شود و قسط ماه بعد{" "}
-                {postponePreview ? formatToman(postponePreview.nextInstallment) : "—"}{" "}
-                خواهد بود.
+                می‌شود و موعد بعدی به‌روز می‌شود.
               </Text>
             ) : (
               <Text type="secondary" className="text-sm">
@@ -303,6 +337,7 @@ export function RecurringPayModal({
               onChange={(e) => {
                 setPartialEnabled(e.target.checked);
                 setMode("full");
+                if (e.target.checked) setDeductions([]);
               }}
             >
               پرداخت جزئی
@@ -363,6 +398,83 @@ export function RecurringPayModal({
               </Space>
             ) : (
               <Space orientation="vertical" size="small" className="w-full">
+                {allowDeductions ? (
+                  <div className="rounded-xl border border-slate-400/15 p-3">
+                    <Flex justify="space-between" align="center" className="mb-2">
+                      <Text type="secondary" className="text-xs">
+                        کسورات (اختیاری)
+                      </Text>
+                      <Button
+                        type="link"
+                        size="small"
+                        icon={<PlusOutlined />}
+                        onClick={() =>
+                          setDeductions((prev) => [
+                            ...prev,
+                            {
+                              key: `${Date.now()}-${prev.length}`,
+                              title: "",
+                              amount: "",
+                            },
+                          ])
+                        }
+                      >
+                        افزودن
+                      </Button>
+                    </Flex>
+                    {deductions.length === 0 ? (
+                      <Text type="secondary" className="text-xs">
+                        مثلاً بیمه، مالیات یا وام — از مبلغ ناخالص کم می‌شود.
+                      </Text>
+                    ) : (
+                      <Space orientation="vertical" size="small" className="w-full">
+                        {deductions.map((row) => (
+                          <Flex key={row.key} gap="small" align="start" className="w-full">
+                            <Input
+                              className="flex-1"
+                              placeholder="عنوان کسور"
+                              value={row.title}
+                              onChange={(e) =>
+                                setDeductions((prev) =>
+                                  prev.map((d) =>
+                                    d.key === row.key ? { ...d, title: e.target.value } : d
+                                  )
+                                )
+                              }
+                            />
+                            <div className="w-36 shrink-0">
+                              <AmountInput
+                                value={row.amount}
+                                onChange={(v) =>
+                                  setDeductions((prev) =>
+                                    prev.map((d) =>
+                                      d.key === row.key ? { ...d, amount: v } : d
+                                    )
+                                  )
+                                }
+                              />
+                            </div>
+                            <Button
+                              type="text"
+                              danger
+                              icon={<DeleteOutlined />}
+                              onClick={() =>
+                                setDeductions((prev) => prev.filter((d) => d.key !== row.key))
+                              }
+                            />
+                          </Flex>
+                        ))}
+                        {deductionTotal > 0 ? (
+                          <Text type="secondary" className="text-sm">
+                            جمع کسورات: {formatToman(deductionTotal)} → خالص{" "}
+                            {formatToman(netExpected)}
+                          </Text>
+                        ) : null}
+                      </Space>
+                    )}
+                  </div>
+                ) : null}
+
                 <div>
                   <Text type="secondary" className="mb-1 block text-xs">
                     {settledLabel}
@@ -372,6 +484,10 @@ export function RecurringPayModal({
                 {assetLinked ? (
                   <Text type="secondary" className="text-xs">
                     اگر با مبلغ محاسبه‌شده فرق دارد، اختلاف به‌صورت خودکار ثبت می‌شود.
+                  </Text>
+                ) : deductionTotal > 0 ? (
+                  <Text type="secondary" className="text-xs">
+                    درآمد به‌صورت ناخالص ثبت می‌شود و هر کسور به‌صورت هزینه جداگانه.
                   </Text>
                 ) : (
                   <Text type="secondary" className="text-xs">
@@ -387,7 +503,7 @@ export function RecurringPayModal({
                     <Text type="secondary" className="text-xs block">
                       اثر خالص روی موجودی:{" "}
                       {formatToman(
-                        Number.isFinite(settledNumeric) ? Math.round(settledNumeric) : dueAmount
+                        Number.isFinite(settledNumeric) ? Math.round(settledNumeric) : netExpected
                       )}
                     </Text>
                   </div>

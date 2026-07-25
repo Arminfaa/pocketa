@@ -5,6 +5,10 @@ import {
   jalaliYearMonth,
   todayJalali,
 } from "../utils/jalaliDate";
+import {
+  lastStageDueThisMonth,
+  resolvePaymentDays,
+} from "./recurring-stages.service";
 
 function parseYm(today: string): { jy: number; jm: number } {
   const [y, m] = normalizeJalaliDate(toEnglishDigits(today)).split("/").map(Number);
@@ -15,6 +19,7 @@ export type MonthChecklistFields = {
   kind?: string | null;
   active: boolean;
   dayOfMonth?: number | null;
+  paymentDays?: number[] | null;
   lastPaymentDate?: string | null;
   nextPaymentDate: string;
   paymentsMade?: number | null;
@@ -29,12 +34,13 @@ export function computePaidThisMonth(
   const lastPaymentDate = item.lastPaymentDate
     ? normalizeJalaliDate(item.lastPaymentDate)
     : null;
-
-  if (lastPaymentDate && isSameJalaliMonth(lastPaymentDate, today)) {
-    return true;
-  }
+  const nextPaymentDate = normalizeJalaliDate(item.nextPaymentDate);
+  const days = resolvePaymentDays(item);
 
   if (kind === "one_time") {
+    if (lastPaymentDate && isSameJalaliMonth(lastPaymentDate, today)) {
+      return true;
+    }
     return (
       !item.active &&
       (item.paymentsMade ?? 0) > 0 &&
@@ -42,7 +48,22 @@ export function computePaidThisMonth(
     );
   }
 
-  // قسط: موعد بعدی از موعد همین ماه جلوتر + حداقل یک پرداخت
+  // Multi-stage: month is paid only when schedule has moved past this month's last stage
+  if (days.length > 1) {
+    if ((item.paymentsMade ?? 0) < 1 && !lastPaymentDate) {
+      // never paid — unless next is already next month (postponed all?)
+      const lastDue = lastStageDueThisMonth(item, today);
+      return nextPaymentDate > normalizeJalaliDate(lastDue);
+    }
+    const lastDue = lastStageDueThisMonth(item, today);
+    return nextPaymentDate > normalizeJalaliDate(lastDue);
+  }
+
+  if (lastPaymentDate && isSameJalaliMonth(lastPaymentDate, today)) {
+    return true;
+  }
+
+  // قسط تک‌مرحله‌ای: موعد بعدی از موعد همین ماه جلوتر + حداقل یک پرداخت
   const { jy, jm } = parseYm(today);
   const dayOfMonth =
     item.dayOfMonth ??
@@ -51,7 +72,7 @@ export function computePaidThisMonth(
   if ((item.paymentsMade ?? 0) < 1) return false;
 
   const thisMonthDue = jalaliDateFromDay(jy, jm, dayOfMonth);
-  return normalizeJalaliDate(item.nextPaymentDate) > normalizeJalaliDate(thisMonthDue);
+  return nextPaymentDate > normalizeJalaliDate(thisMonthDue);
 }
 
 export function belongsToMonthChecklist(

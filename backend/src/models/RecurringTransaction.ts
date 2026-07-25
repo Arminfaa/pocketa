@@ -19,8 +19,18 @@ const RecurringTransactionSchema = new Schema(
       default: "recurring",
       index: true,
     },
-    /** روز موعد در هر ماه (۱–۳۱) — فقط برای kind=recurring */
+    /** روز موعد در هر ماه (۱–۳۱) — فقط برای kind=recurring؛ معادل اولین paymentDays */
     dayOfMonth: { type: Number, min: 1, max: 31, required: false },
+    /**
+     * روزهای پرداخت داخل ماه (۱–۳۱، یکتا و مرتب).
+     * اگر خالی باشد فقط dayOfMonth استفاده می‌شود.
+     */
+    paymentDays: { type: [Number], required: false, default: undefined },
+    /**
+     * مبلغ هر مرحله — هم‌طول با paymentDays.
+     * اگر خالی باشد مبلغ ماهانه به‌صورت مساوی تقسیم می‌شود.
+     */
+    stageAmounts: { type: [Number], required: false, default: undefined },
     /** forever = همیشگی؛ months = تا N ماه */
     endMode: {
       type: String,

@@ -43,7 +43,11 @@ import { fetchAccounts } from "@/services/accounts";
 import { fetchCategories } from "@/services/categories";
 import type { Category } from "@/services/categories";
 import { formatJalaliDate, formatToman, toPersianDigits } from "@/lib/format";
-import { normalizeJalaliDateInput } from "@/lib/amount";
+import {
+  formatAmountInputValue,
+  normalizeJalaliDateInput,
+  parseAmountInput,
+} from "@/lib/amount";
 import { getTodayJalali } from "@/lib/transaction-helpers";
 import { EmptyState } from "@/components/ui/empty-state";
 import { QueryError } from "@/components/ui/query-error";
@@ -67,6 +71,7 @@ import { AppModal } from "@/components/ui/modal";
 import { SoftList, SoftListItem, SoftListRow } from "@/components/ui/soft-list";
 import { SectionCard } from "@/components/ui/section-card";
 import { AmountText } from "@/components/ui/amount-text";
+import { AmountInput } from "@/components/ui/amount-input";
 
 const { Text } = Typography;
 
@@ -108,6 +113,11 @@ export default function RecurringPage() {
   const [type, setType] = useState<"income" | "expense">("expense");
   const [kind, setKind] = useState<DebtKind>("recurring");
   const [dayOfMonth, setDayOfMonth] = useState<number>(1);
+  const [multiStage, setMultiStage] = useState(false);
+  const [stages, setStages] = useState<Array<{ day: number; amount: string }>>([
+    { day: 1, amount: "" },
+    { day: 15, amount: "" },
+  ]);
   const [endMode, setEndMode] = useState<DebtEndMode>("forever");
   const [endMonths, setEndMonths] = useState<number | null>(12);
   const [dueDate, setDueDate] = useState(getTodayJalali());
@@ -151,28 +161,89 @@ export default function RecurringPage() {
         });
       }
 
-      const resolved = resolveMarketUnitTomanAmount(amount, amountUnit, market);
-      if ("error" in resolved) throw new Error(resolved.error);
-      const value = resolved.amount;
-      const assetFields =
-        resolved.assetQuantity != null && resolved.assetType
-          ? {
-              assetQuantity: resolved.assetQuantity,
-              assetType: resolved.assetType,
-              goldKind: resolved.goldKind ?? null,
-            }
-          : {};
+      const assetFieldsFrom = (
+        resolved: ReturnType<typeof resolveMarketUnitTomanAmount>
+      ) => {
+        if ("error" in resolved) return {};
+        if (resolved.assetQuantity != null && resolved.assetType) {
+          return {
+            assetQuantity: resolved.assetQuantity,
+            assetType: resolved.assetType,
+            goldKind: resolved.goldKind ?? null,
+          };
+        }
+        return {};
+      };
 
       if (kind === "recurring") {
-        if (!dayOfMonth || dayOfMonth < 1 || dayOfMonth > 31) {
-          throw new Error("روز موعد ماه را وارد کنید (۱ تا ۳۱)");
-        }
         if (endMode === "months" && (!endMonths || endMonths < 1)) {
           throw new Error("تعداد ماه‌ها را وارد کنید");
         }
+
+        if (multiStage) {
+          if (amountUnit !== "toman") {
+            throw new Error("پرداخت چندمرحله‌ای فقط با واحد تومان پشتیبانی می‌شود");
+          }
+          if (stages.length < 2) throw new Error("حداقل دو مرحله لازم است");
+          const paymentDays = stages.map((s) => s.day);
+          if (new Set(paymentDays).size !== paymentDays.length) {
+            throw new Error("روزهای مراحل نباید تکراری باشند");
+          }
+          if (paymentDays.some((d) => d < 1 || d > 31)) {
+            throw new Error("روز هر مرحله باید بین ۱ تا ۳۱ باشد");
+          }
+
+          const stageAmountsParsed = stages.map((s) =>
+            Math.round(parseAmountInput(s.amount) || 0)
+          );
+          const hasAnyStageAmount = stageAmountsParsed.some((n) => n > 0);
+          const allStageAmounts = stageAmountsParsed.every((n) => n > 0);
+
+          let monthlyAmount = 0;
+          let stageAmounts: number[] | undefined;
+
+          if (hasAnyStageAmount) {
+            if (!allStageAmounts) {
+              throw new Error("مبلغ همه مراحل را وارد کنید یا همه را خالی بگذارید");
+            }
+            monthlyAmount = stageAmountsParsed.reduce((s, n) => s + n, 0);
+            const sorted = paymentDays
+              .map((day, i) => ({ day, amount: stageAmountsParsed[i]! }))
+              .sort((a, b) => a.day - b.day);
+            stageAmounts = sorted.map((s) => s.amount);
+          } else {
+            const resolved = resolveMarketUnitTomanAmount(amount, "toman", null);
+            if ("error" in resolved) throw new Error(resolved.error);
+            monthlyAmount = resolved.amount;
+          }
+
+          if (!(monthlyAmount > 0)) {
+            throw new Error("مبلغ ماهانه یا مبلغ مراحل را وارد کنید");
+          }
+
+          const sortedDays = [...paymentDays].sort((a, b) => a - b);
+          return createRecurring({
+            title: title.trim(),
+            amount: monthlyAmount,
+            type,
+            kind: "recurring",
+            paymentDays: sortedDays,
+            stageAmounts,
+            endMode,
+            endMonths: endMode === "months" ? endMonths : null,
+            categoryId,
+            reminderHour,
+          });
+        }
+
+        const resolved = resolveMarketUnitTomanAmount(amount, amountUnit, market);
+        if ("error" in resolved) throw new Error(resolved.error);
+        if (!dayOfMonth || dayOfMonth < 1 || dayOfMonth > 31) {
+          throw new Error("روز موعد ماه را وارد کنید (۱ تا ۳۱)");
+        }
         return createRecurring({
           title: title.trim(),
-          amount: value,
+          amount: resolved.amount,
           type,
           kind: "recurring",
           dayOfMonth,
@@ -180,21 +251,23 @@ export default function RecurringPage() {
           endMonths: endMode === "months" ? endMonths : null,
           categoryId,
           reminderHour,
-          ...assetFields,
+          ...assetFieldsFrom(resolved),
         });
       }
 
+      const resolved = resolveMarketUnitTomanAmount(amount, amountUnit, market);
+      if ("error" in resolved) throw new Error(resolved.error);
       const normalizedDue = normalizeJalaliDateInput(dueDate);
       if (!normalizedDue) throw new Error("تاریخ سررسید را وارد کنید");
       return createRecurring({
         title: title.trim(),
-        amount: value,
+        amount: resolved.amount,
         type,
         kind: "one_time",
         dueDate: normalizedDue,
         categoryId,
         reminderHour,
-        ...assetFields,
+        ...assetFieldsFrom(resolved),
       });
     },
     onSuccess: () => {
@@ -203,6 +276,11 @@ export default function RecurringPage() {
       setAmount("");
       setAmountUnit("toman");
       setCategoryId("");
+      setMultiStage(false);
+      setStages([
+        { day: 1, amount: "" },
+        { day: 15, amount: "" },
+      ]);
       setFormOpen(false);
       void queryClient.invalidateQueries({ queryKey: ["recurring"] });
     },
@@ -255,6 +333,11 @@ export default function RecurringPage() {
     setType("expense");
     setKind("recurring");
     setDayOfMonth(1);
+    setMultiStage(false);
+    setStages([
+      { day: 1, amount: "" },
+      { day: 15, amount: "" },
+    ]);
     setEndMode("forever");
     setEndMonths(12);
     setDueDate(getTodayJalali());
@@ -333,6 +416,9 @@ export default function RecurringPage() {
                     )}
                   >
                     {item.title}
+                    {(item.stageCount ?? 1) > 1 && !item.paidThisMonth
+                      ? ` (مرحله ${toPersianDigits(String((item.currentStageIndex ?? 0) + 1))}/${toPersianDigits(String(item.stageCount))})`
+                      : ""}
                   </span>
                 </Checkbox>
                 <AmountText
@@ -454,21 +540,121 @@ export default function RecurringPage() {
 
             {kind === "recurring" ? (
               <>
-                <Col xs={24} md={12}>
-                  <Text type="secondary" className="mb-1 block text-xs">
-                    روز موعد هر ماه
+                <Col xs={24}>
+                  <Checkbox
+                    checked={multiStage}
+                    onChange={(e) => {
+                      const on = e.target.checked;
+                      setMultiStage(on);
+                      if (on && amountUnit !== "toman") setAmountUnit("toman");
+                      if (on && stages.every((s) => !s.amount) && amount) {
+                        const monthly = Math.round(parseAmountInput(amount) || 0);
+                        if (monthly > 0) {
+                          const half = Math.floor(monthly / 2);
+                          setStages([
+                            { day: 1, amount: formatAmountInputValue(half) },
+                            {
+                              day: 15,
+                              amount: formatAmountInputValue(monthly - half),
+                            },
+                          ]);
+                        }
+                      }
+                    }}
+                  >
+                    پرداخت چندمرحله‌ای داخل ماه
+                  </Checkbox>
+                  <Text type="secondary" className="mt-1 block text-xs">
+                    مناسب حقوق دو‌قسمتی؛ هر مرحله روز و مبلغ جدا دارد.
                   </Text>
-                  <Space.Compact className="w-full">
-                    <NumberInput
-                      className="!w-full"
-                      min={1}
-                      max={31}
-                      value={dayOfMonth}
-                      onChange={(v) => setDayOfMonth(v ?? 1)}
-                    />
-                    <Input className="!w-[7.5rem]" value="ام هر ماه" disabled />
-                  </Space.Compact>
                 </Col>
+
+                {multiStage ? (
+                  <Col xs={24}>
+                    <Space orientation="vertical" size="small" className="w-full">
+                      {stages.map((stage, index) => (
+                        <Flex key={index} gap="small" align="start" wrap="wrap">
+                          <div className="w-28">
+                            <Text type="secondary" className="mb-1 block text-xs">
+                              روز مرحله {toPersianDigits(String(index + 1))}
+                            </Text>
+                            <NumberInput
+                              className="!w-full"
+                              min={1}
+                              max={31}
+                              value={stage.day}
+                              onChange={(v) =>
+                                setStages((prev) =>
+                                  prev.map((s, i) =>
+                                    i === index ? { ...s, day: v ?? 1 } : s
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="min-w-[10rem] flex-1">
+                            <Text type="secondary" className="mb-1 block text-xs">
+                              مبلغ مرحله (اختیاری)
+                            </Text>
+                            <AmountInput
+                              value={stage.amount}
+                              onChange={(v) =>
+                                setStages((prev) =>
+                                  prev.map((s, i) =>
+                                    i === index ? { ...s, amount: v } : s
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                          {stages.length > 2 ? (
+                            <Button
+                              className="mt-5"
+                              type="text"
+                              danger
+                              icon={<DeleteOutlined />}
+                              onClick={() =>
+                                setStages((prev) => prev.filter((_, i) => i !== index))
+                              }
+                            />
+                          ) : null}
+                        </Flex>
+                      ))}
+                      {stages.length < 6 ? (
+                        <Button
+                          type="dashed"
+                          icon={<PlusOutlined />}
+                          onClick={() =>
+                            setStages((prev) => [...prev, { day: 20, amount: "" }])
+                          }
+                        >
+                          افزودن مرحله
+                        </Button>
+                      ) : null}
+                      <Text type="secondary" className="text-xs">
+                        اگر مبلغ مراحل خالی باشد، مبلغ ماهانه بالا به‌صورت مساوی تقسیم
+                        می‌شود.
+                      </Text>
+                    </Space>
+                  </Col>
+                ) : (
+                  <Col xs={24} md={12}>
+                    <Text type="secondary" className="mb-1 block text-xs">
+                      روز موعد هر ماه
+                    </Text>
+                    <Space.Compact className="w-full">
+                      <NumberInput
+                        className="!w-full"
+                        min={1}
+                        max={31}
+                        value={dayOfMonth}
+                        onChange={(v) => setDayOfMonth(v ?? 1)}
+                      />
+                      <Input className="!w-[7.5rem]" value="ام هر ماه" disabled />
+                    </Space.Compact>
+                  </Col>
+                )}
+
                 <Col xs={24} md={12}>
                   <Text type="secondary" className="mb-1 block text-xs">
                     مدت تکرار
@@ -531,9 +717,20 @@ export default function RecurringPage() {
             const categoryName =
               typeof item.category === "object" && item.category ? item.category.name : "—";
             const scheduleText =
-              item.kind === "recurring" && item.dayOfMonth != null
-                ? `${toPersianDigits(String(item.dayOfMonth))}ام هر ماه`
+              item.kind === "recurring"
+                ? (item.stageCount ?? item.paymentDays?.length ?? 1) > 1
+                  ? `${toPersianDigits(String(item.stageCount ?? item.paymentDays!.length))} مرحله در ماه (${(item.paymentDays ?? []).map((d) => `${toPersianDigits(String(d))}ام`).join("، ")})`
+                  : item.dayOfMonth != null
+                    ? `${toPersianDigits(String(item.dayOfMonth))}ام هر ماه`
+                    : `سررسید ${formatJalaliDate(item.nextPaymentDate)}`
                 : `سررسید ${formatJalaliDate(item.nextPaymentDate)}`;
+
+            const stageHint =
+              item.kind === "recurring" &&
+              (item.stageCount ?? 1) > 1 &&
+              item.currentStageIndex != null
+                ? ` · مرحله ${toPersianDigits(String(item.currentStageIndex + 1))} از ${toPersianDigits(String(item.stageCount))}`
+                : "";
 
             return (
               <SoftListItem
@@ -545,12 +742,16 @@ export default function RecurringPage() {
                     <Space size="small" wrap>
                       <span>{item.title}</span>
                       <Tag>{kindLabel(item.kind, item.type)}</Tag>
+                      {(item.stageCount ?? 1) > 1 ? (
+                        <Tag color="blue">چندمرحله‌ای</Tag>
+                      ) : null}
                       {item.isDue ? <Tag color="orange">سررسید شده</Tag> : null}
                     </Space>
                   }
                   subtitle={
                     <>
-                      {scheduleText} · {endLabel(item)} · موعد بعدی{" "}
+                      {scheduleText}
+                      {stageHint} · {endLabel(item)} · موعد بعدی{" "}
                       {formatJalaliDate(item.nextPaymentDate)} · یادآور{" "}
                       {formatReminderHour(item.reminderHour ?? 20)} · {categoryName}
                     </>

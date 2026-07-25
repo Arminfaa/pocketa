@@ -17,20 +17,28 @@ import {
   computePaidThisMonth,
 } from "../services/recurring-month.service";
 import {
-  advanceJalaliDate,
   advanceMonthlyByDay,
   isDueOnOrBefore,
   jalaliDateFromDay,
-  jalaliYearMonth,
   nextOccurrenceFromDayOfMonth,
   todayJalali,
-  type Frequency,
 } from "../utils/jalaliDate";
 import { normalizeJalaliDate } from "../utils/normalizeDigits";
 import {
   createVarianceTransaction,
   planSettlementVariance,
 } from "../services/settlement-variance.service";
+import { createDeductionTransactions } from "../services/settlement-deductions.service";
+import {
+  advancePaymentSchedule,
+  currentStageDueAmount,
+  currentStageIndex,
+  nextOccurrenceFromPaymentDays,
+  normalizePaymentDaysInput,
+  resolveMonthlyAmount,
+  resolvePaymentDays,
+  resolveStageAmounts,
+} from "../services/recurring-stages.service";
 
 function mapItem(item: {
   _id: unknown;
@@ -40,6 +48,8 @@ function mapItem(item: {
   type: string;
   kind?: string;
   dayOfMonth?: number | null;
+  paymentDays?: number[] | null;
+  stageAmounts?: number[] | null;
   endMode?: string | null;
   endMonths?: number | null;
   paymentsMade?: number | null;
@@ -62,17 +72,38 @@ function mapItem(item: {
   const lastPaymentDate = item.lastPaymentDate
     ? normalizeJalaliDate(item.lastPaymentDate)
     : null;
-  const paidThisMonth = computePaidThisMonth(item, today);
-  const baseAmount = item.baseAmount ?? item.amount;
-  const amount = item.liveAmount ?? item.amount;
+  const paymentDays = resolvePaymentDays(item);
+  const paidThisMonth = computePaidThisMonth(
+    { ...item, paymentDays },
+    today
+  );
+  const monthlyBase = item.liveAmount ?? resolveMonthlyAmount(item);
+  const stageSource = {
+    ...item,
+    amount: item.liveAmount ?? item.amount,
+    baseAmount: monthlyBase,
+    paymentDays,
+  };
+  const stageAmounts = resolveStageAmounts(stageSource);
+  const stageIndex = kind === "recurring" ? currentStageIndex(stageSource) : 0;
+  const dueNow =
+    kind === "recurring"
+      ? currentStageDueAmount(stageSource)
+      : item.liveAmount ?? item.amount;
+
   return {
     id: item._id,
     title: item.title,
-    amount,
-    baseAmount: item.liveAmount ?? baseAmount,
+    amount: dueNow,
+    baseAmount: monthlyBase,
+    monthlyAmount: monthlyBase,
     type: item.type,
     kind,
-    dayOfMonth: item.dayOfMonth ?? null,
+    dayOfMonth: item.dayOfMonth ?? paymentDays[0] ?? null,
+    paymentDays,
+    stageAmounts,
+    currentStageIndex: stageIndex,
+    stageCount: paymentDays.length,
     endMode: item.endMode ?? (kind === "recurring" ? "forever" : null),
     endMonths: item.endMonths ?? null,
     paymentsMade: item.paymentsMade ?? 0,
@@ -159,6 +190,8 @@ export const list = asyncHandler(async (req: Request, res: Response) => {
         type: item.type,
         kind: item.kind,
         dayOfMonth: item.dayOfMonth,
+        paymentDays: item.paymentDays,
+        stageAmounts: item.stageAmounts,
         endMode: item.endMode,
         endMonths: item.endMonths,
         paymentsMade: item.paymentsMade,
@@ -242,15 +275,57 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
 
   let item;
   if (parsed.data.kind === "recurring") {
-    const dayOfMonth = parsed.data.dayOfMonth;
-    const endMode = parsed.data.endMode;
+    const data = parsed.data;
+    const paymentDays = normalizePaymentDaysInput(
+      data.paymentDays,
+      data.dayOfMonth ?? data.paymentDays?.[0] ?? 1
+    );
+    const dayOfMonth = paymentDays[0]!;
+    const endMode = data.endMode;
+    const rawStageAmounts = data.stageAmounts;
+    const rawPaymentDays = data.paymentDays;
+
+    let stageAmounts: number[] | undefined;
+    if (
+      rawStageAmounts &&
+      rawPaymentDays &&
+      rawStageAmounts.length === rawPaymentDays.length
+    ) {
+      // Keep amounts aligned with days after sorting
+      const paired = rawPaymentDays
+        .map((day, i) => ({
+          day: Math.round(day),
+          amount: Math.round(rawStageAmounts[i]!),
+        }))
+        .filter((p) => p.day >= 1 && p.day <= 31)
+        .sort((a, b) => a.day - b.day);
+      // Dedupe by day (keep first)
+      const seen = new Set<number>();
+      stageAmounts = [];
+      for (const p of paired) {
+        if (seen.has(p.day)) continue;
+        seen.add(p.day);
+        stageAmounts.push(p.amount);
+      }
+      if (stageAmounts.length !== paymentDays.length) {
+        stageAmounts = undefined;
+      }
+    } else if (rawStageAmounts && rawStageAmounts.length === paymentDays.length) {
+      stageAmounts = rawStageAmounts.map((n) => Math.round(n));
+    }
+
     item = await RecurringTransactionModel.create({
       ...base,
       kind: "recurring",
       dayOfMonth,
+      paymentDays,
+      stageAmounts,
       endMode,
-      endMonths: endMode === "months" ? parsed.data.endMonths : undefined,
-      nextPaymentDate: nextOccurrenceFromDayOfMonth(dayOfMonth),
+      endMonths: endMode === "months" ? data.endMonths : undefined,
+      nextPaymentDate:
+        paymentDays.length > 1
+          ? nextOccurrenceFromPaymentDays(paymentDays)
+          : nextOccurrenceFromDayOfMonth(dayOfMonth),
     });
   } else {
     const dueDate = normalizeJalaliDate(parsed.data.dueDate);
@@ -295,13 +370,46 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
     next.endMode = undefined;
     next.endMonths = undefined;
   } else {
-    const dayOfMonth = parsed.data.dayOfMonth ?? existing.dayOfMonth;
-    if (dayOfMonth != null) {
-      next.dayOfMonth = dayOfMonth;
-      if (parsed.data.dayOfMonth != null || parsed.data.kind === "recurring") {
-        next.nextPaymentDate = nextOccurrenceFromDayOfMonth(dayOfMonth);
+    const paymentDays =
+      parsed.data.paymentDays != null
+        ? normalizePaymentDaysInput(
+            parsed.data.paymentDays,
+            parsed.data.dayOfMonth ?? existing.dayOfMonth ?? 1
+          )
+        : parsed.data.dayOfMonth != null
+          ? normalizePaymentDaysInput(existing.paymentDays, parsed.data.dayOfMonth)
+          : null;
+
+    if (paymentDays) {
+      next.paymentDays = paymentDays;
+      next.dayOfMonth = paymentDays[0];
+      if (
+        parsed.data.paymentDays != null ||
+        parsed.data.dayOfMonth != null ||
+        parsed.data.kind === "recurring"
+      ) {
+        next.nextPaymentDate =
+          paymentDays.length > 1
+            ? nextOccurrenceFromPaymentDays(paymentDays)
+            : nextOccurrenceFromDayOfMonth(paymentDays[0]!);
+      }
+    } else {
+      const dayOfMonth = parsed.data.dayOfMonth ?? existing.dayOfMonth;
+      if (dayOfMonth != null) {
+        next.dayOfMonth = dayOfMonth;
+        if (parsed.data.dayOfMonth != null || parsed.data.kind === "recurring") {
+          next.nextPaymentDate = nextOccurrenceFromDayOfMonth(dayOfMonth);
+        }
       }
     }
+
+    if (parsed.data.stageAmounts !== undefined) {
+      next.stageAmounts =
+        parsed.data.stageAmounts && parsed.data.stageAmounts.length > 0
+          ? parsed.data.stageAmounts.map((n) => Math.round(n))
+          : undefined;
+    }
+
     if (parsed.data.endMode === "forever") {
       next.endMonths = undefined;
     }
@@ -370,51 +478,25 @@ async function createDeferredOneTimeDebt(
   });
 }
 
-function advanceRecurringSchedule(recurring: {
-  kind?: string;
-  dayOfMonth?: number | null;
-  endMode?: string | null;
-  endMonths?: number | null;
-  paymentsMade?: number | null;
-  nextPaymentDate: string;
-  active: boolean;
-  scheduleFrequency?: string | null;
-  endDate?: string | null;
-  assetQuantity?: number | null;
-  assetType?: string | null;
-  amount: number;
-  baseAmount?: number | null;
-}) {
-  const kind = recurring.kind ?? "recurring";
-  if (kind === "one_time") {
-    recurring.active = false;
-    return;
-  }
-
-  const frequency = (recurring.scheduleFrequency as Frequency | undefined) ?? "monthly";
-  const endMode = recurring.endMode ?? "forever";
-  const paymentsMade = recurring.paymentsMade ?? 0;
-  const reachedEnd =
-    endMode === "months" &&
-    recurring.endMonths != null &&
-    paymentsMade >= recurring.endMonths;
-
-  if (frequency === "monthly") {
-    const dayOfMonth =
-      recurring.dayOfMonth ?? Number(recurring.nextPaymentDate.split("/")[2]);
-    recurring.nextPaymentDate = advanceMonthlyByDay(recurring.nextPaymentDate, dayOfMonth);
-  } else {
-    recurring.nextPaymentDate = advanceJalaliDate(recurring.nextPaymentDate, frequency);
-  }
-
-  if (reachedEnd) {
-    recurring.active = false;
-  }
-
-  const endDate = recurring.endDate ? normalizeJalaliDate(recurring.endDate) : "";
-  if (endDate && normalizeJalaliDate(recurring.nextPaymentDate) > endDate) {
-    recurring.active = false;
-  }
+function advanceRecurringSchedule(
+  recurring: {
+    kind?: string;
+    dayOfMonth?: number | null;
+    paymentDays?: number[] | null;
+    stageAmounts?: number[] | null;
+    endMode?: string | null;
+    endMonths?: number | null;
+    paymentsMade?: number | null;
+    nextPaymentDate: string;
+    active: boolean;
+    scheduleFrequency?: string | null;
+    endDate?: string | null;
+    amount: number;
+    baseAmount?: number | null;
+  },
+  options?: { countMonth?: boolean }
+) {
+  return advancePaymentSchedule(recurring, options);
 }
 
 /** Create a real transaction from a due item; advance or close afterward. */
@@ -456,7 +538,11 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
   }
 
   const baseAmount = resolveBaseAmount(recurring);
-  const dueAmount = recurring.amount;
+  const dueAmount = currentStageDueAmount(recurring);
+  const stageIdx = currentStageIndex(recurring);
+  const stageCount = resolvePaymentDays(recurring).length;
+  const stageLabel =
+    stageCount > 1 ? ` (مرحله ${stageIdx + 1} از ${stageCount})` : "";
   let createdTx = null;
   let deferredDebt = null;
 
@@ -480,8 +566,6 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
       );
     }
 
-    // Postponed due amount becomes a one-time debt/receivable only — do NOT also
-    // roll it into next month's installment (that double-counted the amount).
     deferredDebt = await createDeferredOneTimeDebt(
       userId,
       recurring,
@@ -493,20 +577,21 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
 
     recurring.amount = baseAmount;
     recurring.baseAmount = baseAmount;
-    advanceRecurringSchedule(recurring);
+    advanceRecurringSchedule(recurring, { countMonth: false });
 
     await recurring.save();
 
+    const nextDue = currentStageDueAmount(recurring);
     return sendSuccess(
       res,
       {
         transaction: null,
         deferredDebt,
         nextPaymentDate: recurring.nextPaymentDate,
-        nextAmount: recurring.amount,
+        nextAmount: nextDue,
         active: recurring.active,
       },
-      `قسط تعویق شد؛ ${singularLabel} جدا به مبلغ ${Math.round(dueAmount).toLocaleString("en-US")} تومان ثبت شد و قسط بعدی ${Math.round(baseAmount).toLocaleString("en-US")} تومان است`
+      `قسط تعویق شد؛ ${singularLabel} جدا به مبلغ ${Math.round(dueAmount).toLocaleString("en-US")} تومان ثبت شد و موعد بعدی ${Math.round(nextDue).toLocaleString("en-US")} تومان است`
     );
   }
 
@@ -518,19 +603,41 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
   if (!account) throw new AppError(404, "حساب بانکی یافت نشد");
 
   if (mode === "full") {
+    const deductions = (parsed.data.deductions ?? [])
+      .map((d) => ({
+        title: d.title.trim(),
+        amount: Math.round(d.amount),
+        categoryId: d.categoryId ?? null,
+      }))
+      .filter((d) => d.title.length > 0 && d.amount > 0);
+
+    if (deductions.length > 0 && recurring.type !== "income") {
+      throw new AppError(400, "کسورات فقط برای درآمد قابل ثبت است");
+    }
+
+    const deductionTotal = deductions.reduce((s, d) => s + d.amount, 0);
+    if (deductionTotal >= dueAmount) {
+      throw new AppError(400, "جمع کسورات باید کمتر از مبلغ سررسید باشد");
+    }
+
+    const netExpected = dueAmount - deductionTotal;
     const settledRaw = parsed.data.settledAmount;
     const settledAmount =
       settledRaw != null && Number.isFinite(settledRaw) && settledRaw > 0
         ? Math.round(settledRaw)
-        : dueAmount;
+        : netExpected;
 
     const plan = planSettlementVariance(
       recurring.type as "income" | "expense",
-      dueAmount,
+      netExpected,
       settledAmount
     );
 
     const txDate = normalizeJalaliDate(recurring.nextPaymentDate);
+    const deductionNote =
+      deductionTotal > 0
+        ? ` | کسورات ${deductionTotal.toLocaleString("en-US")} تومان — خالص ${netExpected.toLocaleString("en-US")}`
+        : "";
     const varianceNote = plan.variance
       ? ` | مبلغ واقعی ${plan.settledAmount.toLocaleString("en-US")} تومان` +
         (plan.variance.kind === "fee"
@@ -540,26 +647,47 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
             : ` (مابه‌التفاوت قیمت ${plan.variance.amount.toLocaleString("en-US")})`)
       : "";
 
+    const primaryAmount =
+      recurring.type === "income" && deductionTotal > 0
+        ? dueAmount
+        : plan.primaryAmount;
+
     createdTx = await TransactionModel.create({
       userId,
       accountId: parsed.data.accountId,
       categoryId: recurring.categoryId,
       type: recurring.type,
-      amount: plan.primaryAmount,
-      title: recurring.title,
+      amount: primaryAmount,
+      title: `${recurring.title}${stageLabel}`,
       description:
         (recurring.notes || `ثبت از ${isReceivable ? "طلب" : "بدهی"}/اقساط (${kindLabel})`) +
+        deductionNote +
         varianceNote,
       date: txDate,
       source: "manual",
       needsReview: false,
-      tags: plan.variance ? ["تسویه-با-اختلاف"] : [],
+      tags: [
+        ...(plan.variance ? ["تسویه-با-اختلاف"] : []),
+        ...(deductionTotal > 0 ? ["با-کسورات"] : []),
+        ...(stageCount > 1 ? ["مرحله-پرداخت"] : []),
+      ],
       settleSnapshot: {
-        expectedAmount: plan.expectedAmount,
+        expectedAmount: dueAmount,
         settledAmount: plan.settledAmount,
         varianceKind: plan.variance?.kind ?? null,
         varianceAmount: plan.variance?.amount ?? 0,
+        deductionTotal,
+        netExpected,
       },
+    });
+
+    const deductionTxs = await createDeductionTransactions({
+      userId,
+      accountId: parsed.data.accountId!,
+      date: txDate,
+      parentTitle: recurring.title,
+      linkedTransactionId: createdTx._id,
+      deductions,
     });
 
     const varianceTx = await createVarianceTransaction({
@@ -574,32 +702,49 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
     if (varianceTx) {
       createdTx.linkedTransactionId = varianceTx._id;
       await createdTx.save();
+    } else if (deductionTxs[0]) {
+      createdTx.linkedTransactionId = deductionTxs[0]._id;
+      await createdTx.save();
     }
 
-    recurring.paymentsMade = (recurring.paymentsMade ?? 0) + 1;
     recurring.lastPaymentDate = todayJalali();
     recurring.amount = baseAmount;
     recurring.baseAmount = baseAmount;
-    advanceRecurringSchedule(recurring);
+    if (kind === "one_time") {
+      recurring.paymentsMade = (recurring.paymentsMade ?? 0) + 1;
+      recurring.active = false;
+    } else {
+      advanceRecurringSchedule(recurring, { countMonth: true });
+    }
     await recurring.save();
 
-    const settleMsg = plan.variance
-      ? kind === "one_time" || !recurring.active
-        ? `تراکنش با مبلغ واقعی ${plan.settledAmount.toLocaleString("en-US")} تومان ثبت شد و مورد بسته شد`
-        : `تراکنش با مبلغ واقعی ${plan.settledAmount.toLocaleString("en-US")} تومان ثبت شد و موعد بعدی به‌روز شد`
-      : kind === "one_time" || !recurring.active
-        ? "تراکنش ثبت شد و مورد بسته شد"
-        : "تراکنش ثبت شد و موعد بعدی به‌روز شد";
+    const settleMsg = (() => {
+      const netMsg =
+        deductionTotal > 0
+          ? ` با خالص ${plan.settledAmount.toLocaleString("en-US")} تومان`
+          : plan.variance
+            ? ` با مبلغ واقعی ${plan.settledAmount.toLocaleString("en-US")} تومان`
+            : "";
+      if (kind === "one_time" || !recurring.active) {
+        return `تراکنش${netMsg} ثبت شد و مورد بسته شد`;
+      }
+      if (stageCount > 1 && stageIdx < stageCount - 1) {
+        return `مرحله ${stageIdx + 1} ثبت شد${netMsg}؛ موعد مرحله بعد به‌روز شد`;
+      }
+      return `تراکنش${netMsg} ثبت شد و موعد بعدی به‌روز شد`;
+    })();
 
     return sendSuccess(
       res,
       {
         transaction: createdTx,
         varianceTransaction: varianceTx,
+        deductionTransactions: deductionTxs,
         settledAmount: plan.settledAmount,
-        expectedAmount: plan.expectedAmount,
+        expectedAmount: dueAmount,
+        deductionTotal,
         nextPaymentDate: recurring.nextPaymentDate,
-        nextAmount: recurring.amount,
+        nextAmount: currentStageDueAmount(recurring),
         active: recurring.active,
         paymentsMade: recurring.paymentsMade,
       },
@@ -624,7 +769,7 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
     categoryId: recurring.categoryId,
     type: recurring.type,
     amount: paidAmount,
-    title: `${recurring.title} (${isReceivable ? "دریافت جزئی" : "پرداخت جزئی"})`,
+    title: `${recurring.title}${stageLabel} (${isReceivable ? "دریافت جزئی" : "پرداخت جزئی"})`,
     description:
       recurring.notes ||
       `${isReceivable ? "دریافت جزئی" : "پرداخت جزئی"} — مانده ${Math.round(remainder).toLocaleString("en-US")} تومان`,
@@ -633,13 +778,22 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
     needsReview: false,
   });
 
-  recurring.paymentsMade = (recurring.paymentsMade ?? 0) + 1;
   recurring.lastPaymentDate = todayJalali();
 
   if (parsed.data.remainderHandling === "next_month") {
     recurring.amount = baseAmount + remainder;
     recurring.baseAmount = baseAmount;
-    advanceRecurringSchedule(recurring);
+    const days = resolvePaymentDays(recurring);
+    recurring.nextPaymentDate = advanceMonthlyByDay(recurring.nextPaymentDate, days[0]!);
+    recurring.paymentsMade = (recurring.paymentsMade ?? 0) + 1;
+    const endMode = recurring.endMode ?? "forever";
+    if (
+      endMode === "months" &&
+      recurring.endMonths != null &&
+      (recurring.paymentsMade ?? 0) >= recurring.endMonths
+    ) {
+      recurring.active = false;
+    }
   } else {
     const remainderDate = normalizeJalaliDate(parsed.data.remainderDueDate!);
     deferredDebt = await createDeferredOneTimeDebt(
@@ -651,7 +805,7 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
     );
     recurring.amount = baseAmount;
     recurring.baseAmount = baseAmount;
-    advanceRecurringSchedule(recurring);
+    advanceRecurringSchedule(recurring, { countMonth: true });
   }
 
   await recurring.save();
@@ -662,7 +816,7 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
       transaction: createdTx,
       deferredDebt,
       nextPaymentDate: recurring.nextPaymentDate,
-      nextAmount: recurring.amount,
+      nextAmount: currentStageDueAmount(recurring),
       active: recurring.active,
       paymentsMade: recurring.paymentsMade,
     },
