@@ -355,6 +355,16 @@ export default function RecurringPage() {
   const items = listQ.data?.items ?? [];
   const monthChecklist = listQ.data?.monthChecklist ?? [];
   const monthPaidCount = monthChecklist.filter((i: RecurringItem) => i.paidThisMonth).length;
+  const { remainingDebts, remainingIncome } = useMemo(() => {
+    let debts = 0;
+    let income = 0;
+    for (const item of monthChecklist) {
+      if (item.paidThisMonth) continue;
+      if (item.type === "expense") debts += item.amount;
+      else income += item.amount;
+    }
+    return { remainingDebts: debts, remainingIncome: income };
+  }, [monthChecklist]);
   const defaultAccountId = accountsQ.data?.[0]?.id ?? "";
 
   function cancelEdit() {
@@ -461,6 +471,24 @@ export default function RecurringPage() {
                 </AmountText>
               </Flex>
             ))}
+            <div className="mt-1 space-y-2 border-t border-app-border/60 pt-3">
+              <Flex align="center" justify="space-between" gap="middle">
+                <Text type="secondary" className="text-sm">
+                  جمع بدهی‌های مانده
+                </Text>
+                <AmountText tone="expense" size="sm">
+                  {formatToman(remainingDebts)}
+                </AmountText>
+              </Flex>
+              <Flex align="center" justify="space-between" gap="middle">
+                <Text type="secondary" className="text-sm">
+                  جمع درآمد مانده و موجودی
+                </Text>
+                <AmountText tone="income" size="sm">
+                  {formatToman(remainingIncome)}
+                </AmountText>
+              </Flex>
+            </div>
           </Space>
         </SectionCard>
       ) : null}
