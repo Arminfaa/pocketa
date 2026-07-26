@@ -199,18 +199,20 @@ export default function ReviewPage() {
     if (draft.linkToRecurring && !draft.settleRecurringId) {
       throw new Error(`برای «${title}» سررسید را انتخاب کنید`);
     }
+    // تسویه سررسید با مبلغ انتقال (بدون کارمزد) مقایسه می‌شود
+    const settleAmount = requiresFee(tx) ? transferBaseAmount(tx) : finalAmount;
     if (draft.linkToRecurring && draft.settleRecurringId) {
       const item = (recurringQ.data?.items ?? []).find((i) => i.id === draft.settleRecurringId);
       if (!item) throw new Error("سررسید انتخاب‌شده یافت نشد");
       if (item.type !== tx.type) {
         throw new Error("نوع سررسید با نوع تراکنش همخوانی ندارد");
       }
-      if (draft.settleMode === "full" && Math.round(finalAmount) !== Math.round(item.amount)) {
+      if (draft.settleMode === "full" && Math.round(settleAmount) !== Math.round(item.amount)) {
         throw new Error(
-          `تسویه کامل نیست؛ مبلغ تراکنش (${formatToman(finalAmount)}) با مبلغ سررسید (${formatToman(item.amount)}) یکی نیست`
+          `تسویه کامل نیست؛ مبلغ انتقال (${formatToman(settleAmount)}) با مبلغ سررسید (${formatToman(item.amount)}) یکی نیست`
         );
       }
-      if (draft.settleMode === "partial" && finalAmount >= item.amount) {
+      if (draft.settleMode === "partial" && settleAmount >= item.amount) {
         throw new Error("برای مبلغ مساوی یا بیشتر، تسویه کامل را انتخاب کنید");
       }
       if (draft.settleMode === "partial" && !draft.remainderDueDate.trim()) {
@@ -672,8 +674,8 @@ export default function ReviewPage() {
                     </Radio.Group>
                     {draft.settleMode === "full" && draft.settleRecurringId ? (
                       <Text type="secondary" className="text-xs">
-                        مبلغ تراکنش باید دقیقاً برابر مبلغ سررسید باشد؛ در غیر این صورت ارور
-                        می‌گیرید.
+                        مبلغ انتقال (بدون کارمزد) باید دقیقاً برابر مبلغ سررسید باشد؛ در غیر این
+                        صورت ارور می‌گیرید.
                       </Text>
                     ) : null}
                     {draft.settleMode === "partial" ? (

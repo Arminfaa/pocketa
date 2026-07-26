@@ -501,11 +501,20 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
       message = "تراکنش ذخیره و طلب یک‌باره ثبت شد";
     }
   } else if (parsed.data.settleRecurringId && parsed.data.settleMode) {
+    const settleMeta = (updated.bankMeta ?? {}) as {
+      transferAmount?: number;
+      feeAmount?: number;
+    };
+    // کارمزد کارت‌به‌کارت جزء مبلغ تسویه سررسید نیست
+    const paidAmount =
+      settleMeta.transferAmount != null && settleMeta.transferAmount > 0
+        ? Math.round(settleMeta.transferAmount)
+        : Number(updated.amount);
     settle = await settleRecurringWithExistingTransaction({
       userId,
       recurringId: parsed.data.settleRecurringId,
       transactionType: updated.type as "income" | "expense",
-      paidAmount: Number(updated.amount),
+      paidAmount,
       mode: parsed.data.settleMode,
       remainderDueDate: parsed.data.remainderDueDate,
     });
