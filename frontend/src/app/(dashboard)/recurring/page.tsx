@@ -73,6 +73,7 @@ import { SoftList, SoftListItem, SoftListRow } from "@/components/ui/soft-list";
 import { SectionCard } from "@/components/ui/section-card";
 import { AmountText } from "@/components/ui/amount-text";
 import { AmountInput } from "@/components/ui/amount-input";
+import { useAccountFilterStore } from "@/stores/account-filter.store";
 
 const { Text } = Typography;
 
@@ -108,6 +109,7 @@ export default function RecurringPage() {
   const isMobile = !screens.md;
   const { message } = App.useApp();
   const queryClient = useQueryClient();
+  const selectedAccountId = useAccountFilterStore((s) => s.selectedAccountId);
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [amountUnit, setAmountUnit] = useState<AmountMarketUnit>("toman");
@@ -355,7 +357,14 @@ export default function RecurringPage() {
   const items = listQ.data?.items ?? [];
   const monthChecklist = listQ.data?.monthChecklist ?? [];
   const monthPaidCount = monthChecklist.filter((i: RecurringItem) => i.paidThisMonth).length;
-  const { remainingDebts, remainingIncome } = useMemo(() => {
+  const accounts = accountsQ.data ?? [];
+  const filteredBalance = useMemo(() => {
+    if (selectedAccountId) {
+      return accounts.find((a) => a.id === selectedAccountId)?.balance ?? 0;
+    }
+    return accounts.reduce((sum, a) => sum + a.balance, 0);
+  }, [accounts, selectedAccountId]);
+  const { remainingDebts, remainingIncomeAndBalance } = useMemo(() => {
     let debts = 0;
     let income = 0;
     for (const item of monthChecklist) {
@@ -363,9 +372,12 @@ export default function RecurringPage() {
       if (item.type === "expense") debts += item.amount;
       else income += item.amount;
     }
-    return { remainingDebts: debts, remainingIncome: income };
-  }, [monthChecklist]);
-  const defaultAccountId = accountsQ.data?.[0]?.id ?? "";
+    return {
+      remainingDebts: debts,
+      remainingIncomeAndBalance: income + filteredBalance,
+    };
+  }, [monthChecklist, filteredBalance]);
+  const defaultAccountId = accounts[0]?.id ?? "";
 
   function cancelEdit() {
     setTitle("");
@@ -485,7 +497,7 @@ export default function RecurringPage() {
                   جمع درآمد مانده و موجودی
                 </Text>
                 <AmountText tone="income" size="sm">
-                  {formatToman(remainingIncome)}
+                  {formatToman(remainingIncomeAndBalance)}
                 </AmountText>
               </Flex>
             </div>
