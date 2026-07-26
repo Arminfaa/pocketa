@@ -26,13 +26,15 @@ export function SoftList({ children, className, header }: SoftListProps) {
 type SoftListItemProps = {
   children: ReactNode;
   className?: string;
+  id?: string;
   onClick?: () => void;
 };
 
-export function SoftListItem({ children, className, onClick }: SoftListItemProps) {
+export function SoftListItem({ children, className, id, onClick }: SoftListItemProps) {
   const interactive = Boolean(onClick);
   return (
     <div
+      id={id}
       className={cn(
         "px-3.5 py-3.5 transition-colors sm:px-4",
         interactive && "cursor-pointer hover:bg-brand-500/[0.05] active:bg-brand-500/[0.08]",

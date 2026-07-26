@@ -45,7 +45,7 @@ export function DueBanners({ items }: Props) {
         return (
           <Link
             key={item.id}
-            href="/recurring"
+            href={`/recurring?focus=${encodeURIComponent(item.id)}`}
             className={cn(
               "flex items-start gap-3 rounded-2xl px-3.5 py-3 transition-colors",
               "border-0 no-underline",

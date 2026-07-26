@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useOpenOnQuery } from "@/hooks/use-open-on-query";
 import {
@@ -125,10 +126,40 @@ export default function RecurringPage() {
   const [categoryId, setCategoryId] = useState("");
   const [payItem, setPayItem] = useState<RecurringItem | null>(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [focusedId, setFocusedId] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   useOpenOnQuery("new", "1", "/recurring", () => setFormOpen(true));
 
   const listQ = useQuery({ queryKey: ["recurring"], queryFn: fetchRecurring });
+
+  useEffect(() => {
+    const focusId = searchParams.get("focus");
+    if (!focusId || listQ.isLoading || !listQ.data) return;
+
+    const exists = listQ.data.items.some((item) => item.id === focusId);
+    router.replace("/recurring", { scroll: false });
+    if (!exists) return;
+
+    setFocusedId(focusId);
+  }, [searchParams, listQ.isLoading, listQ.data, router]);
+
+  useEffect(() => {
+    if (!focusedId) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(`recurring-${focusedId}`)?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    });
+    const clearTimer = window.setTimeout(() => setFocusedId(null), 2500);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(clearTimer);
+    };
+  }, [focusedId]);
   const accountsQ = useQuery({
     queryKey: ["accounts"],
     queryFn: fetchAccounts,
@@ -735,7 +766,12 @@ export default function RecurringPage() {
             return (
               <SoftListItem
                 key={item.id}
-                className={cn(item.isDue && "bg-amber-500/5")}
+                id={`recurring-${item.id}`}
+                className={cn(
+                  item.isDue && "bg-amber-500/5",
+                  focusedId === item.id &&
+                    "bg-brand-500/15 ring-2 ring-inset ring-brand-500/40 transition-colors duration-500"
+                )}
               >
                 <SoftListRow
                   title={
