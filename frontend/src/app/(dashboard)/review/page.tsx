@@ -63,6 +63,7 @@ type Draft = {
   settleRecurringId: string;
   settleMode: "full" | "partial";
   remainderDueDate: string;
+  settleFeeAmount: string;
 };
 
 function requiresFee(tx: Transaction): boolean {
@@ -96,6 +97,7 @@ function defaultDraft(tx: Transaction): Draft {
     settleRecurringId: "",
     settleMode: "full",
     remainderDueDate: "",
+    settleFeeAmount: "",
   };
 }
 
@@ -201,16 +203,24 @@ export default function ReviewPage() {
     }
     // تسویه سررسید با مبلغ انتقال (بدون کارمزد) مقایسه می‌شود
     const settleAmount = requiresFee(tx) ? transferBaseAmount(tx) : finalAmount;
+    const settleFee = Math.max(0, Math.round(parseAmountInput(draft.settleFeeAmount) || 0));
     if (draft.linkToRecurring && draft.settleRecurringId) {
       const item = (recurringQ.data?.items ?? []).find((i) => i.id === draft.settleRecurringId);
       if (!item) throw new Error("سررسید انتخاب‌شده یافت نشد");
       if (item.type !== tx.type) {
         throw new Error("نوع سررسید با نوع تراکنش همخوانی ندارد");
       }
-      if (draft.settleMode === "full" && Math.round(settleAmount) !== Math.round(item.amount)) {
-        throw new Error(
-          `تسویه کامل نیست؛ مبلغ انتقال (${formatToman(settleAmount)}) با مبلغ سررسید (${formatToman(item.amount)}) یکی نیست`
-        );
+      const due = Math.round(item.amount);
+      if (draft.settleMode === "full") {
+        const ok =
+          Math.round(settleAmount) === due ||
+          (tx.type === "expense" && Math.round(settleAmount) === due + settleFee) ||
+          (tx.type === "income" && Math.round(settleAmount) === Math.max(1, due - settleFee));
+        if (!ok) {
+          throw new Error(
+            `تسویه کامل نیست؛ مبلغ (${formatToman(settleAmount)}) با سررسید (${formatToman(due)}) و کارمزد همخوان نیست`
+          );
+        }
       }
       if (draft.settleMode === "partial" && settleAmount >= item.amount) {
         throw new Error("برای مبلغ مساوی یا بیشتر، تسویه کامل را انتخاب کنید");
@@ -236,6 +246,8 @@ export default function ReviewPage() {
         draft.linkToRecurring && draft.settleMode === "partial"
           ? normalizeJalaliDateInput(draft.remainderDueDate)
           : undefined,
+      settleFeeAmount:
+        draft.linkToRecurring && settleFee > 0 ? settleFee : undefined,
     });
   }
 
@@ -647,9 +659,23 @@ export default function ReviewPage() {
                       className="w-full"
                       placeholder="انتخاب سررسید"
                       value={draft.settleRecurringId || undefined}
-                      onChange={(settleRecurringId) =>
-                        setDraft(tx._id, { ...draft, settleRecurringId })
-                      }
+                      onChange={(settleRecurringId) => {
+                        const item = (recurringQ.data?.items ?? []).find(
+                          (i) => i.id === settleRecurringId
+                        );
+                        const cash = requiresFee(tx)
+                          ? transferBaseAmount(tx)
+                          : Math.round(tx.amount);
+                        let settleFeeAmount = "";
+                        if (item && draft.settleMode === "full") {
+                          if (tx.type === "expense" && cash > item.amount) {
+                            settleFeeAmount = formatAmountInputValue(cash - item.amount);
+                          } else if (tx.type === "income" && cash < item.amount) {
+                            settleFeeAmount = formatAmountInputValue(item.amount - cash);
+                          }
+                        }
+                        setDraft(tx._id, { ...draft, settleRecurringId, settleFeeAmount });
+                      }}
                       options={(recurringQ.data?.items ?? [])
                         .filter((i) => i.active && i.type === tx.type)
                         .map((i) => ({
@@ -672,11 +698,22 @@ export default function ReviewPage() {
                         {tx.type === "income" ? "دریافت جزئی" : "پرداخت جزئی"}
                       </Radio>
                     </Radio.Group>
-                    {draft.settleMode === "full" && draft.settleRecurringId ? (
-                      <Text type="secondary" className="text-xs">
-                        مبلغ انتقال (بدون کارمزد) باید دقیقاً برابر مبلغ سررسید باشد؛ در غیر این
-                        صورت ارور می‌گیرید.
-                      </Text>
+                    {draft.settleRecurringId ? (
+                      <div>
+                        <Text type="secondary" className="mb-1 block text-xs">
+                          کارمزد سررسید (اختیاری)
+                        </Text>
+                        <AmountInput
+                          value={draft.settleFeeAmount}
+                          onChange={(settleFeeAmount) =>
+                            setDraft(tx._id, { ...draft, settleFeeAmount })
+                          }
+                        />
+                        <Text type="secondary" className="mt-1 block text-xs">
+                          اگر مبلغ تراکنش از اصل سررسید بیشتر باشد، اختلاف اینجا پر می‌شود و
+                          قابل ویرایش است.
+                        </Text>
+                      </div>
                     ) : null}
                     {draft.settleMode === "partial" ? (
                       <div>

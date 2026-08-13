@@ -29,7 +29,9 @@ import {
   todayJalali,
 } from "../utils/jalaliDate";
 import { normalizeJalaliDate } from "../utils/normalizeDigits";
+import { tehranClockTime } from "../utils/tehranTime";
 import {
+  createExplicitFeeTransaction,
   createVarianceTransaction,
   planSettlementVariance,
 } from "../services/settlement-variance.service";
@@ -644,11 +646,20 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
     }
 
     const netExpected = dueAmount - deductionTotal;
+    const explicitFee =
+      parsed.data.feeAmount != null && Number.isFinite(parsed.data.feeAmount) && parsed.data.feeAmount > 0
+        ? Math.round(parsed.data.feeAmount)
+        : 0;
     const settledRaw = parsed.data.settledAmount;
-    const settledAmount =
+    let settledAmount =
       settledRaw != null && Number.isFinite(settledRaw) && settledRaw > 0
         ? Math.round(settledRaw)
         : netExpected;
+    if (explicitFee > 0 && (settledRaw == null || !Number.isFinite(settledRaw))) {
+      settledAmount = isReceivable
+        ? Math.max(1, netExpected - explicitFee)
+        : netExpected + explicitFee;
+    }
 
     const plan = planSettlementVariance(
       recurring.type as "income" | "expense",
@@ -656,7 +667,8 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
       settledAmount
     );
 
-    const txDate = normalizeJalaliDate(recurring.nextPaymentDate);
+    const txDate = todayJalali();
+    const txTime = tehranClockTime();
     const deductionNote =
       deductionTotal > 0
         ? ` | کسورات ${deductionTotal.toLocaleString("en-US")} تومان — خالص ${netExpected.toLocaleString("en-US")}`
@@ -689,6 +701,7 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
         deductionNote +
         varianceNote,
       date: txDate,
+      time: txTime,
       source: "manual",
       needsReview: false,
       tags: [
@@ -713,6 +726,7 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
       userId,
       accountId: parsed.data.accountId!,
       date: txDate,
+      time: txTime,
       parentTitle: recurring.title,
       linkedTransactionId: createdTx._id,
       deductions,
@@ -722,13 +736,34 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
       userId,
       accountId: parsed.data.accountId!,
       date: txDate,
+      time: txTime,
       plan,
       parentTitle: recurring.title,
       linkedTransactionId: createdTx._id,
     });
 
+    const varianceCoversFee =
+      plan.variance?.kind === "fee" &&
+      explicitFee > 0 &&
+      Math.round(plan.variance.amount) === explicitFee;
+    const extraFeeTx =
+      explicitFee > 0 && !varianceCoversFee
+        ? await createExplicitFeeTransaction({
+            userId,
+            accountId: parsed.data.accountId!,
+            date: txDate,
+            time: txTime,
+            amount: explicitFee,
+            parentTitle: recurring.title,
+            linkedTransactionId: createdTx._id,
+          })
+        : null;
+
     if (varianceTx) {
       createdTx.linkedTransactionId = varianceTx._id;
+      await createdTx.save();
+    } else if (extraFeeTx) {
+      createdTx.linkedTransactionId = extraFeeTx._id;
       await createdTx.save();
     } else if (deductionTxs[0]) {
       createdTx.linkedTransactionId = deductionTxs[0]._id;
@@ -793,6 +828,8 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
   }
 
   const unwindSnapshot = captureSettleSnapshot(recurring, "partial");
+  const txDate = todayJalali();
+  const txTime = tehranClockTime();
 
   createdTx = await TransactionModel.create({
     userId,
@@ -804,13 +841,34 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
     description:
       recurring.notes ||
       `${isReceivable ? "دریافت جزئی" : "پرداخت جزئی"} — مانده ${Math.round(remainder).toLocaleString("en-US")} تومان`,
-    date: normalizeJalaliDate(recurring.nextPaymentDate),
+    date: txDate,
+    time: txTime,
     source: "manual",
     needsReview: false,
     settledRecurringId: recurring._id,
     settleMode: "partial",
     settleSnapshot: unwindSnapshot,
   });
+
+  const partialFee =
+    parsed.data.feeAmount != null && Number.isFinite(parsed.data.feeAmount) && parsed.data.feeAmount > 0
+      ? Math.round(parsed.data.feeAmount)
+      : 0;
+  if (partialFee > 0) {
+    const feeTx = await createExplicitFeeTransaction({
+      userId,
+      accountId: parsed.data.accountId!,
+      date: txDate,
+      time: txTime,
+      amount: partialFee,
+      parentTitle: recurring.title,
+      linkedTransactionId: createdTx._id,
+    });
+    if (feeTx) {
+      createdTx.linkedTransactionId = feeTx._id;
+      await createdTx.save();
+    }
+  }
 
   recurring.lastPaymentDate = todayJalali();
   recurring.lastSettledAmount = Math.round(paidAmount);

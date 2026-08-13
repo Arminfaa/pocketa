@@ -55,6 +55,7 @@ export type TransactionFormValues = {
   settleRecurringId?: string;
   settleMode?: "full" | "partial";
   remainderDueDate?: string;
+  settleFeeAmount?: string;
 };
 
 type Category = { _id: string; name: string; type: "income" | "expense"; color?: string };
@@ -75,6 +76,7 @@ type SubmitValues = {
   settleRecurringId?: string | null;
   settleMode?: "full" | "partial" | null;
   remainderDueDate?: string | null;
+  settleFeeAmount?: number | null;
 };
 
 type Props = {
@@ -131,6 +133,7 @@ export function TransactionFormModal({
   const settleRecurringId = Form.useWatch("settleRecurringId", form);
   const settleMode = Form.useWatch("settleMode", form) ?? "full";
   const amountWatch = Form.useWatch("amount", form) ?? "";
+  const settleFeeWatch = Form.useWatch("settleFeeAmount", form) ?? "";
 
   const recurringQ = useQuery({
     queryKey: ["recurring"],
@@ -147,6 +150,7 @@ export function TransactionFormModal({
       settleRecurringId: undefined,
       settleMode: "full",
       remainderDueDate: undefined,
+      settleFeeAmount: "",
     });
   }, [online, open, isCreate, form]);
 
@@ -186,6 +190,7 @@ export function TransactionFormModal({
         settleRecurringId: undefined,
         settleMode: "full",
         remainderDueDate: "",
+        settleFeeAmount: "",
       });
       setTags(initial.tags ?? []);
     } else {
@@ -204,6 +209,7 @@ export function TransactionFormModal({
         settleRecurringId: undefined,
         settleMode: "full",
         remainderDueDate: "",
+        settleFeeAmount: "",
       });
       setTags([]);
     }
@@ -238,8 +244,36 @@ export function TransactionFormModal({
     // Clear selected سررسید when type changes (list is type-filtered)
     if (linkToRecurring) {
       form.setFieldValue("settleRecurringId", undefined);
+      form.setFieldValue("settleFeeAmount", "");
     }
   }, [type, linkToRecurring, form]);
+
+  useEffect(() => {
+    if (!isCreate || !linkToRecurring || !selectedRecurring || settleMode !== "full") return;
+    const amount = parseAmountInput(amountWatch);
+    const due = selectedRecurring.amount;
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    const currentFee = Math.round(parseAmountInput(form.getFieldValue("settleFeeAmount")) || 0);
+    if (type === "expense" && amount > due) {
+      const next = Math.round(amount - due);
+      if (currentFee !== next) form.setFieldValue("settleFeeAmount", formatAmountInputValue(next));
+    } else if (type === "income" && amount < due) {
+      const next = Math.round(due - amount);
+      if (currentFee !== next) form.setFieldValue("settleFeeAmount", formatAmountInputValue(next));
+    }
+  }, [amountWatch, selectedRecurring, settleMode, type, linkToRecurring, isCreate, form]);
+
+  useEffect(() => {
+    if (!isCreate || !linkToRecurring || !selectedRecurring || settleMode !== "full") return;
+    const fee = Math.round(parseAmountInput(settleFeeWatch) || 0);
+    if (fee <= 0) return;
+    const due = selectedRecurring.amount;
+    const expected = type === "expense" ? due + fee : Math.max(1, due - fee);
+    const amount = Math.round(parseAmountInput(form.getFieldValue("amount")) || 0);
+    if (amount !== expected) {
+      form.setFieldValue("amount", formatAmountInputValue(expected));
+    }
+  }, [settleFeeWatch, selectedRecurring, settleMode, type, linkToRecurring, isCreate, form]);
 
   async function applySuggestion() {
     if (!online) return;
@@ -278,13 +312,19 @@ export function TransactionFormModal({
       form.setFields([{ name: "settleRecurringId", errors: ["سررسید را انتخاب کنید"] }]);
       return;
     }
+    const fee = Math.max(0, Math.round(parseAmountInput(values.settleFeeAmount) || 0));
     if (asSettle && values.settleMode === "full" && selectedRecurring) {
-      if (Math.round(amount) !== Math.round(selectedRecurring.amount)) {
+      const due = Math.round(selectedRecurring.amount);
+      const ok =
+        Math.round(amount) === due ||
+        (type === "expense" && Math.round(amount) === due + fee) ||
+        (type === "income" && Math.round(amount) === Math.max(1, due - fee));
+      if (!ok) {
         form.setFields([
           {
             name: "amount",
             errors: [
-              `تسویه کامل نیست؛ مبلغ باید ${formatToman(selectedRecurring.amount)} باشد`,
+              `برای تسویه کامل، مبلغ باید ${formatToman(due)} باشد یا با کارمزد جمع شود`,
             ],
           },
         ]);
@@ -328,6 +368,7 @@ export function TransactionFormModal({
         asSettle && values.settleMode === "partial"
           ? normalizeJalaliDateInput(values.remainderDueDate!)
           : undefined,
+      settleFeeAmount: asSettle && fee > 0 ? fee : undefined,
     });
   }
 
@@ -489,13 +530,19 @@ export function TransactionFormModal({
 
             {selectedRecurring && settleMode === "full" ? (
               <Typography.Paragraph type="secondary" className="!mt-0 !mb-3 text-xs">
-                مبلغ سررسید: {formatToman(selectedRecurring.amount)} — برای تسویه کامل باید مبلغ
-                تراکنش دقیقاً همین باشد.
-                {amountWatch &&
-                Math.round(parseAmountInput(amountWatch) || 0) !==
-                  Math.round(selectedRecurring.amount)
-                  ? " مبلغ فعلی یکی نیست."
-                  : ""}
+                مبلغ سررسید: {formatToman(selectedRecurring.amount)}. اگر مبلغ تراکنش بیشتر باشد،
+                اختلاف به‌صورت کارمزد پر می‌شود و قابل ویرایش است.
+              </Typography.Paragraph>
+            ) : null}
+
+            <Form.Item name="settleFeeAmount" label="کارمزد (اختیاری)">
+              <AmountInput />
+            </Form.Item>
+            {selectedRecurring && (parseAmountInput(settleFeeWatch) || 0) > 0 ? (
+              <Typography.Paragraph type="secondary" className="!mt-0 !mb-3 text-xs">
+                {type === "expense"
+                  ? `جمع برداشت: ${formatToman(selectedRecurring.amount + Math.round(parseAmountInput(settleFeeWatch) || 0))}`
+                  : `خالص دریافتی: ${formatToman(Math.max(0, selectedRecurring.amount - Math.round(parseAmountInput(settleFeeWatch) || 0)))}`}
               </Typography.Paragraph>
             ) : null}
 

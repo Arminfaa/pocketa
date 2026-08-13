@@ -69,6 +69,8 @@ export type TransactionInput = {
   settleMode?: "full" | "partial" | null;
   /** تاریخ تسویه مانده (برای پرداخت جزئی) */
   remainderDueDate?: string | null;
+  /** کارمزد تسویه سررسید (تومان) — مازاد نسبت به مبلغ اصل */
+  settleFeeAmount?: number | null;
   /** کارمزد کارت‌به‌کارت (تومان) — مبلغ نهایی = انتقال + کارمزد */
   feeAmount?: number;
   /** Offline outbox idempotency key */

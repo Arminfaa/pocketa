@@ -48,6 +48,8 @@ const ObligationAndSettleFields = {
   settleMode: z.enum(["full", "partial"]).optional().nullable(),
   /** تاریخ تسویه مانده — الزامی وقتی settleMode=partial */
   remainderDueDate: JalaliDateSchema.optional().nullable(),
+  /** کارمزد تسویه سررسید (تومان) — مازاد مبلغ نسبت به اصل سررسید */
+  settleFeeAmount: z.coerce.number().min(0).optional().nullable(),
 };
 
 function refineObligationAndSettle(

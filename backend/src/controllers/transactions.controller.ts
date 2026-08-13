@@ -21,9 +21,14 @@ import {
   ensureReceivableIncomeCategory,
 } from "../services/debt-category.service";
 import { settleRecurringWithExistingTransaction } from "../services/recurring-settle.service";
+import {
+  createExplicitFeeTransaction,
+  splitPrincipalAndFee,
+} from "../services/settlement-variance.service";
 import { deleteTransactionsWithSideEffects } from "../services/transaction-delete.service";
 import { ensureTransferCategories } from "../services/accounting.service";
 import { RecurringTransactionModel } from "../models/RecurringTransaction";
+import { currentStageDueAmount } from "../services/recurring-stages.service";
 import mongoose from "mongoose";
 
 function safeSort(sortBy: string | null | undefined) {
@@ -49,6 +54,74 @@ function buildTransactionSort(
     return { date: dir, time: dir, "bankMeta.time": dir, createdAt: dir };
   }
   return { [field]: dir, createdAt: -1 };
+}
+
+async function applySettleFeeSplit(input: {
+  userId: string;
+  tx: {
+    _id: mongoose.Types.ObjectId;
+    amount: number;
+    title: string;
+    date: string;
+    accountId: mongoose.Types.ObjectId | string;
+    linkedTransactionId?: mongoose.Types.ObjectId | null;
+    bankMeta?: {
+      transferAmount?: number;
+      feeAmount?: number;
+      needsFee?: boolean;
+    } | null;
+    save: () => Promise<unknown>;
+  };
+  type: "income" | "expense";
+  mode: "full" | "partial";
+  settleRecurringId: string;
+  cashAmount: number;
+  explicitFee?: number | null;
+}): Promise<number> {
+  const recurring = await RecurringTransactionModel.findOne({
+    _id: input.settleRecurringId,
+    userId: input.userId,
+    active: true,
+  });
+  if (!recurring) throw new AppError(404, "سررسید فعال یافت نشد");
+
+  const dueAmount = currentStageDueAmount(recurring);
+  const { principal, fee } = splitPrincipalAndFee({
+    type: input.type,
+    mode: input.mode,
+    amount: input.cashAmount,
+    dueAmount,
+    explicitFee: input.explicitFee,
+  });
+
+  if (fee > 0) {
+    const cardFee = Math.round(input.tx.bankMeta?.feeAmount ?? 0);
+    const hasCardMeta =
+      Boolean(input.tx.bankMeta?.transferAmount) || Boolean(input.tx.bankMeta?.needsFee);
+    input.tx.amount = hasCardMeta ? principal + cardFee : principal;
+    if (hasCardMeta && input.tx.bankMeta) {
+      input.tx.bankMeta.transferAmount = principal;
+    }
+    const feeTx = await createExplicitFeeTransaction({
+      userId: input.userId,
+      accountId: input.tx.accountId,
+      date: input.tx.date,
+      amount: fee,
+      parentTitle: input.tx.title,
+      linkedTransactionId: input.tx._id,
+    });
+    if (feeTx) input.tx.linkedTransactionId = feeTx._id;
+    await input.tx.save();
+  } else if (input.mode === "full" && Math.round(input.tx.amount) !== Math.round(principal)) {
+    const hasCardMeta =
+      Boolean(input.tx.bankMeta?.transferAmount) || Boolean(input.tx.bankMeta?.needsFee);
+    if (!hasCardMeta) {
+      input.tx.amount = principal;
+      await input.tx.save();
+    }
+  }
+
+  return principal;
 }
 
 export const list = asyncHandler(async (req: Request, res: Response) => {
@@ -129,6 +202,7 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
     settleRecurringId,
     settleMode,
     remainderDueDate,
+    settleFeeAmount,
     clientId: rawClientId,
   } = parsed.data;
 
@@ -237,11 +311,20 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
       message = "تراکنش منفی و طلب یک‌باره ثبت شد";
     }
   } else if (settleRecurringId && settleMode) {
+    const principal = await applySettleFeeSplit({
+      userId,
+      tx,
+      type,
+      mode: settleMode,
+      settleRecurringId,
+      cashAmount: amount,
+      explicitFee: settleFeeAmount,
+    });
     settle = await settleRecurringWithExistingTransaction({
       userId,
       recurringId: settleRecurringId,
       transactionType: type,
-      paidAmount: amount,
+      paidAmount: principal,
       mode: settleMode,
       remainderDueDate,
     });
@@ -506,15 +589,24 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
       feeAmount?: number;
     };
     // کارمزد کارت‌به‌کارت جزء مبلغ تسویه سررسید نیست
-    const paidAmount =
+    const cashAmount =
       settleMeta.transferAmount != null && settleMeta.transferAmount > 0
         ? Math.round(settleMeta.transferAmount)
         : Number(updated.amount);
+    const principal = await applySettleFeeSplit({
+      userId,
+      tx: updated,
+      type: updated.type as "income" | "expense",
+      mode: parsed.data.settleMode,
+      settleRecurringId: parsed.data.settleRecurringId,
+      cashAmount,
+      explicitFee: parsed.data.settleFeeAmount,
+    });
     settle = await settleRecurringWithExistingTransaction({
       userId,
       recurringId: parsed.data.settleRecurringId,
       transactionType: updated.type as "income" | "expense",
-      paidAmount,
+      paidAmount: principal,
       mode: parsed.data.settleMode,
       remainderDueDate: parsed.data.remainderDueDate,
     });

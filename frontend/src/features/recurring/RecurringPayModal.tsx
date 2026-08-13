@@ -68,6 +68,7 @@ export function RecurringPayModal({
   const [partialEnabled, setPartialEnabled] = useState(false);
   const [paidAmount, setPaidAmount] = useState("");
   const [settledAmount, setSettledAmount] = useState("");
+  const [feeAmount, setFeeAmount] = useState("");
   const [deductions, setDeductions] = useState<DeductionRow[]>([]);
   const [remainderHandling, setRemainderHandling] =
     useState<RemainderHandling>("new_debt");
@@ -81,6 +82,7 @@ export function RecurringPayModal({
     setPartialEnabled(false);
     setPaidAmount(formatAmountInputValue(item.amount));
     setSettledAmount(formatAmountInputValue(item.amount));
+    setFeeAmount("");
     setDeductions([]);
     setRemainderHandling("new_debt");
     const due = normalizeJalaliDateInput(item.nextPaymentDate) || item.nextPaymentDate;
@@ -93,6 +95,9 @@ export function RecurringPayModal({
   const baseAmount = item?.baseAmount ?? dueAmount;
   const paidNumeric = parseAmountInput(paidAmount);
   const settledNumeric = parseAmountInput(settledAmount);
+  const feeNumeric = parseAmountInput(feeAmount);
+  const feeValue =
+    Number.isFinite(feeNumeric) && feeNumeric > 0 ? Math.round(feeNumeric) : 0;
   const remainder =
     Number.isFinite(paidNumeric) && paidNumeric > 0 && paidNumeric < dueAmount
       ? dueAmount - paidNumeric
@@ -109,9 +114,12 @@ export function RecurringPayModal({
 
   useEffect(() => {
     if (!open || !item || partialEnabled || mode === "postpone") return;
-    if (item.type !== "income") return;
-    setSettledAmount(formatAmountInputValue(netExpected > 0 ? netExpected : item.amount));
-  }, [deductionTotal, open, item, partialEnabled, mode, netExpected]);
+    if (isAssetLinked(item)) return;
+    const base = item.type === "income" ? (netExpected > 0 ? netExpected : item.amount) : item.amount;
+    const implied =
+      item.type === "income" ? Math.max(1, base - feeValue) : base + feeValue;
+    setSettledAmount(formatAmountInputValue(implied));
+  }, [feeValue, netExpected, open, item, partialEnabled, mode]);
 
   const assetLinked = isAssetLinked(item);
   const showSettledField = Boolean(item) && !partialEnabled && mode !== "postpone";
@@ -189,9 +197,15 @@ export function RecurringPayModal({
       if (parsedDeductions.length > 0) {
         payload.deductions = parsedDeductions;
       }
+      if (feeValue > 0) payload.feeAmount = feeValue;
       const expectedNet = dueAmount - parsedDeductions.reduce((s, d) => s + d.amount, 0);
-      if (Math.round(settled) !== Math.round(expectedNet)) {
+      const impliedSettled = isReceivable
+        ? Math.max(1, expectedNet - feeValue)
+        : expectedNet + feeValue;
+      if (Math.round(settled) !== Math.round(impliedSettled) && Math.round(settled) !== Math.round(expectedNet)) {
         payload.settledAmount = Math.round(settled);
+      } else if (feeValue > 0) {
+        payload.settledAmount = impliedSettled;
       } else if (assetLinked) {
         payload.settledAmount = Math.round(settled);
       }
@@ -216,6 +230,7 @@ export function RecurringPayModal({
       paidAmount: paid,
       remainderHandling,
     };
+    if (feeValue > 0) payload.feeAmount = feeValue;
 
     if (remainderHandling === "new_debt") {
       const date = normalizeJalaliDateInput(remainderDueDate);
@@ -373,6 +388,20 @@ export function RecurringPayModal({
                   </Text>
                 ) : null}
 
+                <div>
+                  <Text type="secondary" className="mb-1 block text-xs">
+                    کارمزد (اختیاری)
+                  </Text>
+                  <AmountInput value={feeAmount} onChange={setFeeAmount} />
+                  {feeValue > 0 && Number.isFinite(paidNumeric) ? (
+                    <Text type="secondary" className="mt-1 block text-xs">
+                      {isReceivable
+                        ? `خالص دریافتی: ${formatToman(Math.max(0, Math.round(paidNumeric) - feeValue))}`
+                        : `جمع برداشت: ${formatToman(Math.round(paidNumeric) + feeValue)}`}
+                    </Text>
+                  ) : null}
+                </div>
+
                 <Radio.Group
                   className="w-full"
                   value={remainderHandling}
@@ -489,6 +518,20 @@ export function RecurringPayModal({
                     )}
                   </div>
                 ) : null}
+
+                <div>
+                  <Text type="secondary" className="mb-1 block text-xs">
+                    کارمزد (اختیاری)
+                  </Text>
+                  <AmountInput value={feeAmount} onChange={setFeeAmount} />
+                  {feeValue > 0 ? (
+                    <Text type="secondary" className="mt-1 block text-xs">
+                      {isReceivable
+                        ? `خالص دریافتی از حساب: ${formatToman(Math.max(0, dueAmount - feeValue))}`
+                        : `جمع برداشت از حساب: ${formatToman(dueAmount + feeValue)}`}
+                    </Text>
+                  ) : null}
+                </div>
 
                 <div>
                   <Text type="secondary" className="mb-1 block text-xs">

@@ -131,6 +131,7 @@ export async function createVarianceTransaction(input: {
   userId: string | mongoose.Types.ObjectId;
   accountId: string | mongoose.Types.ObjectId;
   date: string;
+  time?: string;
   plan: SettlementPlan;
   parentTitle: string;
   linkedTransactionId?: mongoose.Types.ObjectId;
@@ -149,9 +150,73 @@ export async function createVarianceTransaction(input: {
     title: `${v.title} (${input.parentTitle})`,
     description: `مبلغ محاسبه‌شده ${input.plan.expectedAmount.toLocaleString("en-US")} — مبلغ واقعی ${input.plan.settledAmount.toLocaleString("en-US")} تومان`,
     date: input.date,
+    time: input.time ?? "",
     source: "manual",
     needsReview: false,
     tags: ["اختلاف-تسویه", v.kind],
+    linkedTransactionId: input.linkedTransactionId,
+  });
+}
+
+/** Split cash amount vs due so extra (or shortfall on income) becomes an editable fee. */
+export function splitPrincipalAndFee(input: {
+  type: "income" | "expense";
+  mode: "full" | "partial";
+  amount: number;
+  dueAmount: number;
+  explicitFee?: number | null;
+}): { principal: number; fee: number } {
+  const amount = Math.round(input.amount);
+  const due = Math.round(input.dueAmount);
+  const explicit =
+    input.explicitFee != null && Number.isFinite(input.explicitFee) && input.explicitFee > 0
+      ? Math.round(input.explicitFee)
+      : 0;
+
+  if (input.mode === "partial") {
+    return { principal: amount, fee: explicit };
+  }
+
+  if (input.type === "expense") {
+    if (amount > due) {
+      return { principal: due, fee: explicit > 0 ? explicit : amount - due };
+    }
+    return { principal: amount, fee: explicit };
+  }
+
+  if (amount < due) {
+    return { principal: due, fee: explicit > 0 ? explicit : due - amount };
+  }
+  return { principal: amount, fee: explicit };
+}
+
+export async function createExplicitFeeTransaction(input: {
+  userId: string | mongoose.Types.ObjectId;
+  accountId: string | mongoose.Types.ObjectId;
+  date: string;
+  time?: string;
+  amount: number;
+  parentTitle: string;
+  linkedTransactionId?: mongoose.Types.ObjectId;
+}) {
+  const fee = Math.round(input.amount);
+  if (fee < 1) return null;
+
+  const category = await ensureVarianceCategory(input.userId, FEE_CATEGORY_NAME, "expense");
+
+  return TransactionModel.create({
+    userId: input.userId,
+    accountId: input.accountId,
+    categoryId: category._id,
+    type: "expense",
+    amount: fee,
+    title: `کارمزد — ${input.parentTitle}`,
+    description: `کارمزد تسویه سررسید «${input.parentTitle}»`,
+    date: input.date,
+    time: input.time ?? "",
+    source: "manual",
+    needsReview: false,
+    tags: ["کارمزد-سررسید", "fee"],
     linkedTransactionId: input.linkedTransactionId,
   });
 }

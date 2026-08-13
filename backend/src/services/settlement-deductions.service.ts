@@ -15,6 +15,7 @@ export async function createDeductionTransactions(input: {
   userId: string | mongoose.Types.ObjectId;
   accountId: string | mongoose.Types.ObjectId;
   date: string;
+  time?: string;
   parentTitle: string;
   linkedTransactionId: mongoose.Types.ObjectId;
   deductions: SettlementDeductionInput[];
@@ -51,6 +52,7 @@ export async function createDeductionTransactions(input: {
       title: `${d.title} — کسورات (${input.parentTitle})`,
       description: `کسورات از «${input.parentTitle}»`,
       date: input.date,
+      time: input.time ?? "",
       source: "manual",
       needsReview: false,
       tags: ["کسورات"],

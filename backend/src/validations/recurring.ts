@@ -195,6 +195,8 @@ export const RecurringGenerateSchema = z
     paidAmount: z.coerce.number().positive().optional(),
     /** مبلغ واقعی دریافتی/پرداختی هنگام تسویه کامل (مثلاً بعد از کارمزد یا اختلاف قیمت) */
     settledAmount: z.coerce.number().positive().optional(),
+    /** کارمزد جدا از مبلغ سررسید (تومان) */
+    feeAmount: z.coerce.number().min(0).optional(),
     /** کسورات موقع تسویه درآمد — از مبلغ ناخالص کم می‌شود */
     deductions: z.array(DeductionSchema).max(20).optional(),
     remainderHandling: z.enum(["next_month", "new_debt"]).optional(),

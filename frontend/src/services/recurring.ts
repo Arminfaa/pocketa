@@ -54,6 +54,8 @@ export type GenerateRecurringPayload = {
   paidAmount?: number;
   /** مبلغ واقعی دریافتی/پرداختی در تسویه کامل */
   settledAmount?: number;
+  /** کارمزد جدا از مبلغ سررسید */
+  feeAmount?: number;
   deductions?: SettlementDeduction[];
   remainderHandling?: RemainderHandling;
   remainderDueDate?: string;
