@@ -47,11 +47,41 @@ function parseAmountNumber(raw: string): number {
 export function normalizeSmsText(raw: string): string {
   return toEnglishDigits(raw)
     .replace(/\r\n/g, "\n")
-    .replace(/[\u200c\u200e\u200f\u0640]/g, "") // ZWNJ / LTR / RTL / tatweel
+    .replace(/[\u0640\u00ad]/g, "") // tatweel / soft hyphen
+    .replace(/\p{Cf}/gu, "") // ZWNJ, LTR/RTL marks, BOM, …
+    .replace(/\p{Zs}/gu, " ")
+    .replace(/[\p{Pd}\u2212]/gu, "-") // hyphen, en/em dash, minus, …
+    .replace(/＋/g, "+")
+    .replace(/[٬،]/g, ",")
+    .replace(/[：∶﹕]/g, ":")
     .replace(/ک/g, "ك")
     .replace(/ی/g, "ي")
     .replace(/آ/g, "ا")
     .trim();
+}
+
+function matchMelliShortStamp(
+  block: string
+): { month: string; day: string; hour: string; minute: string } | null {
+  const m =
+    block.match(/(\d{2})(\d{2})\s*-\s*(\d{1,2}):(\d{2})(?::\d{2})?/) ??
+    block.match(/(\d{2})\/(\d{2})\s*-\s*(\d{1,2}):(\d{2})(?::\d{2})?/) ??
+    block.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})\s*-\s*(\d{1,2}):(\d{2})(?::\d{2})?/);
+  if (!m) return null;
+  if (m[0]?.includes("/") && m[1]?.length === 4) {
+    return {
+      month: m[2]!.padStart(2, "0"),
+      day: m[3]!.padStart(2, "0"),
+      hour: m[4]!.padStart(2, "0"),
+      minute: m[5]!,
+    };
+  }
+  return {
+    month: m[1]!.padStart(2, "0"),
+    day: m[2]!.padStart(2, "0"),
+    hour: m[3]!.padStart(2, "0"),
+    minute: m[4]!,
+  };
 }
 
 export function buildImportHash(parts: {
@@ -303,18 +333,21 @@ function parseMelliBlock(block: string, jalaliYear: number): ParsedBankSms | nul
     }
   }
 
-  // 3) انتقال / اصلاحيه با علامت +/- و تاریخ MMDD-HH:mm
-  // انتقال:34,418,600-
+  // 3) انتقال / اصلاحيه با علامت +/- (قبل یا بعد از مبلغ) و تاریخ MMDD-HH:mm
+  // انتقال:100,037,800-
+  // انتقال:-100,037,800  (RTL)
   // اصلاحيه:10,712,200+
-  const signedMatch = b.match(/(انتقال|اصلاحيه)\s*:\s*([\d,]+)\s*([+-])/);
-  if (signedMatch) {
+  const signedMatch = b.match(
+    /(انتقال|اصلاحيه)\s*:\s*([+-])?[^\S\n]*([\d,]+)[^\S\n]*([+-])?/
+  );
+  if (signedMatch && (signedMatch[2] || signedMatch[4])) {
     const kind = signedMatch[1]!;
-    const amountRial = parseAmountNumber(signedMatch[2]!);
-    const sign = signedMatch[3]!;
+    const amountRial = parseAmountNumber(signedMatch[3]!);
+    const sign = signedMatch[2] || signedMatch[4] || "";
     if (!Number.isFinite(amountRial) || amountRial <= 0) return null;
 
-    const dateMatch = b.match(/(\d{2})(\d{2})-(\d{2}):(\d{2})/);
-    if (!dateMatch) return null;
+    const stamp = matchMelliShortStamp(b);
+    if (!stamp) return null;
 
     const balanceMatch = b.match(/مانده\s*:\s*([\d,]+)/);
     const accountHint = b.match(/حساب\s*:\s*(\d+)/)?.[1];
@@ -324,8 +357,8 @@ function parseMelliBlock(block: string, jalaliYear: number): ParsedBankSms | nul
       type: sign === "+" ? "income" : "expense",
       amount: rialToToman(amountRial),
       amountRial,
-      date: `${jalaliYear}/${dateMatch[1]!}/${dateMatch[2]!}`,
-      time: `${dateMatch[3]!}:${dateMatch[4]!}`,
+      date: `${jalaliYear}/${stamp.month}/${stamp.day}`,
+      time: `${stamp.hour}:${stamp.minute}`,
       balanceAfter: balanceRial !== undefined ? rialToToman(balanceRial) : undefined,
       bankName: "ملی",
       accountHint,
@@ -341,8 +374,8 @@ function parseMelliBlock(block: string, jalaliYear: number): ParsedBankSms | nul
   if (unsignedShort) {
     const amountRial = parseAmountNumber(unsignedShort[1]!);
     if (!Number.isFinite(amountRial) || amountRial <= 0) return null;
-    const dateMatch = b.match(/(\d{2})(\d{2})-(\d{2}):(\d{2})/);
-    if (!dateMatch) return null;
+    const stamp = matchMelliShortStamp(b);
+    if (!stamp) return null;
     const balanceMatch = b.match(/مانده\s*:\s*([\d,]+)/);
     const balanceRial = balanceMatch ? parseAmountNumber(balanceMatch[1]!) : undefined;
 
@@ -351,8 +384,8 @@ function parseMelliBlock(block: string, jalaliYear: number): ParsedBankSms | nul
       typeInferred: true,
       amount: rialToToman(amountRial),
       amountRial,
-      date: `${jalaliYear}/${dateMatch[1]!}/${dateMatch[2]!}`,
-      time: `${dateMatch[3]!}:${dateMatch[4]!}`,
+      date: `${jalaliYear}/${stamp.month}/${stamp.day}`,
+      time: `${stamp.hour}:${stamp.minute}`,
       balanceAfter: balanceRial !== undefined ? rialToToman(balanceRial) : undefined,
       bankName: "ملی",
       accountHint: b.match(/حساب\s*:\s*(\d+)/)?.[1],

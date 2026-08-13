@@ -17,6 +17,7 @@ assert(
   "card receipt"
 );
 assert(extractTimeFromText("0316-10:30") === "10:30", "melli short");
+assert(extractTimeFromText("0522−08:54") === "08:54", "melli unicode dash");
 assert(extractTimeFromText("04/20_12:31\nمانده:1") === "12:31", "pasargad");
 assert(
   extractTimeFromText("4700\nمبلغ:1+\nمانده:1\n04/20\n12:31") === "12:31",

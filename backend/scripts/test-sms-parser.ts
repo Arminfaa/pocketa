@@ -221,3 +221,78 @@ if (rCompactExp.items[0]?.type !== "expense" || rCompactExp.items[0]?.amount !==
   throw new Error(`compact expense unexpected: ${JSON.stringify(rCompactExp.items[0])}`);
 }
 console.log("OK: compact SMS expense parsed");
+
+const melliUserSample = `بانك ملي ايران
+انتقال:100,037,800-
+حساب:00006
+مانده:125,166
+0522-08:54`;
+const rMelli = parseBankSmsText(melliUserSample, 1405, "acc1");
+if (rMelli.items.length !== 1) {
+  throw new Error(`melli user sample: expected 1, got ${rMelli.items.length} failed=${JSON.stringify(rMelli.failedBlocks)}`);
+}
+const melliItem = rMelli.items[0]!;
+if (melliItem.type !== "expense") throw new Error(`melli user sample: expected expense, got ${melliItem.type}`);
+if (melliItem.amount !== 10_003_780) {
+  throw new Error(`melli user sample: expected 10003780 toman, got ${melliItem.amount}`);
+}
+if (melliItem.date !== "1405/05/22" || melliItem.time !== "08:54") {
+  throw new Error(`melli user sample: bad date/time ${melliItem.date} ${melliItem.time}`);
+}
+if (melliItem.balanceAfter !== 12_517) {
+  throw new Error(`melli user sample: bad balance ${melliItem.balanceAfter}`);
+}
+if (melliItem.accountHint !== "00006") {
+  throw new Error(`melli user sample: bad account ${melliItem.accountHint}`);
+}
+console.log("OK: Bank Melli transfer with trailing minus");
+
+const melliUnicodeMinus = `بانك ملي ايران
+انتقال:100,037,800−
+حساب:00006
+مانده:125,166
+0522−08:54`;
+const rMelliU = parseBankSmsText(melliUnicodeMinus, 1405, "acc1");
+if (rMelliU.items.length !== 1 || rMelliU.items[0]?.amount !== 10_003_780) {
+  throw new Error(`melli unicode minus: ${JSON.stringify(rMelliU.items[0])}`);
+}
+if (rMelliU.items[0]?.type !== "expense") {
+  throw new Error("melli unicode minus: expected expense");
+}
+console.log("OK: Bank Melli unicode minus / dash");
+
+const melliRtlSign = `بانك ملي ايران
+انتقال:-100,037,800
+حساب:00006
+مانده:125,166
+0522-08:54`;
+const rMelliRtl = parseBankSmsText(melliRtlSign, 1405, "acc1");
+if (rMelliRtl.items.length !== 1 || rMelliRtl.items[0]?.type !== "expense") {
+  throw new Error(`melli RTL minus: ${JSON.stringify(rMelliRtl.items[0])}`);
+}
+console.log("OK: Bank Melli RTL leading minus");
+
+const melliArabicSep = `بانک ملی ایران
+انتقال:100٬037٬800-
+حساب:00006
+مانده:125٬166
+۰۵۲۲-۰۸:۵۴`;
+const rMelliAr = parseBankSmsText(melliArabicSep, 1405, "acc1");
+if (rMelliAr.items.length !== 1 || rMelliAr.items[0]?.amount !== 10_003_780) {
+  throw new Error(`melli arabic sep: ${JSON.stringify(rMelliAr.items[0])}`);
+}
+if (rMelliAr.items[0]?.date !== "1405/05/22" || rMelliAr.items[0]?.time !== "08:54") {
+  throw new Error(`melli arabic sep: bad date/time ${rMelliAr.items[0]?.date} ${rMelliAr.items[0]?.time}`);
+}
+console.log("OK: Bank Melli Arabic thousands + Persian digits");
+
+const melliSpacedStamp = `بانك ملي ايران
+انتقال:100,037,800-
+حساب:00006
+مانده:125,166
+0522 - 08:54`;
+const rMelliSp = parseBankSmsText(melliSpacedStamp, 1405, "acc1");
+if (rMelliSp.items.length !== 1 || rMelliSp.items[0]?.date !== "1405/05/22" || rMelliSp.items[0]?.time !== "08:54") {
+  throw new Error(`melli spaced stamp: ${JSON.stringify(rMelliSp.items[0])}`);
+}
+console.log("OK: Bank Melli date stamp with spaces");

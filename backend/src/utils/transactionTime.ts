@@ -21,6 +21,7 @@ export function extractTimeFromText(raw: string | null | undefined): string {
   if (!raw) return "";
   const text = toEnglishDigits(raw)
     .replace(/\u200c/g, " ")
+    .replace(/[\p{Pd}\u2212]/gu, "-")
     .replace(/ي/g, "ی")
     .replace(/ك/g, "ک");
 
@@ -57,7 +58,7 @@ export function extractTimeFromText(raw: string | null | undefined): string {
 
   // Melli short: MMDD-HH:mm
   {
-    const m = text.match(/\b(\d{2})(\d{2})-(\d{2}):(\d{2})\b/);
+    const m = text.match(/\b(\d{2})(\d{2})\s*-\s*(\d{1,2}):(\d{2})\b/);
     const t = tryNorm(m?.[3], m?.[4]);
     if (t) return t;
   }
