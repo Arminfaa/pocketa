@@ -51,6 +51,8 @@ const RecurringTransactionSchema = new Schema(
     reminderSentKeys: { type: [String], required: true, default: [] },
     /** آخرین تاریخ پرداخت ثبت‌شده (جلالی) — برای چک‌لیست ماه */
     lastPaymentDate: { type: String, required: false },
+    /** مبلغ آخرین تسویه (تومان) — برای نمایش مبلغ اوکی‌شده در چک‌لیست، نه کل سررسید */
+    lastSettledAmount: { type: Number, required: false, min: 0 },
     /** موعد بعدی / سررسید (جلالی YYYY/MM/DD) */
     nextPaymentDate: { type: String, required: true },
     active: { type: Boolean, required: true, default: true, index: true },

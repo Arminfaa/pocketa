@@ -448,7 +448,7 @@ export default function RecurringPage() {
               {toPersianDigits(String(monthChecklist.length))} پرداخت شده
             </Text>
           }
-          description="تیک‌نخورده‌ها با «ثبت تراکنش الان» تیک می‌خورند."
+          description="پرداخت جزئی فقط مبلغ اوکی‌شده را تیک می‌زند؛ مانده بدون تیک می‌ماند."
         >
           <Space orientation="vertical" size="small" className="w-full">
             {monthChecklist.map((item: RecurringItem) => (
@@ -479,7 +479,11 @@ export default function RecurringPage() {
                   size="sm"
                   className={cn(item.paidThisMonth && "opacity-60")}
                 >
-                  {formatToman(item.amount)}
+                  {formatToman(
+                    item.paidThisMonth && item.paidAmountThisMonth != null
+                      ? item.paidAmountThisMonth
+                      : item.amount
+                  )}
                 </AmountText>
               </Flex>
             ))}

@@ -39,6 +39,8 @@ export type RecurringItem = {
   notes?: string;
   isDue: boolean;
   paidThisMonth: boolean;
+  /** مبلغ اوکی‌شده همین ماه — برای ردیف تیک‌خورده چک‌لیست (پرداخت جزئی ≠ کل سررسید) */
+  paidAmountThisMonth?: number | null;
   category: { _id: string; name: string; color?: string; type?: string } | string;
   investmentId?: string | null;
   assetQuantity?: number | null;

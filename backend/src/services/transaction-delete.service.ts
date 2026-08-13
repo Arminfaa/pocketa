@@ -60,6 +60,7 @@ export async function deleteTransactionsWithSideEffects(
         previousActive: true,
         previousPaymentsMade: 0,
         previousLastPaymentDate: null,
+        previousLastSettledAmount: null,
         deferredDebtId: tx.deferredDebtId ? String(tx.deferredDebtId) : null,
         settleMode: (tx.settleMode as "full" | "partial") ?? "full",
       });

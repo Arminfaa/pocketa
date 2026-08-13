@@ -17,6 +17,11 @@ import {
   computePaidThisMonth,
 } from "../services/recurring-month.service";
 import {
+  resolvePaidAmountThisMonth,
+  settledAmountsByRecurring,
+} from "../services/recurring-settled.service";
+import { captureSettleSnapshot } from "../services/recurring-settle.service";
+import {
   advanceMonthlyByDay,
   isDueOnOrBefore,
   jalaliDateFromDay,
@@ -54,6 +59,7 @@ function mapItem(item: {
   endMonths?: number | null;
   paymentsMade?: number | null;
   lastPaymentDate?: string | null;
+  lastSettledAmount?: number | null;
   nextPaymentDate: string;
   active: boolean;
   notes?: string | null;
@@ -108,6 +114,10 @@ function mapItem(item: {
     endMonths: item.endMonths ?? null,
     paymentsMade: item.paymentsMade ?? 0,
     lastPaymentDate,
+    lastSettledAmount:
+      item.lastSettledAmount != null && item.lastSettledAmount > 0
+        ? Math.round(item.lastSettledAmount)
+        : null,
     reminderHour: item.reminderHour ?? 20,
     nextPaymentDate: item.nextPaymentDate,
     active: item.active,
@@ -179,6 +189,8 @@ export const list = asyncHandler(async (req: Request, res: Response) => {
   }
 
   const today = todayJalali();
+  const [y, m] = today.split("/").map(Number);
+  const settledMapPromise = settledAmountsByRecurring(userId, y!, m!);
   const toMapped = (item: (typeof allItems)[number]) => {
     const liveAmount = resolveAssetLinkedAmount(item, market);
     return mapItem(
@@ -196,6 +208,7 @@ export const list = asyncHandler(async (req: Request, res: Response) => {
         endMonths: item.endMonths,
         paymentsMade: item.paymentsMade,
         lastPaymentDate: item.lastPaymentDate,
+        lastSettledAmount: item.lastSettledAmount,
         reminderHour: item.reminderHour,
         nextPaymentDate: item.nextPaymentDate,
         active: item.active,
@@ -215,15 +228,25 @@ export const list = asyncHandler(async (req: Request, res: Response) => {
   };
 
   const mappedAll = allItems.map(toMapped);
-  const mapped = activeOnly ? mappedAll.filter((i) => i.active) : mappedAll;
-  const monthChecklist = mappedAll
+  const settledMap = await settledMapPromise;
+  const withPaid = mappedAll.map((item) => ({
+    ...item,
+    paidAmountThisMonth: resolvePaidAmountThisMonth({
+      paidThisMonth: item.paidThisMonth,
+      kind: item.kind,
+      amount: item.amount,
+      baseAmount: item.baseAmount,
+      lastSettledAmount: item.lastSettledAmount,
+      settledFromTransactions: settledMap.get(String(item.id)),
+    }),
+  }));
+  const mapped = activeOnly ? withPaid.filter((i) => i.active) : withPaid;
+  const monthChecklist = withPaid
     .filter((item) => belongsToMonthChecklist(item, today))
     .sort((a, b) => {
       if (a.paidThisMonth !== b.paidThisMonth) return a.paidThisMonth ? 1 : -1;
       return a.nextPaymentDate.localeCompare(b.nextPaymentDate);
     });
-
-  const [y, m] = today.split("/").map(Number);
 
   return sendSuccess(res, {
     items: mapped,
@@ -652,6 +675,8 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
         ? dueAmount
         : plan.primaryAmount;
 
+    const unwindSnapshot = captureSettleSnapshot(recurring, "full");
+
     createdTx = await TransactionModel.create({
       userId,
       accountId: parsed.data.accountId,
@@ -671,7 +696,10 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
         ...(deductionTotal > 0 ? ["با-کسورات"] : []),
         ...(stageCount > 1 ? ["مرحله-پرداخت"] : []),
       ],
+      settledRecurringId: recurring._id,
+      settleMode: "full",
       settleSnapshot: {
+        ...unwindSnapshot,
         expectedAmount: dueAmount,
         settledAmount: plan.settledAmount,
         varianceKind: plan.variance?.kind ?? null,
@@ -708,6 +736,7 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
     }
 
     recurring.lastPaymentDate = todayJalali();
+    recurring.lastSettledAmount = Math.round(dueAmount);
     recurring.amount = baseAmount;
     recurring.baseAmount = baseAmount;
     if (kind === "one_time") {
@@ -763,6 +792,8 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
     throw new AppError(400, "انتقال مانده به ماه بعد فقط برای اقساط ماهانه است");
   }
 
+  const unwindSnapshot = captureSettleSnapshot(recurring, "partial");
+
   createdTx = await TransactionModel.create({
     userId,
     accountId: parsed.data.accountId,
@@ -776,9 +807,13 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
     date: normalizeJalaliDate(recurring.nextPaymentDate),
     source: "manual",
     needsReview: false,
+    settledRecurringId: recurring._id,
+    settleMode: "partial",
+    settleSnapshot: unwindSnapshot,
   });
 
   recurring.lastPaymentDate = todayJalali();
+  recurring.lastSettledAmount = Math.round(paidAmount);
 
   if (parsed.data.remainderHandling === "next_month") {
     recurring.amount = baseAmount + remainder;
@@ -803,6 +838,10 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
       remainderDate,
       `مانده ${isReceivable ? "دریافت" : "پرداخت"} جزئی تا ${remainderDate}`
     );
+    unwindSnapshot.deferredDebtId = String(deferredDebt._id);
+    createdTx.deferredDebtId = deferredDebt._id;
+    createdTx.settleSnapshot = unwindSnapshot;
+    await createdTx.save();
     recurring.amount = baseAmount;
     recurring.baseAmount = baseAmount;
     advanceRecurringSchedule(recurring, { countMonth: true });

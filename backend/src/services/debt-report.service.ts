@@ -1,11 +1,14 @@
-import mongoose from "mongoose";
+import type { Types } from "mongoose";
 import jalaali from "jalaali-js";
 import { RecurringTransactionModel } from "../models/RecurringTransaction";
-import { TransactionModel } from "../models/Transaction";
 import {
   belongsToReportMonth,
   computePaidThisMonth,
 } from "./recurring-month.service";
+import {
+  resolvePaidAmountThisMonth,
+  settledAmountsByRecurring,
+} from "./recurring-settled.service";
 import {
   advanceMonthlyByDay,
   isDueOnOrBefore,
@@ -226,37 +229,8 @@ function mapCategory(categoryId: unknown): DebtReportItem["category"] {
   return null;
 }
 
-async function settledAmountsByRecurring(
-  userId: string | mongoose.Types.ObjectId,
-  year: number,
-  month: number
-): Promise<Map<string, number>> {
-  const prefix = `${year}/${padMonth(month)}/`;
-  const rows = await TransactionModel.aggregate([
-    {
-      $match: {
-        userId: new mongoose.Types.ObjectId(String(userId)),
-        settledRecurringId: { $ne: null },
-        date: { $regex: `^${prefix}` },
-      },
-    },
-    {
-      $group: {
-        _id: "$settledRecurringId",
-        sum: { $sum: "$amount" },
-      },
-    },
-  ]);
-
-  const map = new Map<string, number>();
-  for (const row of rows) {
-    if (row._id) map.set(String(row._id), Number(row.sum) || 0);
-  }
-  return map;
-}
-
 export async function buildDebtReport(
-  userId: string | mongoose.Types.ObjectId,
+  userId: string | Types.ObjectId,
   filter: DebtReportFilter = "all",
   monthYear?: { year: number; month: number }
 ): Promise<DebtReportResult> {
@@ -397,9 +371,17 @@ export async function buildDebtReport(
     const amountRaw = Number(row.amount) || 0;
     const baseAmount = Number(row.baseAmount ?? row.amount) || 0;
     const settled = settledMap.get(String(row._id));
+    const paidAmount = resolvePaidAmountThisMonth({
+      paidThisMonth: paid,
+      kind,
+      amount: amountRaw,
+      baseAmount,
+      lastSettledAmount: row.lastSettledAmount,
+      settledFromTransactions: settled,
+    });
     const amount =
-      paid && settled != null && settled > 0
-        ? settled
+      paid && paidAmount != null
+        ? paidAmount
         : monthItemAmount({ amount: amountRaw, baseAmount, kind, paid });
 
     const bucket = role === "liability" ? liabilities : receivables;

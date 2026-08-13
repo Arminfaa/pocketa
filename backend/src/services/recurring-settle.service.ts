@@ -16,9 +16,39 @@ export type SettleSnapshot = {
   previousActive: boolean;
   previousPaymentsMade: number;
   previousLastPaymentDate: string | null;
+  previousLastSettledAmount: number | null;
   deferredDebtId: string | null;
   settleMode: "full" | "partial";
 };
+
+type RecurringLike = {
+  _id: unknown;
+  amount: number;
+  baseAmount?: number | null;
+  nextPaymentDate: string;
+  active: boolean;
+  paymentsMade?: number | null;
+  lastPaymentDate?: string | null;
+  lastSettledAmount?: number | null;
+};
+
+export function captureSettleSnapshot(
+  recurring: RecurringLike,
+  settleMode: "full" | "partial"
+): SettleSnapshot {
+  return {
+    recurringId: String(recurring._id),
+    previousAmount: recurring.amount,
+    previousBaseAmount: resolveBaseAmount(recurring),
+    previousNextPaymentDate: recurring.nextPaymentDate,
+    previousActive: recurring.active,
+    previousPaymentsMade: recurring.paymentsMade ?? 0,
+    previousLastPaymentDate: recurring.lastPaymentDate ?? null,
+    previousLastSettledAmount: recurring.lastSettledAmount ?? null,
+    deferredDebtId: null,
+    settleMode,
+  };
+}
 
 function resolveBaseAmount(recurring: { amount: number; baseAmount?: number | null }) {
   return resolveMonthlyAmount(recurring);
@@ -91,17 +121,7 @@ export async function settleRecurringWithExistingTransaction(input: {
   const kind = recurring.kind ?? "recurring";
   const baseAmount = resolveBaseAmount(recurring);
 
-  const snapshot: SettleSnapshot = {
-    recurringId: String(recurring._id),
-    previousAmount: recurring.amount,
-    previousBaseAmount: baseAmount,
-    previousNextPaymentDate: recurring.nextPaymentDate,
-    previousActive: recurring.active,
-    previousPaymentsMade: recurring.paymentsMade ?? 0,
-    previousLastPaymentDate: recurring.lastPaymentDate ?? null,
-    deferredDebtId: null,
-    settleMode: input.mode,
-  };
+  const snapshot = captureSettleSnapshot(recurring, input.mode);
 
   if (input.mode === "full") {
     if (Math.round(paid) !== Math.round(dueAmount)) {
@@ -112,6 +132,7 @@ export async function settleRecurringWithExistingTransaction(input: {
     }
 
     recurring.lastPaymentDate = todayJalali();
+    recurring.lastSettledAmount = Math.round(paid);
     recurring.amount = baseAmount;
     recurring.baseAmount = baseAmount;
     if (kind === "one_time") {
@@ -162,6 +183,7 @@ export async function settleRecurringWithExistingTransaction(input: {
   snapshot.deferredDebtId = String(deferredDebt._id);
 
   recurring.lastPaymentDate = todayJalali();
+  recurring.lastSettledAmount = Math.round(paid);
   recurring.amount = baseAmount;
   recurring.baseAmount = baseAmount;
   if (kind === "one_time") {
@@ -201,6 +223,10 @@ export async function unwindSettleFromSnapshot(
     recurring.active = snapshot.previousActive;
     recurring.paymentsMade = snapshot.previousPaymentsMade;
     recurring.lastPaymentDate = snapshot.previousLastPaymentDate ?? undefined;
+    recurring.lastSettledAmount =
+      snapshot.previousLastSettledAmount != null && snapshot.previousLastSettledAmount > 0
+        ? snapshot.previousLastSettledAmount
+        : undefined;
     await recurring.save();
   }
 

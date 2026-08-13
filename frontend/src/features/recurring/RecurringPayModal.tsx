@@ -15,6 +15,7 @@ import { AmountInput } from "@/components/ui/amount-input";
 import { JalaliDateInput } from "@/components/ui/jalali-date-input";
 import { formatJalaliDate, formatToman, toPersianDigits } from "@/lib/format";
 import { formatAmountInputValue, normalizeJalaliDateInput, parseAmountInput } from "@/lib/amount";
+import { getTodayJalali } from "@/lib/transaction-helpers";
 
 const { Text } = Typography;
 
@@ -69,7 +70,7 @@ export function RecurringPayModal({
   const [settledAmount, setSettledAmount] = useState("");
   const [deductions, setDeductions] = useState<DeductionRow[]>([]);
   const [remainderHandling, setRemainderHandling] =
-    useState<RemainderHandling>("next_month");
+    useState<RemainderHandling>("new_debt");
   const [remainderDueDate, setRemainderDueDate] = useState("");
   const [postponeDueDate, setPostponeDueDate] = useState("");
 
@@ -81,8 +82,10 @@ export function RecurringPayModal({
     setPaidAmount(formatAmountInputValue(item.amount));
     setSettledAmount(formatAmountInputValue(item.amount));
     setDeductions([]);
-    setRemainderHandling(item.kind === "recurring" ? "next_month" : "new_debt");
-    setRemainderDueDate(item.nextPaymentDate);
+    setRemainderHandling("new_debt");
+    const due = normalizeJalaliDateInput(item.nextPaymentDate) || item.nextPaymentDate;
+    const today = getTodayJalali();
+    setRemainderDueDate(due < today ? today : due);
     setPostponeDueDate(item.nextPaymentDate);
   }, [open, item, defaultAccountId]);
 
@@ -375,6 +378,10 @@ export function RecurringPayModal({
                   value={remainderHandling}
                   onChange={(e) => setRemainderHandling(e.target.value as RemainderHandling)}
                   options={[
+                    {
+                      value: "new_debt" as const,
+                      label: `ثبت مانده به‌صورت ${singularLabel} جدا`,
+                    },
                     ...(item.kind === "recurring"
                       ? [
                           {
@@ -383,10 +390,6 @@ export function RecurringPayModal({
                           },
                         ]
                       : []),
-                    {
-                      value: "new_debt" as const,
-                      label: `ثبت مانده به‌صورت ${singularLabel} جدا`,
-                    },
                   ]}
                 />
 
