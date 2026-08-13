@@ -66,9 +66,9 @@ async function applySettleFeeSplit(input: {
     accountId: mongoose.Types.ObjectId | string;
     linkedTransactionId?: mongoose.Types.ObjectId | null;
     bankMeta?: {
-      transferAmount?: number;
-      feeAmount?: number;
-      needsFee?: boolean;
+      transferAmount?: number | null;
+      feeAmount?: number | null;
+      needsFee?: boolean | null;
     } | null;
     save: () => Promise<unknown>;
   };
