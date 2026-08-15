@@ -386,15 +386,60 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
 
   const next: Record<string, unknown> = { ...parsed.data };
   delete next.dueDate;
+  const unset: Record<string, 1> = {};
 
   const kind = parsed.data.kind ?? existing.kind ?? "recurring";
+  const kindBecameRecurring =
+    parsed.data.kind === "recurring" && (existing.kind ?? "recurring") !== "recurring";
+
+  if (parsed.data.amount != null) {
+    const newAmount = Math.round(parsed.data.amount);
+    const oldBase = resolveBaseAmount(existing);
+    const remainder = Math.max(0, Math.round(existing.amount) - Math.round(oldBase));
+    next.baseAmount = newAmount;
+    next.amount = newAmount + remainder;
+  }
+
+  const hasAssetLink =
+    parsed.data.assetQuantity != null &&
+    parsed.data.assetQuantity > 0 &&
+    (parsed.data.assetType === "gold" ||
+      parsed.data.assetType === "usd" ||
+      parsed.data.assetType === "rial");
+
+  if (hasAssetLink) {
+    next.assetQuantity = parsed.data.assetQuantity;
+    next.assetType = parsed.data.assetType;
+    next.goldKind =
+      parsed.data.assetType === "gold" ? (parsed.data.goldKind ?? "melted") : undefined;
+    if (parsed.data.assetType !== "gold") unset.goldKind = 1;
+  } else if (
+    parsed.data.amount != null ||
+    parsed.data.assetQuantity === null ||
+    parsed.data.assetType === null
+  ) {
+    // مبلغ تومان ثابت جایگزین لینک به قیمت روز می‌شود
+    unset.assetQuantity = 1;
+    unset.assetType = 1;
+    unset.goldKind = 1;
+    delete next.assetQuantity;
+    delete next.assetType;
+    delete next.goldKind;
+  }
 
   if (kind === "one_time") {
     const due = parsed.data.dueDate ?? parsed.data.nextPaymentDate;
     if (due) next.nextPaymentDate = normalizeJalaliDate(due);
-    next.dayOfMonth = undefined;
-    next.endMode = undefined;
-    next.endMonths = undefined;
+    unset.dayOfMonth = 1;
+    unset.endMode = 1;
+    unset.endMonths = 1;
+    unset.paymentDays = 1;
+    unset.stageAmounts = 1;
+    delete next.dayOfMonth;
+    delete next.endMode;
+    delete next.endMonths;
+    delete next.paymentDays;
+    delete next.stageAmounts;
   } else {
     const paymentDays =
       parsed.data.paymentDays != null
@@ -409,11 +454,11 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
     if (paymentDays) {
       next.paymentDays = paymentDays;
       next.dayOfMonth = paymentDays[0];
-      if (
-        parsed.data.paymentDays != null ||
-        parsed.data.dayOfMonth != null ||
-        parsed.data.kind === "recurring"
-      ) {
+      const existingDays = resolvePaymentDays(existing);
+      const scheduleChanged =
+        paymentDays.length !== existingDays.length ||
+        paymentDays.some((d, i) => d !== existingDays[i]);
+      if (scheduleChanged || kindBecameRecurring) {
         next.nextPaymentDate =
           paymentDays.length > 1
             ? nextOccurrenceFromPaymentDays(paymentDays)
@@ -423,21 +468,31 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
       const dayOfMonth = parsed.data.dayOfMonth ?? existing.dayOfMonth;
       if (dayOfMonth != null) {
         next.dayOfMonth = dayOfMonth;
-        if (parsed.data.dayOfMonth != null || parsed.data.kind === "recurring") {
-          next.nextPaymentDate = nextOccurrenceFromDayOfMonth(dayOfMonth);
+        if (parsed.data.dayOfMonth != null || kindBecameRecurring) {
+          const existingDays = resolvePaymentDays(existing);
+          if (
+            kindBecameRecurring ||
+            existingDays.length !== 1 ||
+            existingDays[0] !== dayOfMonth
+          ) {
+            next.nextPaymentDate = nextOccurrenceFromDayOfMonth(dayOfMonth);
+          }
         }
       }
     }
 
     if (parsed.data.stageAmounts !== undefined) {
-      next.stageAmounts =
-        parsed.data.stageAmounts && parsed.data.stageAmounts.length > 0
-          ? parsed.data.stageAmounts.map((n) => Math.round(n))
-          : undefined;
+      if (parsed.data.stageAmounts && parsed.data.stageAmounts.length > 0) {
+        next.stageAmounts = parsed.data.stageAmounts.map((n) => Math.round(n));
+      } else {
+        unset.stageAmounts = 1;
+        delete next.stageAmounts;
+      }
     }
 
     if (parsed.data.endMode === "forever") {
-      next.endMonths = undefined;
+      unset.endMonths = 1;
+      delete next.endMonths;
     }
     if (parsed.data.nextPaymentDate) {
       next.nextPaymentDate = normalizeJalaliDate(parsed.data.nextPaymentDate);
@@ -445,9 +500,12 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
   }
   if (parsed.data.notes !== undefined) next.notes = parsed.data.notes ?? "";
 
+  const updateOps: Record<string, unknown> = { $set: next };
+  if (Object.keys(unset).length > 0) updateOps.$unset = unset;
+
   const item = await RecurringTransactionModel.findOneAndUpdate(
     { _id: id, userId },
-    { $set: next },
+    updateOps,
     { returnDocument: "after" }
   );
 

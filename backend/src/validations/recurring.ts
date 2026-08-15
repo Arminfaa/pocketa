@@ -149,6 +149,9 @@ export const RecurringUpdateSchema = z
     notes: z.string().max(500).optional().nullable(),
     active: z.boolean().optional(),
     reminderHour: z.coerce.number().int().min(0).max(23).optional(),
+    assetQuantity: z.coerce.number().positive().optional().nullable(),
+    assetType: z.enum(["gold", "usd", "rial"]).optional().nullable(),
+    goldKind: z.enum(["melted", "quarter_coin"]).optional().nullable(),
   })
   .superRefine((data, ctx) => {
     if (data.kind === "recurring" && data.endMode === "months") {
@@ -181,6 +184,22 @@ export const RecurringUpdateSchema = z
         },
         ctx
       );
+    }
+    if (data.assetQuantity != null && data.assetQuantity > 0) {
+      if (data.assetType !== "gold" && data.assetType !== "usd" && data.assetType !== "rial") {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "نوع دارایی را مشخص کنید",
+          path: ["assetType"],
+        });
+      }
+      if (data.assetType === "gold" && !data.goldKind) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "نوع طلا را مشخص کنید",
+          path: ["goldKind"],
+        });
+      }
     }
   });
 

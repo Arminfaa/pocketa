@@ -25,6 +25,7 @@ import {
   CaretRightOutlined,
   CheckSquareOutlined,
   DeleteOutlined,
+  EditOutlined,
   PieChartOutlined,
   PlusOutlined,
   AccountBookOutlined,
@@ -35,6 +36,8 @@ import {
   deleteRecurring,
   fetchRecurring,
   generateRecurring,
+  updateRecurring,
+  type CreateDebtPayload,
   type DebtEndMode,
   type DebtKind,
   type GenerateRecurringPayload,
@@ -46,6 +49,7 @@ import type { Category } from "@/services/categories";
 import { formatJalaliDate, formatToman, toPersianDigits } from "@/lib/format";
 import {
   formatAmountInputValue,
+  formatDecimalAmountInputValue,
   normalizeJalaliDateInput,
   parseAmountInput,
 } from "@/lib/amount";
@@ -128,11 +132,97 @@ export default function RecurringPage() {
   const [categoryId, setCategoryId] = useState("");
   const [payItem, setPayItem] = useState<RecurringItem | null>(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  useOpenOnQuery("new", "1", "/recurring", () => setFormOpen(true));
+  function resetFormFields() {
+    setTitle("");
+    setAmount("");
+    setAmountUnit("toman");
+    setType("expense");
+    setKind("recurring");
+    setDayOfMonth(1);
+    setMultiStage(false);
+    setStages([
+      { day: 1, amount: "" },
+      { day: 15, amount: "" },
+    ]);
+    setEndMode("forever");
+    setEndMonths(12);
+    setDueDate(getTodayJalali());
+    setReminderHour(20);
+    setCategoryId("");
+  }
+
+  function openCreate() {
+    setEditingId(null);
+    resetFormFields();
+    setFormOpen(true);
+  }
+
+  function startEdit(item: RecurringItem) {
+    setEditingId(item.id);
+    setTitle(item.title);
+    setType(item.type);
+    setKind(item.kind);
+    setReminderHour(item.reminderHour ?? 20);
+    setCategoryId(
+      typeof item.category === "object" && item.category
+        ? item.category._id
+        : typeof item.category === "string"
+          ? item.category
+          : ""
+    );
+
+    if (item.assetQuantity != null && item.assetQuantity > 0 && item.assetType === "gold") {
+      setAmountUnit("gold");
+      setAmount(formatDecimalAmountInputValue(item.assetQuantity, 3));
+    } else if (item.assetQuantity != null && item.assetQuantity > 0 && item.assetType === "usd") {
+      setAmountUnit("usd");
+      setAmount(formatDecimalAmountInputValue(item.assetQuantity, 2));
+    } else {
+      setAmountUnit("toman");
+      setAmount(
+        formatAmountInputValue(item.baseAmount ?? item.monthlyAmount ?? item.amount)
+      );
+    }
+
+    if (item.kind === "recurring") {
+      const days = item.paymentDays?.length ? item.paymentDays : item.dayOfMonth != null ? [item.dayOfMonth] : [1];
+      const isMulti = days.length > 1;
+      setMultiStage(isMulti);
+      if (isMulti) {
+        const stageAmts = item.stageAmounts;
+        setStages(
+          days.map((day, i) => ({
+            day,
+            amount:
+              stageAmts?.[i] != null ? formatAmountInputValue(stageAmts[i]!) : "",
+          }))
+        );
+      } else {
+        setDayOfMonth(days[0] ?? 1);
+        setStages([
+          { day: 1, amount: "" },
+          { day: 15, amount: "" },
+        ]);
+      }
+      setEndMode(item.endMode === "months" ? "months" : "forever");
+      setEndMonths(item.endMonths ?? 12);
+      setDueDate(getTodayJalali());
+    } else {
+      setMultiStage(false);
+      setDueDate(item.nextPaymentDate || getTodayJalali());
+      setEndMode("forever");
+      setEndMonths(12);
+    }
+
+    setFormOpen(true);
+  }
+
+  useOpenOnQuery("new", "1", "/recurring", openCreate);
 
   const listQ = useQuery({ queryKey: ["recurring"], queryFn: fetchRecurring });
 
@@ -178,7 +268,7 @@ export default function RecurringPage() {
     [categoriesQ.data, type]
   );
 
-  const createMutation = useMutation({
+  const saveMutation = useMutation({
     mutationFn: async () => {
       if (title.trim().length < 2) throw new Error("عنوان را وارد کنید");
       if (!categoryId) throw new Error("دسته را انتخاب کنید");
@@ -205,7 +295,19 @@ export default function RecurringPage() {
             goldKind: resolved.goldKind ?? null,
           };
         }
-        return {};
+        return editingId
+          ? { assetQuantity: null, assetType: null, goldKind: null }
+          : {};
+      };
+
+      const persist = (payload: Record<string, unknown>) => {
+        if (editingId) {
+          return updateRecurring(
+            editingId,
+            payload as Parameters<typeof updateRecurring>[1]
+          );
+        }
+        return createRecurring(payload as CreateDebtPayload);
       };
 
       if (kind === "recurring") {
@@ -233,7 +335,7 @@ export default function RecurringPage() {
           const allStageAmounts = stageAmountsParsed.every((n) => n > 0);
 
           let monthlyAmount = 0;
-          let stageAmounts: number[] | undefined;
+          let stageAmounts: number[] | null | undefined;
 
           if (hasAnyStageAmount) {
             if (!allStageAmounts) {
@@ -248,6 +350,7 @@ export default function RecurringPage() {
             const resolved = resolveMarketUnitTomanAmount(amount, "toman", null);
             if ("error" in resolved) throw new Error(resolved.error);
             monthlyAmount = resolved.amount;
+            stageAmounts = editingId ? null : undefined;
           }
 
           if (!(monthlyAmount > 0)) {
@@ -255,13 +358,13 @@ export default function RecurringPage() {
           }
 
           const sortedDays = [...paymentDays].sort((a, b) => a - b);
-          return createRecurring({
+          return persist({
             title: title.trim(),
             amount: monthlyAmount,
             type,
             kind: "recurring",
             paymentDays: sortedDays,
-            stageAmounts,
+            ...(stageAmounts !== undefined ? { stageAmounts } : {}),
             endMode,
             endMonths: endMode === "months" ? endMonths : null,
             categoryId,
@@ -274,12 +377,15 @@ export default function RecurringPage() {
         if (!dayOfMonth || dayOfMonth < 1 || dayOfMonth > 31) {
           throw new Error("روز موعد ماه را وارد کنید (۱ تا ۳۱)");
         }
-        return createRecurring({
+        return persist({
           title: title.trim(),
           amount: resolved.amount,
           type,
           kind: "recurring",
           dayOfMonth,
+          ...(editingId
+            ? { paymentDays: [dayOfMonth], stageAmounts: null }
+            : {}),
           endMode,
           endMonths: endMode === "months" ? endMonths : null,
           categoryId,
@@ -292,7 +398,7 @@ export default function RecurringPage() {
       if ("error" in resolved) throw new Error(resolved.error);
       const normalizedDue = normalizeJalaliDateInput(dueDate);
       if (!normalizedDue) throw new Error("تاریخ سررسید را وارد کنید");
-      return createRecurring({
+      return persist({
         title: title.trim(),
         amount: resolved.amount,
         type,
@@ -304,18 +410,12 @@ export default function RecurringPage() {
       });
     },
     onSuccess: () => {
-      message.success("بدهی/قسط ثبت شد");
-      setTitle("");
-      setAmount("");
-      setAmountUnit("toman");
-      setCategoryId("");
-      setMultiStage(false);
-      setStages([
-        { day: 1, amount: "" },
-        { day: 15, amount: "" },
-      ]);
+      message.success(editingId ? "تغییرات ذخیره شد" : "بدهی/قسط ثبت شد");
+      setEditingId(null);
+      resetFormFields();
       setFormOpen(false);
       void queryClient.invalidateQueries({ queryKey: ["recurring"] });
+      void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
     onError: (err: unknown) => {
       const msg =
@@ -380,22 +480,8 @@ export default function RecurringPage() {
   const defaultAccountId = accounts[0]?.id ?? "";
 
   function cancelEdit() {
-    setTitle("");
-    setAmount("");
-    setAmountUnit("toman");
-    setType("expense");
-    setKind("recurring");
-    setDayOfMonth(1);
-    setMultiStage(false);
-    setStages([
-      { day: 1, amount: "" },
-      { day: 15, amount: "" },
-    ]);
-    setEndMode("forever");
-    setEndMonths(12);
-    setDueDate(getTodayJalali());
-    setReminderHour(20);
-    setCategoryId("");
+    setEditingId(null);
+    resetFormFields();
     setFormOpen(false);
   }
 
@@ -413,7 +499,7 @@ export default function RecurringPage() {
             <Button
               type="primary"
               icon={<PlusOutlined />}
-              onClick={() => setFormOpen(true)}
+              onClick={openCreate}
             >
               افزودن
             </Button>
@@ -510,17 +596,17 @@ export default function RecurringPage() {
       ) : null}
 
       <AppModal
-        open={formOpen}
+        open={formOpen || Boolean(editingId)}
         onClose={cancelEdit}
-        title="افزودن مورد جدید"
+        title={editingId ? "ویرایش سررسید" : "افزودن مورد جدید"}
         width={640}
         footer={
           <Flex gap="small" justify="end" wrap="wrap">
             <Button onClick={cancelEdit}>انصراف</Button>
             <Button
               type="primary"
-              loading={createMutation.isPending}
-              onClick={() => createMutation.mutate()}
+              loading={saveMutation.isPending}
+              onClick={() => saveMutation.mutate()}
             >
               ذخیره
             </Button>
@@ -863,6 +949,13 @@ export default function RecurringPage() {
                         onClick={() => setPayItem(item)}
                       >
                         ثبت تراکنش الان
+                      </Button>
+                      <Button
+                        block={isMobile}
+                        icon={<EditOutlined />}
+                        onClick={() => startEdit(item)}
+                      >
+                        ویرایش
                       </Button>
                       <Popconfirm
                         title="حذف مورد"

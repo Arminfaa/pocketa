@@ -121,7 +121,7 @@ export async function updateRecurring(
     kind: DebtKind;
     dayOfMonth: number;
     paymentDays: number[];
-    stageAmounts: number[];
+    stageAmounts: number[] | null;
     endMode: DebtEndMode;
     endMonths: number | null;
     dueDate: string;
@@ -130,6 +130,9 @@ export async function updateRecurring(
     reminderHour: number;
     notes: string;
     active: boolean;
+    assetQuantity: number | null;
+    assetType: "gold" | "usd" | "rial" | null;
+    goldKind: "melted" | "quarter_coin" | null;
   }>
 ): Promise<void> {
   await api.put(`/api/recurring/${id}`, payload);
