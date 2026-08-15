@@ -18,7 +18,9 @@ import {
   computeProfitAssetQuantity,
   ensureInvestmentIncomeCategory,
   formatAssetQuantity,
+  isCoinGoldKind,
   resolveGoldKind,
+  unitPriceToman,
   type GoldKind,
   type InvestmentAssetType,
 } from "../services/investment.service";
@@ -27,22 +29,6 @@ import {
   INVESTMENT_PURCHASE_CATEGORY_NAME,
   INVESTMENT_SALE_CATEGORY_NAME,
 } from "../services/accounting.service";
-
-function unitPriceToman(
-  assetType: InvestmentAssetType | string,
-  goldKind: GoldKind | string | null | undefined,
-  market: Awaited<ReturnType<typeof getMarketPrices>>
-): number | null {
-  if (assetType === "rial") return 1;
-  if (assetType === "usd") return market.currency?.usdFreeToman ?? null;
-  if (assetType === "gold") {
-    if (resolveGoldKind(assetType, goldKind) === "quarter_coin") {
-      return market.gold?.quarterCoinToman ?? null;
-    }
-    return market.gold?.gram18kToman ?? null;
-  }
-  return null;
-}
 
 function dayOfMonthFromJalali(date: string): number {
   const parts = normalizeJalaliDate(date).split("/").map(Number);
@@ -133,10 +119,16 @@ export const list = asyncHandler(async (req: Request, res: Response) => {
   const totalPnl = withValue.reduce((s, i) => s + (i.unrealizedPnl ?? 0), 0);
 
   const goldMeltedQty = mapped
-    .filter((i) => i.assetType === "gold" && i.goldKind !== "quarter_coin")
+    .filter((i) => i.assetType === "gold" && !isCoinGoldKind(i.goldKind))
     .reduce((s, i) => s + i.quantity, 0);
   const quarterCoinQty = mapped
     .filter((i) => i.assetType === "gold" && i.goldKind === "quarter_coin")
+    .reduce((s, i) => s + i.quantity, 0);
+  const halfCoinQty = mapped
+    .filter((i) => i.assetType === "gold" && i.goldKind === "half_coin")
+    .reduce((s, i) => s + i.quantity, 0);
+  const fullCoinQty = mapped
+    .filter((i) => i.assetType === "gold" && i.goldKind === "full_coin")
     .reduce((s, i) => s + i.quantity, 0);
 
   return sendSuccess(res, {
@@ -148,6 +140,8 @@ export const list = asyncHandler(async (req: Request, res: Response) => {
       totalUnrealizedPnl: withValue.length ? totalPnl : null,
       goldQuantity: goldMeltedQty,
       quarterCoinQuantity: quarterCoinQty,
+      halfCoinQuantity: halfCoinQty,
+      fullCoinQuantity: fullCoinQty,
       usdQuantity: mapped
         .filter((i) => i.assetType === "usd")
         .reduce((s, i) => s + i.quantity, 0),
@@ -302,10 +296,10 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
   if (
     parsed.data.quantity != null &&
     existing.assetType === "gold" &&
-    goldKind === "quarter_coin" &&
+    isCoinGoldKind(goldKind) &&
     (!Number.isInteger(parsed.data.quantity) || parsed.data.quantity < 1)
   ) {
-    throw new AppError(400, "تعداد ربع سکه باید عدد صحیح باشد");
+    throw new AppError(400, "تعداد سکه باید عدد صحیح باشد");
   }
 
   const next: Record<string, unknown> = { ...parsed.data };
@@ -457,10 +451,10 @@ export const sell = asyncHandler(async (req: Request, res: Response) => {
   const goldKind = resolveGoldKind(investment.assetType, investment.goldKind);
   if (
     investment.assetType === "gold" &&
-    goldKind === "quarter_coin" &&
+    isCoinGoldKind(goldKind) &&
     (!Number.isInteger(sellQty) || sellQty < 1)
   ) {
-    throw new AppError(400, "تعداد ربع سکه فروش باید عدد صحیح باشد");
+    throw new AppError(400, "تعداد سکه فروش باید عدد صحیح باشد");
   }
 
   const account = await BankAccountModel.findOne({

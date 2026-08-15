@@ -66,8 +66,10 @@ import {
 import {
   MarketUnitAmountInput,
   resolveMarketUnitTomanAmount,
+  isCoinGoldKind,
   type AmountMarketUnit,
 } from "@/components/ui/market-unit-amount-input";
+import type { GoldKind } from "@/services/investments";
 import api from "@/services/api";
 import { cn } from "@/lib/cn";
 import { PageShell } from "@/components/ui/page-shell";
@@ -117,6 +119,7 @@ export default function RecurringPage() {
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [amountUnit, setAmountUnit] = useState<AmountMarketUnit>("toman");
+  const [goldKind, setGoldKind] = useState<GoldKind>("melted");
   const [type, setType] = useState<"income" | "expense">("expense");
   const [kind, setKind] = useState<DebtKind>("recurring");
   const [dayOfMonth, setDayOfMonth] = useState<number>(1);
@@ -141,6 +144,7 @@ export default function RecurringPage() {
     setTitle("");
     setAmount("");
     setAmountUnit("toman");
+    setGoldKind("melted");
     setType("expense");
     setKind("recurring");
     setDayOfMonth(1);
@@ -178,12 +182,20 @@ export default function RecurringPage() {
 
     if (item.assetQuantity != null && item.assetQuantity > 0 && item.assetType === "gold") {
       setAmountUnit("gold");
-      setAmount(formatDecimalAmountInputValue(item.assetQuantity, 3));
+      setGoldKind(item.goldKind ?? "melted");
+      setAmount(
+        formatDecimalAmountInputValue(
+          item.assetQuantity,
+          isCoinGoldKind(item.goldKind) ? 0 : 3
+        )
+      );
     } else if (item.assetQuantity != null && item.assetQuantity > 0 && item.assetType === "usd") {
       setAmountUnit("usd");
+      setGoldKind("melted");
       setAmount(formatDecimalAmountInputValue(item.assetQuantity, 2));
     } else {
       setAmountUnit("toman");
+      setGoldKind("melted");
       setAmount(
         formatAmountInputValue(item.baseAmount ?? item.monthlyAmount ?? item.amount)
       );
@@ -274,7 +286,12 @@ export default function RecurringPage() {
       if (!categoryId) throw new Error("دسته را انتخاب کنید");
 
       let market: {
-        gold: { gram18kToman: number | null } | null;
+        gold: {
+          gram18kToman: number | null;
+          quarterCoinToman?: number | null;
+          halfCoinToman?: number | null;
+          fullCoinToman?: number | null;
+        } | null;
         currency: { usdFreeToman: number; usdtToman: number } | null;
       } | null = null;
       if (amountUnit !== "toman") {
@@ -372,7 +389,7 @@ export default function RecurringPage() {
           });
         }
 
-        const resolved = resolveMarketUnitTomanAmount(amount, amountUnit, market);
+        const resolved = resolveMarketUnitTomanAmount(amount, amountUnit, market, goldKind);
         if ("error" in resolved) throw new Error(resolved.error);
         if (!dayOfMonth || dayOfMonth < 1 || dayOfMonth > 31) {
           throw new Error("روز موعد ماه را وارد کنید (۱ تا ۳۱)");
@@ -394,7 +411,7 @@ export default function RecurringPage() {
         });
       }
 
-      const resolved = resolveMarketUnitTomanAmount(amount, amountUnit, market);
+      const resolved = resolveMarketUnitTomanAmount(amount, amountUnit, market, goldKind);
       if ("error" in resolved) throw new Error(resolved.error);
       const normalizedDue = normalizeJalaliDateInput(dueDate);
       if (!normalizedDue) throw new Error("تاریخ سررسید را وارد کنید");
@@ -669,6 +686,8 @@ export default function RecurringPage() {
                 onChange={setAmount}
                 unit={amountUnit}
                 onUnitChange={setAmountUnit}
+                goldKind={goldKind}
+                onGoldKindChange={setGoldKind}
                 inputClassName={cn(financeTypeTextClass(type))}
               />
             </Col>

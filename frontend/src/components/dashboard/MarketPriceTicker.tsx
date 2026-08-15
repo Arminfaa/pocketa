@@ -18,11 +18,15 @@ export type MarketTickerData = {
     mesghal18kUsd: number;
     mesghal24kUsd: number;
     quarterCoinUsd?: number;
+    halfCoinUsd?: number;
+    fullCoinUsd?: number;
     gram18kToman: number | null;
     gram24kToman: number | null;
     mesghal18kToman: number | null;
     mesghal24kToman: number | null;
     quarterCoinToman?: number | null;
+    halfCoinToman?: number | null;
+    fullCoinToman?: number | null;
     changePercent?: number;
     fetchDate?: string;
     fetchedAt?: string;
@@ -189,6 +193,8 @@ function buildItems(market: MarketTickerData | undefined): TickerItem[] {
       tomanItem("m18", "مثقال ۱۸ عیار", gold.mesghal18kToman, gold.mesghal18kUsd, goldChange),
       tomanItem("m24", "مثقال ۲۴ عیار", gold.mesghal24kToman, gold.mesghal24kUsd, goldChange),
       tomanItem("qcoin", "ربع سکه", gold.quarterCoinToman, gold.quarterCoinUsd, goldChange),
+      tomanItem("hcoin", "نیم سکه", gold.halfCoinToman, gold.halfCoinUsd, goldChange),
+      tomanItem("fcoin", "تمام سکه", gold.fullCoinToman, gold.fullCoinUsd, goldChange),
     ];
     for (const item of goldItems) {
       if (item) items.push(item);

@@ -3,7 +3,7 @@
 import api from "@/services/api";
 
 export type InvestmentAssetType = "gold" | "usd" | "rial";
-export type GoldKind = "melted" | "quarter_coin";
+export type GoldKind = "melted" | "quarter_coin" | "half_coin" | "full_coin";
 export type ProfitMode = "fixed" | "percent";
 export type ProfitFrequency = "daily" | "monthly" | "yearly";
 
@@ -39,6 +39,8 @@ export type InvestmentsSummary = {
   totalUnrealizedPnl: number | null;
   goldQuantity: number;
   quarterCoinQuantity?: number;
+  halfCoinQuantity?: number;
+  fullCoinQuantity?: number;
   usdQuantity: number;
   rialQuantity?: number;
 };

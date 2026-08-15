@@ -15,11 +15,13 @@ const InvestmentSchema = new Schema(
      * فقط وقتی assetType=gold:
      * melted = آب‌شده/پارسیان (گرم)
      * quarter_coin = ربع سکه (تعداد)
+     * half_coin = نیم سکه (تعداد)
+     * full_coin = تمام سکه (تعداد)
      */
     goldKind: {
       type: String,
       required: false,
-      enum: ["melted", "quarter_coin"],
+      enum: ["melted", "quarter_coin", "half_coin", "full_coin"],
       default: "melted",
     },
     /** مقدار: گرم طلا / تعداد ربع سکه / دلار / تومان */

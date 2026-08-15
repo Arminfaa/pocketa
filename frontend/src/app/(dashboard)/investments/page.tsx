@@ -83,6 +83,8 @@ const assetOptions = [
 const goldKindOptions = [
   { value: "melted" as const, label: "طلا (آب شده/پارسیان)" },
   { value: "quarter_coin" as const, label: "ربع سکه" },
+  { value: "half_coin" as const, label: "نیم سکه" },
+  { value: "full_coin" as const, label: "تمام سکه" },
 ];
 
 const profitModeOptions = [
@@ -123,10 +125,18 @@ function DetailRow({
   );
 }
 
+function isCoinKind(goldKind?: GoldKind | null): boolean {
+  return (
+    goldKind === "quarter_coin" ||
+    goldKind === "half_coin" ||
+    goldKind === "full_coin"
+  );
+}
+
 function assetUnitLabel(type: InvestmentAssetType, goldKind?: GoldKind | null): string {
   if (type === "usd") return "دلار";
   if (type === "rial") return "تومان";
-  if (goldKind === "quarter_coin") return "تعداد";
+  if (isCoinKind(goldKind)) return "تعداد";
   return "گرم";
 }
 
@@ -134,13 +144,15 @@ function assetDisplayLabel(type: InvestmentAssetType, goldKind?: GoldKind | null
   if (type === "usd") return "دلار";
   if (type === "rial") return "ریال";
   if (goldKind === "quarter_coin") return "ربع سکه";
+  if (goldKind === "half_coin") return "نیم سکه";
+  if (goldKind === "full_coin") return "تمام سکه";
   return "طلا (آب شده/پارسیان)";
 }
 
 function assetTagColor(type: InvestmentAssetType, goldKind?: GoldKind | null): string {
   if (type === "usd") return "blue";
   if (type === "rial") return "green";
-  if (goldKind === "quarter_coin") return "orange";
+  if (isCoinKind(goldKind)) return "orange";
   return "gold";
 }
 
@@ -281,10 +293,10 @@ export default function InvestmentsPage() {
       if (!Number.isFinite(qty) || qty <= 0) throw new Error("مقدار معتبر نیست");
       if (
         assetType === "gold" &&
-        goldKind === "quarter_coin" &&
+        isCoinKind(goldKind) &&
         (!Number.isInteger(qty) || qty < 1)
       ) {
-        throw new Error("تعداد ربع سکه باید عدد صحیح باشد");
+        throw new Error("تعداد سکه باید عدد صحیح باشد");
       }
       if (assetType !== "rial" && (!Number.isFinite(price) || price <= 0)) {
         throw new Error("قیمت خرید معتبر نیست");
@@ -354,10 +366,10 @@ export default function InvestmentsPage() {
       if (!Number.isFinite(qty) || qty <= 0) throw new Error("مقدار معتبر نیست");
       if (
         assetType === "gold" &&
-        goldKind === "quarter_coin" &&
+        isCoinKind(goldKind) &&
         (!Number.isInteger(qty) || qty < 1)
       ) {
-        throw new Error("تعداد ربع سکه باید عدد صحیح باشد");
+        throw new Error("تعداد سکه باید عدد صحیح باشد");
       }
       if (assetType !== "rial" && (!Number.isFinite(price) || price <= 0)) {
         throw new Error("قیمت خرید معتبر نیست");
@@ -424,7 +436,7 @@ export default function InvestmentsPage() {
   function openSell(item: Investment) {
     setSellTarget(item);
     setSellQty(
-      item.assetType === "gold" && item.goldKind === "quarter_coin"
+      item.assetType === "gold" && isCoinKind(item.goldKind)
         ? String(item.quantity)
         : String(item.quantity)
     );
@@ -461,10 +473,10 @@ export default function InvestmentsPage() {
       }
       if (
         sellTarget.assetType === "gold" &&
-        sellTarget.goldKind === "quarter_coin" &&
+        isCoinKind(sellTarget.goldKind) &&
         (!Number.isInteger(qty) || qty < 1)
       ) {
-        throw new Error("تعداد ربع سکه باید عدد صحیح باشد");
+        throw new Error("تعداد سکه باید عدد صحیح باشد");
       }
       if (sellTarget.assetType !== "rial" && (!Number.isFinite(price) || price <= 0)) {
         throw new Error("قیمت فروش معتبر نیست");
@@ -691,8 +703,8 @@ export default function InvestmentsPage() {
                   <Text type="secondary" className="text-xs">
                     {assetType === "rial"
                       ? "مبلغ (تومان)"
-                      : assetType === "gold" && goldKind === "quarter_coin"
-                        ? "تعداد ربع سکه"
+                      : assetType === "gold" && isCoinKind(goldKind)
+                        ? "تعداد سکه"
                         : `مقدار (${unitLabel})`}
                   </Text>
                   <AmountInput
@@ -701,16 +713,16 @@ export default function InvestmentsPage() {
                     placeholder={
                       assetType === "rial"
                         ? "مثلاً ۱۰٬۰۰۰٬۰۰۰"
-                        : goldKind === "quarter_coin"
+                        : isCoinKind(goldKind)
                           ? "مثلاً ۲"
                           : "مثلاً ۴۲٫۹۸۰"
                     }
                     allowDecimals={
                       assetType !== "rial" &&
-                      !(assetType === "gold" && goldKind === "quarter_coin")
+                      !(assetType === "gold" && isCoinKind(goldKind))
                     }
                     decimalPlaces={
-                      assetType === "gold" && goldKind === "quarter_coin"
+                      assetType === "gold" && isCoinKind(goldKind)
                         ? 0
                         : assetType === "usd"
                           ? 2
@@ -722,7 +734,7 @@ export default function InvestmentsPage() {
                 {assetType !== "rial" ? (
                   <Col xs={24} sm={8}>
                     <Text type="secondary" className="text-xs">
-                      {assetType === "gold" && goldKind === "quarter_coin"
+                      {assetType === "gold" && isCoinKind(goldKind)
                         ? "قیمت خرید هر ربع سکه (تومان)"
                         : `قیمت خرید هر ${unitLabel} (تومان)`}
                     </Text>
@@ -877,7 +889,7 @@ export default function InvestmentsPage() {
               <Flex vertical gap="middle">
                 <Text type="secondary" className="text-xs">
                   موجودی:{" "}
-                  {sellTarget.assetType === "gold" && sellTarget.goldKind === "quarter_coin"
+                  {sellTarget.assetType === "gold" && isCoinKind(sellTarget.goldKind)
                     ? `${sellTarget.quantity.toLocaleString("fa-IR")} عدد`
                     : `${sellTarget.quantity.toLocaleString("fa-IR", {
                         maximumFractionDigits: 3,
@@ -897,12 +909,12 @@ export default function InvestmentsPage() {
                     allowDecimals={
                       !(
                         sellTarget.assetType === "gold" &&
-                        sellTarget.goldKind === "quarter_coin"
+                        isCoinKind(sellTarget.goldKind)
                       ) && sellTarget.assetType !== "rial"
                     }
                     decimalPlaces={
                       sellTarget.assetType === "gold" &&
-                      sellTarget.goldKind === "quarter_coin"
+                      isCoinKind(sellTarget.goldKind)
                         ? 0
                         : sellTarget.assetType === "usd"
                           ? 2
@@ -1021,12 +1033,12 @@ export default function InvestmentsPage() {
                       <div className="flex flex-col">
                         <DetailRow
                           label={
-                            item.assetType === "gold" && item.goldKind === "quarter_coin"
+                            item.assetType === "gold" && isCoinKind(item.goldKind)
                               ? "تعداد"
                               : "مقدار"
                           }
                           value={
-                            item.assetType === "gold" && item.goldKind === "quarter_coin"
+                            item.assetType === "gold" && isCoinKind(item.goldKind)
                               ? `${item.quantity.toLocaleString("fa-IR")} عدد ربع سکه`
                               : `${item.quantity.toLocaleString("fa-IR", {
                                   maximumFractionDigits: 3,
@@ -1094,3 +1106,4 @@ export default function InvestmentsPage() {
     </PageShell>
   );
 }
+

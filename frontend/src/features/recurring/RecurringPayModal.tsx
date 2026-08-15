@@ -18,6 +18,7 @@ import { formatJalaliDate, formatToman, toPersianDigits } from "@/lib/format";
 import { formatAmountInputValue, normalizeJalaliDateInput, parseAmountInput } from "@/lib/amount";
 import { getTodayJalali } from "@/lib/transaction-helpers";
 import { getNowTehranClockTime } from "@/lib/transaction-time";
+import { goldKindRateLabel, isCoinGoldKind } from "@/components/ui/market-unit-amount-input";
 
 const { Text } = Typography;
 
@@ -324,8 +325,8 @@ export function RecurringPayModal({
             <Text type="secondary" className="text-xs block">
               {item.assetType === "usd"
                 ? `${item.assetQuantity} دلار`
-                : item.goldKind === "quarter_coin"
-                  ? `${item.assetQuantity} ربع سکه`
+                : item.assetType === "gold" && isCoinGoldKind(item.goldKind)
+                  ? `${item.assetQuantity} ${goldKindRateLabel(item.goldKind ?? "melted")}`
                   : `${item.assetQuantity} گرم طلا`}
             </Text>
           ) : null}

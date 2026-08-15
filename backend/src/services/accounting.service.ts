@@ -6,7 +6,11 @@ import { InvestmentModel } from "../models/Investment";
 import { RecurringTransactionModel } from "../models/RecurringTransaction";
 import { OPENING_CATEGORY_NAME, ADJUSTMENT_CATEGORY_NAME } from "./account.service";
 import { getMarketPrices } from "./market-prices.service";
-import { resolveGoldKind, type InvestmentAssetType, type GoldKind } from "./investment.service";
+import {
+  resolveGoldKind,
+  unitPriceToman,
+  type InvestmentAssetType,
+} from "./investment.service";
 
 export const TRANSFER_CATEGORY_NAME = "انتقال بین حساب‌ها";
 export const INVESTMENT_PURCHASE_CATEGORY_NAME = "خرید سرمایه‌گذاری";
@@ -131,22 +135,6 @@ export async function ensureNamedCategory(
   });
 }
 
-function unitPriceToman(
-  assetType: InvestmentAssetType | string,
-  goldKind: GoldKind | string | null | undefined,
-  market: Awaited<ReturnType<typeof getMarketPrices>>
-): number | null {
-  if (assetType === "rial") return 1;
-  if (assetType === "usd") return market.currency?.usdFreeToman ?? null;
-  if (assetType === "gold") {
-    if (resolveGoldKind(assetType, goldKind) === "quarter_coin") {
-      return market.gold?.quarterCoinToman ?? null;
-    }
-    return market.gold?.gram18kToman ?? null;
-  }
-  return null;
-}
-
 /**
  * Net worth (personal balance sheet lite):
  * نقد فعال + ارزش روز سرمایه‌گذاری − بدهی‌های سررسید + طلب‌ها
@@ -193,13 +181,19 @@ export async function computeNetWorth(userId: string | mongoose.Types.ObjectId) 
     userId: uid,
     active: true,
   })
-    .select("type amount")
+    .select("type amount assetQuantity assetType goldKind")
     .lean();
 
   let liabilities = 0;
   let receivables = 0;
   for (const d of dues) {
-    const amt = Number(d.amount) || 0;
+    const qty = Number(d.assetQuantity) || 0;
+    const assetType = d.assetType as InvestmentAssetType | string | null | undefined;
+    let amt = Number(d.amount) || 0;
+    if (qty > 0 && assetType && market) {
+      const unit = unitPriceToman(assetType, d.goldKind, market);
+      if (unit != null && unit > 0) amt = Math.max(1, Math.round(qty * unit));
+    }
     if (d.type === "expense") liabilities += amt;
     else receivables += amt;
   }

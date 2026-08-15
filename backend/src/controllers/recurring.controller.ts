@@ -12,6 +12,7 @@ import {
   RecurringUpdateSchema,
 } from "../validations/recurring";
 import { getMarketPrices } from "../services/market-prices.service";
+import { unitPriceToman } from "../services/investment.service";
 import {
   belongsToMonthChecklist,
   computePaidThisMonth,
@@ -163,12 +164,7 @@ function resolveAssetLinkedAmount(
 
   if (!market) return item.amount;
 
-  const unit =
-    assetType === "usd"
-      ? market.currency?.usdFreeToman
-      : item.goldKind === "quarter_coin"
-        ? market.gold?.quarterCoinToman
-        : market.gold?.gram18kToman;
+  const unit = unitPriceToman(assetType, item.goldKind, market);
   if (unit == null || unit <= 0) return item.amount;
   return Math.max(1, Math.round(qty * unit));
 }

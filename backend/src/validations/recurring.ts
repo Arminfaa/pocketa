@@ -34,7 +34,7 @@ const BaseFields = {
   /** بدهی/طلب طلا یا دلار — برای قیمت‌گذاری مجدد هنگام تسویه */
   assetQuantity: z.coerce.number().positive().optional().nullable(),
   assetType: z.enum(["gold", "usd", "rial"]).optional().nullable(),
-  goldKind: z.enum(["melted", "quarter_coin"]).optional().nullable(),
+  goldKind: z.enum(["melted", "quarter_coin", "half_coin", "full_coin"]).optional().nullable(),
 };
 
 const RecurringKindSchema = z.object({
@@ -129,6 +129,19 @@ export const RecurringCreateSchema = z
           path: ["goldKind"],
         });
       }
+      if (
+        data.assetType === "gold" &&
+        (data.goldKind === "quarter_coin" ||
+          data.goldKind === "half_coin" ||
+          data.goldKind === "full_coin") &&
+        (!Number.isInteger(data.assetQuantity) || data.assetQuantity < 1)
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "تعداد سکه باید عدد صحیح باشد",
+          path: ["assetQuantity"],
+        });
+      }
     }
   });
 
@@ -151,7 +164,7 @@ export const RecurringUpdateSchema = z
     reminderHour: z.coerce.number().int().min(0).max(23).optional(),
     assetQuantity: z.coerce.number().positive().optional().nullable(),
     assetType: z.enum(["gold", "usd", "rial"]).optional().nullable(),
-    goldKind: z.enum(["melted", "quarter_coin"]).optional().nullable(),
+    goldKind: z.enum(["melted", "quarter_coin", "half_coin", "full_coin"]).optional().nullable(),
   })
   .superRefine((data, ctx) => {
     if (data.kind === "recurring" && data.endMode === "months") {
@@ -198,6 +211,19 @@ export const RecurringUpdateSchema = z
           code: z.ZodIssueCode.custom,
           message: "نوع طلا را مشخص کنید",
           path: ["goldKind"],
+        });
+      }
+      if (
+        data.assetType === "gold" &&
+        (data.goldKind === "quarter_coin" ||
+          data.goldKind === "half_coin" ||
+          data.goldKind === "full_coin") &&
+        (!Number.isInteger(data.assetQuantity) || data.assetQuantity < 1)
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "تعداد سکه باید عدد صحیح باشد",
+          path: ["assetQuantity"],
         });
       }
     }

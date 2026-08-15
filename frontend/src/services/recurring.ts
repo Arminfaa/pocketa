@@ -45,7 +45,7 @@ export type RecurringItem = {
   investmentId?: string | null;
   assetQuantity?: number | null;
   assetType?: "gold" | "usd" | "rial" | null;
-  goldKind?: "melted" | "quarter_coin" | null;
+  goldKind?: "melted" | "quarter_coin" | "half_coin" | "full_coin" | null;
 };
 
 export type GenerateRecurringPayload = {
@@ -82,7 +82,7 @@ export type CreateDebtPayload =
       notes?: string;
       assetQuantity?: number | null;
       assetType?: "gold" | "usd" | "rial" | null;
-      goldKind?: "melted" | "quarter_coin" | null;
+      goldKind?: "melted" | "quarter_coin" | "half_coin" | "full_coin" | null;
     }
   | {
       title: string;
@@ -95,7 +95,7 @@ export type CreateDebtPayload =
       notes?: string;
       assetQuantity?: number | null;
       assetType?: "gold" | "usd" | "rial" | null;
-      goldKind?: "melted" | "quarter_coin" | null;
+      goldKind?: "melted" | "quarter_coin" | "half_coin" | "full_coin" | null;
     };
 
 export async function fetchRecurring(): Promise<{
@@ -132,7 +132,7 @@ export async function updateRecurring(
     active: boolean;
     assetQuantity: number | null;
     assetType: "gold" | "usd" | "rial" | null;
-    goldKind: "melted" | "quarter_coin" | null;
+    goldKind: "melted" | "quarter_coin" | "half_coin" | "full_coin" | null;
   }>
 ): Promise<void> {
   await api.put(`/api/recurring/${id}`, payload);

@@ -8,6 +8,7 @@ import api from "@/services/api";
 import { parseAmountInput } from "@/lib/amount";
 import { formatToman, toPersianDigits } from "@/lib/format";
 import { cn } from "@/lib/cn";
+import type { GoldKind } from "@/services/investments";
 
 const { Text } = Typography;
 
@@ -16,6 +17,9 @@ export type AmountMarketUnit = "toman" | "usd" | "usdt" | "gold";
 type MarketPrices = {
   gold: {
     gram18kToman: number | null;
+    quarterCoinToman?: number | null;
+    halfCoinToman?: number | null;
+    fullCoinToman?: number | null;
   } | null;
   currency: {
     usdFreeToman: number;
@@ -30,21 +34,43 @@ const UNIT_OPTIONS: { value: AmountMarketUnit; label: string }[] = [
   { value: "gold", label: "طلا" },
 ];
 
-function unitRateLabel(unit: AmountMarketUnit): string {
+export const GOLD_KIND_OPTIONS: { value: GoldKind; label: string }[] = [
+  { value: "melted", label: "گرمی ۱۸ عیار" },
+  { value: "quarter_coin", label: "ربع سکه" },
+  { value: "half_coin", label: "نیم سکه" },
+  { value: "full_coin", label: "تمام سکه" },
+];
+
+export function isCoinGoldKind(kind: GoldKind | string | null | undefined): boolean {
+  return kind === "quarter_coin" || kind === "half_coin" || kind === "full_coin";
+}
+
+export function goldKindRateLabel(kind: GoldKind): string {
+  if (kind === "quarter_coin") return "ربع سکه";
+  if (kind === "half_coin") return "نیم سکه";
+  if (kind === "full_coin") return "تمام سکه";
+  return "گرم طلای ۱۸ عیار";
+}
+
+function unitRateLabel(unit: AmountMarketUnit, goldKind: GoldKind): string {
   if (unit === "usd") return "دلار آزاد";
   if (unit === "usdt") return "تتر";
-  if (unit === "gold") return "گرم طلای ۱۸ عیار";
+  if (unit === "gold") return goldKindRateLabel(goldKind);
   return "تومان";
 }
 
 function resolveUnitRate(
   unit: AmountMarketUnit,
-  market: MarketPrices | undefined
+  market: MarketPrices | undefined,
+  goldKind: GoldKind
 ): number | null {
   if (unit === "toman") return 1;
   if (!market) return null;
   if (unit === "usd") return market.currency?.usdFreeToman ?? null;
   if (unit === "usdt") return market.currency?.usdtToman ?? null;
+  if (goldKind === "quarter_coin") return market.gold?.quarterCoinToman ?? null;
+  if (goldKind === "half_coin") return market.gold?.halfCoinToman ?? null;
+  if (goldKind === "full_coin") return market.gold?.fullCoinToman ?? null;
   return market.gold?.gram18kToman ?? null;
 }
 
@@ -66,6 +92,8 @@ type Props = {
   onChange: (value: string) => void;
   unit: AmountMarketUnit;
   onUnitChange: (unit: AmountMarketUnit) => void;
+  goldKind?: GoldKind;
+  onGoldKindChange?: (kind: GoldKind) => void;
   className?: string;
   inputClassName?: string;
   placeholder?: string;
@@ -73,6 +101,7 @@ type Props = {
 
 /**
  * Amount field with unit switch (تومان / دلار / تتر / طلا).
+ * For gold, a subtype picker chooses gram vs coin kinds.
  * Non-toman values show live Toman equivalent from market rates.
  */
 export function MarketUnitAmountInput({
@@ -80,6 +109,8 @@ export function MarketUnitAmountInput({
   onChange,
   unit,
   onUnitChange,
+  goldKind = "melted",
+  onGoldKindChange,
   className,
   inputClassName,
   placeholder,
@@ -91,9 +122,10 @@ export function MarketUnitAmountInput({
     enabled: unit !== "toman",
   });
 
-  const unitRate = resolveUnitRate(unit, marketQ.data);
-  const allowDecimals = unit !== "toman";
-  const decimalPlaces = unit === "gold" ? 3 : unit === "toman" ? 0 : 2;
+  const unitRate = resolveUnitRate(unit, marketQ.data, goldKind);
+  const coinMode = unit === "gold" && isCoinGoldKind(goldKind);
+  const allowDecimals = unit !== "toman" && !coinMode;
+  const decimalPlaces = coinMode ? 0 : unit === "gold" ? 3 : unit === "toman" ? 0 : 2;
 
   const quantity = useMemo(() => parseAmountInput(value), [value]);
   const tomanAmount = useMemo(() => {
@@ -108,7 +140,9 @@ export function MarketUnitAmountInput({
     (unit === "toman"
       ? "مبلغ تومان"
       : unit === "gold"
-        ? "مقدار گرم"
+        ? coinMode
+          ? "تعداد سکه"
+          : "مقدار گرم"
         : "مقدار");
 
   return (
@@ -121,6 +155,7 @@ export function MarketUnitAmountInput({
           onChange={(next) => {
             onUnitChange(next);
             onChange("");
+            if (next === "gold" && !goldKind) onGoldKindChange?.("melted");
           }}
           aria-label="واحد مبلغ"
         />
@@ -138,6 +173,21 @@ export function MarketUnitAmountInput({
         </div>
       </Flex>
 
+      {unit === "gold" ? (
+        <div className="mt-2">
+          <Select
+            className="w-full"
+            value={goldKind}
+            options={GOLD_KIND_OPTIONS}
+            onChange={(next) => {
+              onGoldKindChange?.(next);
+              onChange("");
+            }}
+            aria-label="نوع طلا"
+          />
+        </div>
+      ) : null}
+
       {unit !== "toman" ? (
         <div className="mt-1.5 space-y-0.5">
           {marketQ.isLoading ? (
@@ -147,13 +197,13 @@ export function MarketUnitAmountInput({
           ) : null}
           {marketQ.isError || (unitRate == null && !marketQ.isLoading) ? (
             <Text type="danger" className="text-xs">
-              نرخ {unitRateLabel(unit)} در دسترس نیست.
+              نرخ {unitRateLabel(unit, goldKind)} در دسترس نیست.
             </Text>
           ) : null}
           {unitRate != null && unitRate > 0 ? (
             <>
               <Text type="secondary" className="block text-xs">
-                نرخ روز {unitRateLabel(unit)}: {formatToman(unitRate)}
+                نرخ روز {unitRateLabel(unit, goldKind)}: {formatToman(unitRate)}
               </Text>
               {tomanAmount != null ? (
                 <Text className="block text-xs font-medium text-app-fg">
@@ -174,13 +224,14 @@ export function MarketUnitAmountInput({
 export function resolveMarketUnitTomanAmount(
   rawValue: string,
   unit: AmountMarketUnit,
-  market?: MarketPrices | null
+  market?: MarketPrices | null,
+  goldKind: GoldKind = "melted"
 ):
   | {
       amount: number;
       assetQuantity?: number;
       assetType?: "gold" | "usd";
-      goldKind?: "melted";
+      goldKind?: GoldKind;
     }
   | { error: string } {
   const quantity = parseAmountInput(rawValue);
@@ -192,15 +243,26 @@ export function resolveMarketUnitTomanAmount(
     return { amount: Math.round(quantity) };
   }
 
-  const rate = resolveUnitRate(unit, market ?? undefined);
+  if (unit === "gold" && isCoinGoldKind(goldKind)) {
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      return { error: "تعداد سکه باید عدد صحیح باشد" };
+    }
+  }
+
+  const rate = resolveUnitRate(unit, market ?? undefined, goldKind);
   if (rate == null || rate <= 0) {
-    return { error: `نرخ ${unitRateLabel(unit)} در دسترس نیست` };
+    return { error: `نرخ ${unitRateLabel(unit, goldKind)} در دسترس نیست` };
   }
 
   const amount = Math.max(1, Math.round(quantity * rate));
 
   if (unit === "gold") {
-    return { amount, assetQuantity: quantity, assetType: "gold", goldKind: "melted" };
+    return {
+      amount,
+      assetQuantity: quantity,
+      assetType: "gold",
+      goldKind,
+    };
   }
   if (unit === "usd") {
     return { amount, assetQuantity: quantity, assetType: "usd" };

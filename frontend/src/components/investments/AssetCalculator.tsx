@@ -24,6 +24,8 @@ type MarketPrices = {
     mesghal18kToman: number | null;
     mesghal24kToman: number | null;
     quarterCoinToman?: number | null;
+    halfCoinToman?: number | null;
+    fullCoinToman?: number | null;
   } | null;
   currency: {
     usdFreeToman: number;
@@ -31,7 +33,15 @@ type MarketPrices = {
   } | null;
 };
 
-type CalcKind = "gold18" | "gold24" | "mesghal18" | "mesghal24" | "quarterCoin" | "usd";
+type CalcKind =
+  | "gold18"
+  | "gold24"
+  | "mesghal18"
+  | "mesghal24"
+  | "quarterCoin"
+  | "halfCoin"
+  | "fullCoin"
+  | "usd";
 
 const kindOptions: { value: CalcKind; label: string }[] = [
   { value: "gold18", label: "طلا ۱۸ عیار (گرم)" },
@@ -39,12 +49,14 @@ const kindOptions: { value: CalcKind; label: string }[] = [
   { value: "mesghal18", label: "مثقال ۱۸ عیار" },
   { value: "mesghal24", label: "مثقال ۲۴ عیار" },
   { value: "quarterCoin", label: "ربع سکه" },
+  { value: "halfCoin", label: "نیم سکه" },
+  { value: "fullCoin", label: "تمام سکه" },
   { value: "usd", label: "دلار آزاد" },
 ];
 
 function unitLabel(kind: CalcKind): string {
   if (kind === "usd") return "دلار";
-  if (kind === "quarterCoin") return "تعداد";
+  if (kind === "quarterCoin" || kind === "halfCoin" || kind === "fullCoin") return "تعداد";
   if (kind.startsWith("mesghal")) return "مثقال";
   return "گرم";
 }
@@ -55,8 +67,11 @@ function resolveUnitPrice(kind: CalcKind, market: MarketPrices | undefined): num
   if (kind === "gold18") return market.gold?.gram18kToman ?? null;
   if (kind === "gold24") return market.gold?.gram24kToman ?? null;
   if (kind === "mesghal18") return market.gold?.mesghal18kToman ?? null;
+  if (kind === "mesghal24") return market.gold?.mesghal24kToman ?? null;
   if (kind === "quarterCoin") return market.gold?.quarterCoinToman ?? null;
-  return market.gold?.mesghal24kToman ?? null;
+  if (kind === "halfCoin") return market.gold?.halfCoinToman ?? null;
+  if (kind === "fullCoin") return market.gold?.fullCoinToman ?? null;
+  return null;
 }
 
 export function AssetCalculator() {
@@ -72,7 +87,12 @@ export function AssetCalculator() {
   });
 
   const unitPrice = resolveUnitPrice(kind, marketQ.data);
-  const qtyDecimals = kind === "quarterCoin" ? 0 : kind === "usd" ? 2 : 3;
+  const qtyDecimals =
+    kind === "quarterCoin" || kind === "halfCoin" || kind === "fullCoin"
+      ? 0
+      : kind === "usd"
+        ? 2
+        : 3;
 
   useEffect(() => {
     if (unitPrice == null || unitPrice <= 0 || !lastEdited.current) return;
@@ -181,13 +201,27 @@ export function AssetCalculator() {
             <Row gutter={[16, 16]}>
               <Col xs={24} sm={12}>
                 <Text type="secondary" className="mb-1 block text-xs">
-                  {kind === "quarterCoin" ? "تعداد ربع سکه" : `مقدار (${unitLabel(kind)})`}
+                  {kind === "quarterCoin" || kind === "halfCoin" || kind === "fullCoin"
+                    ? `تعداد ${
+                        kind === "quarterCoin"
+                          ? "ربع سکه"
+                          : kind === "halfCoin"
+                            ? "نیم سکه"
+                            : "تمام سکه"
+                      }`
+                    : `مقدار (${unitLabel(kind)})`}
                 </Text>
                 <AmountInput
                   value={quantity}
                   onChange={onQuantityChange}
-                  placeholder={kind === "quarterCoin" ? "مثلاً ۲" : "مثلاً ۱۰"}
-                  allowDecimals={kind !== "quarterCoin"}
+                  placeholder={
+                    kind === "quarterCoin" || kind === "halfCoin" || kind === "fullCoin"
+                      ? "مثلاً ۲"
+                      : "مثلاً ۱۰"
+                  }
+                  allowDecimals={
+                    kind !== "quarterCoin" && kind !== "halfCoin" && kind !== "fullCoin"
+                  }
                   decimalPlaces={qtyDecimals}
                   showWords={false}
                   disabled={unitPrice == null}

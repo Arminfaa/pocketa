@@ -10,7 +10,7 @@ export const InvestmentCreateSchema = z
     title: z.string().min(2).max(120).trim(),
     assetType: z.enum(["gold", "usd", "rial"]),
     /** فقط برای طلا — پیش‌فرض آب‌شده/پارسیان */
-    goldKind: z.enum(["melted", "quarter_coin"]).optional().nullable(),
+    goldKind: z.enum(["melted", "quarter_coin", "half_coin", "full_coin"]).optional().nullable(),
     quantity: z.coerce.number().positive(),
     purchasePricePerUnit: z.coerce.number().positive(),
     purchaseDate: JalaliDateSchema,
@@ -34,12 +34,14 @@ export const InvestmentCreateSchema = z
     }
     if (
       data.assetType === "gold" &&
-      data.goldKind === "quarter_coin" &&
+      (data.goldKind === "quarter_coin" ||
+        data.goldKind === "half_coin" ||
+        data.goldKind === "full_coin") &&
       (!Number.isInteger(data.quantity) || data.quantity < 1)
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "تعداد ربع سکه باید عدد صحیح باشد",
+        message: "تعداد سکه باید عدد صحیح باشد",
         path: ["quantity"],
       });
     }

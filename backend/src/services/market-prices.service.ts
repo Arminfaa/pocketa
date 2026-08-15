@@ -11,6 +11,10 @@ export const MESGHAL_GRAMS = 4.608;
  * (gram18k / 750) * 900 * 2.033
  */
 export const QUARTER_COIN_FACTOR = (900 / 750) * 2.033;
+/** نیم سکه ≈ ۲ برابر ربع */
+export const HALF_COIN_FACTOR = QUARTER_COIN_FACTOR * 2;
+/** تمام سکه ≈ ۴ برابر ربع */
+export const FULL_COIN_FACTOR = QUARTER_COIN_FACTOR * 4;
 
 /** Troy ounce grams — for deriving ounce from gram-24k when needed */
 const TROY_OUNCE_GRAMS = 31.1034768;
@@ -30,8 +34,12 @@ export type GoldPayload = {
   gram24kUsd: number;
   mesghal18kUsd: number;
   mesghal24kUsd: number;
-  /** قیمت ربع سکه (USD) — از گرم ۱۸ عیار */
+  /** قیمت ربع سکه (USD) — از API یا فرمول گرم ۱۸ عیار */
   quarterCoinUsd: number;
+  /** قیمت نیم سکه (USD) */
+  halfCoinUsd: number;
+  /** قیمت تمام سکه (USD) */
+  fullCoinUsd: number;
   changePercent: number;
   sourceUpdatedAt: string;
   source?: "goldapi" | "navasan";
@@ -56,6 +64,8 @@ export type MarketPricesResponse = {
     mesghal18kToman: number | null;
     mesghal24kToman: number | null;
     quarterCoinToman: number | null;
+    halfCoinToman: number | null;
+    fullCoinToman: number | null;
     fetchDate: string;
     fetchedAt: string;
   }) | null;
@@ -143,6 +153,41 @@ export function quarterCoinUsdFromGram18k(gram18kUsd: number): number {
   return roundUsd(gram18kUsd * QUARTER_COIN_FACTOR);
 }
 
+export function halfCoinUsdFromGram18k(gram18kUsd: number): number {
+  return roundUsd(gram18kUsd * HALF_COIN_FACTOR);
+}
+
+export function fullCoinUsdFromGram18k(gram18kUsd: number): number {
+  return roundUsd(gram18kUsd * FULL_COIN_FACTOR);
+}
+
+function coinUsdFromKeys(
+  raw: NavasanResponse,
+  usdToman: number,
+  keys: string[]
+): number | null {
+  if (!(usdToman > 0)) return null;
+  for (const key of keys) {
+    const toman = parseTomanValue(raw[key]?.value);
+    if (toman != null && toman > 0) return roundUsd(toman / usdToman);
+  }
+  return null;
+}
+
+function resolveCoinUsd(
+  raw: NavasanResponse | null,
+  usdToman: number,
+  gram18kUsd: number,
+  keys: string[],
+  fromGram: (gram18kUsd: number) => number
+): number {
+  if (raw) {
+    const fromApi = coinUsdFromKeys(raw, usdToman, keys);
+    if (fromApi != null) return fromApi;
+  }
+  return fromGram(gram18kUsd);
+}
+
 function parseTomanValue(raw: string | number | undefined): number | null {
   if (raw == null) return null;
   const n = typeof raw === "number" ? raw : Number(String(raw).replace(/,/g, ""));
@@ -182,6 +227,8 @@ function mapGoldResponse(raw: GoldApiResponse): GoldPayload {
     mesghal18kUsd: roundUsd(gram18k * MESGHAL_GRAMS),
     mesghal24kUsd: roundUsd(gram24k * MESGHAL_GRAMS),
     quarterCoinUsd: quarterCoinUsdFromGram18k(gram18kUsd),
+    halfCoinUsd: halfCoinUsdFromGram18k(gram18kUsd),
+    fullCoinUsd: fullCoinUsdFromGram18k(gram18kUsd),
     changePercent: Number.isFinite(Number(raw.chp)) ? Number(raw.chp) : 0,
     sourceUpdatedAt: timestampToIso(raw.timestamp),
     source: "goldapi",
@@ -242,13 +289,34 @@ function mapNavasanGold(raw: NavasanResponse, usdToman: number): GoldPayload {
     gram18kToman
   );
 
+  const gram18kUsdRounded = roundUsd(gram18kUsd);
   return {
     ounceUsd: roundUsd(ounceUsd),
-    gram18kUsd: roundUsd(gram18kUsd),
+    gram18kUsd: gram18kUsdRounded,
     gram24kUsd: roundUsd(gram24kUsd),
     mesghal18kUsd: roundUsd(gram18kUsd * MESGHAL_GRAMS),
     mesghal24kUsd: roundUsd(gram24kUsd * MESGHAL_GRAMS),
-    quarterCoinUsd: quarterCoinUsdFromGram18k(gram18kUsd),
+    quarterCoinUsd: resolveCoinUsd(
+      raw,
+      usdToman,
+      gram18kUsdRounded,
+      ["rob", "rob_sekeh", "rob_sekkeh", "quarter"],
+      quarterCoinUsdFromGram18k
+    ),
+    halfCoinUsd: resolveCoinUsd(
+      raw,
+      usdToman,
+      gram18kUsdRounded,
+      ["nim", "nim_sekeh", "nim_sekkeh", "half"],
+      halfCoinUsdFromGram18k
+    ),
+    fullCoinUsd: resolveCoinUsd(
+      raw,
+      usdToman,
+      gram18kUsdRounded,
+      ["sekkeh", "sekeh", "bahar", "emami", "full"],
+      fullCoinUsdFromGram18k
+    ),
     changePercent,
     sourceUpdatedAt: timestampToIso(
       raw["18ayar"]?.timestamp ?? raw.usd_xau?.timestamp ?? raw.usd_sell?.timestamp
@@ -542,6 +610,18 @@ function buildMarketResponse(
         ? Number(gold.quarterCoinUsd)
         : quarterCoinUsdFromGram18k(gold.gram18kUsd)
       : 0;
+  const halfCoinUsd =
+    gold != null
+      ? Number.isFinite(Number(gold.halfCoinUsd))
+        ? Number(gold.halfCoinUsd)
+        : halfCoinUsdFromGram18k(gold.gram18kUsd)
+      : 0;
+  const fullCoinUsd =
+    gold != null
+      ? Number.isFinite(Number(gold.fullCoinUsd))
+        ? Number(gold.fullCoinUsd)
+        : fullCoinUsdFromGram18k(gold.gram18kUsd)
+      : 0;
 
   const goldStale = Boolean(goldDoc && goldDoc.fetchDate !== asOfDate);
   const currencyStale = Boolean(currencyDoc && currencyDoc.fetchDate !== asOfDate);
@@ -561,11 +641,15 @@ function buildMarketResponse(
       ? {
           ...gold,
           quarterCoinUsd,
+          halfCoinUsd,
+          fullCoinUsd,
           gram18kToman: toToman(gold.gram18kUsd),
           gram24kToman: toToman(gold.gram24kUsd),
           mesghal18kToman: toToman(gold.mesghal18kUsd),
           mesghal24kToman: toToman(gold.mesghal24kUsd),
           quarterCoinToman: toToman(quarterCoinUsd),
+          halfCoinToman: toToman(halfCoinUsd),
+          fullCoinToman: toToman(fullCoinUsd),
           fetchDate: goldDoc!.fetchDate,
           fetchedAt: new Date(goldDoc!.fetchedAt).toISOString(),
         }
