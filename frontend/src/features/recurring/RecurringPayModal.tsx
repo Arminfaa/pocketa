@@ -141,10 +141,12 @@ export function RecurringPayModal({
       : null;
 
   const nextMonthPreview = useMemo(() => {
-    if (!item || mode !== "partial" || remainderHandling !== "next_month") return null;
+    if (!item || !partialEnabled || mode === "postpone" || remainderHandling !== "next_month") {
+      return null;
+    }
     if (remainder <= 0) return null;
     return baseAmount + remainder;
-  }, [item, mode, remainderHandling, remainder, baseAmount]);
+  }, [item, partialEnabled, mode, remainderHandling, remainder, baseAmount]);
 
   const postponePreview = useMemo(() => {
     if (!item || mode !== "postpone") return null;
@@ -184,7 +186,7 @@ export function RecurringPayModal({
       return;
     }
 
-    if (mode === "full" || !partialEnabled) {
+    if (!partialEnabled) {
       const parsedDeductions = deductions
         .map((row) => ({
           title: row.title.trim(),
