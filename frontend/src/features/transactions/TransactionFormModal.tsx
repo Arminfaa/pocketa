@@ -26,7 +26,7 @@ import { AmountInput } from "@/components/ui/amount-input";
 import { JalaliDateInput } from "@/components/ui/jalali-date-input";
 import { TimeInput } from "@/components/ui/time-input";
 import { AppModal } from "@/components/ui/modal";
-import { transactionTimeOf } from "@/lib/transaction-time";
+import { getNowTehranClockTime, transactionTimeOf } from "@/lib/transaction-time";
 import {
   FinanceTypeToggle,
   financeTypeTextClass,
@@ -202,7 +202,7 @@ export function TransactionFormModal({
         title: "",
         description: "",
         date: getTodayJalali(),
-        time: "",
+        time: getNowTehranClockTime(),
         registerAsDebt: false,
         debtDueDate: "",
         linkToRecurring: false,
@@ -479,7 +479,7 @@ export function TransactionFormModal({
             </Form.Item>
           </Col>
           <Col xs={24} sm={12} className="!min-w-0">
-            <Form.Item name="time" label="ساعت (اختیاری)">
+            <Form.Item name="time" label="ساعت">
               <TimeInput />
             </Form.Item>
           </Col>

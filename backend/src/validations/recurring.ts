@@ -5,6 +5,9 @@ const JalaliDateSchema = z
   .string()
   .regex(new RegExp(`^${JalaliDigit}{4}\\/${JalaliDigit}{1,2}\\/${JalaliDigit}{1,2}$`));
 
+/** HH:mm or empty — normalized in controller */
+const TimeSchema = z.string().trim().max(8).optional().nullable();
+
 const PaymentDaysSchema = z
   .array(z.coerce.number().int().min(1).max(31))
   .min(1)
@@ -202,6 +205,10 @@ export const RecurringGenerateSchema = z
     remainderHandling: z.enum(["next_month", "new_debt"]).optional(),
     remainderDueDate: JalaliDateSchema.optional(),
     postponeDueDate: JalaliDateSchema.optional(),
+    /** تاریخ جلالی تراکنش — اختیاری؛ پیش‌فرض امروز */
+    date: JalaliDateSchema.optional(),
+    /** ساعت HH:mm تراکنش — اختیاری؛ پیش‌فرض الان */
+    time: TimeSchema,
   })
   .superRefine((data, ctx) => {
     if (data.mode === "full" || data.mode === "partial") {

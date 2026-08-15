@@ -30,6 +30,7 @@ import {
 } from "../utils/jalaliDate";
 import { normalizeJalaliDate } from "../utils/normalizeDigits";
 import { tehranClockTime } from "../utils/tehranTime";
+import { normalizeTime } from "../utils/transactionTime";
 import {
   createExplicitFeeTransaction,
   createVarianceTransaction,
@@ -627,6 +628,16 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
   });
   if (!account) throw new AppError(404, "حساب بانکی یافت نشد");
 
+  const txDate = parsed.data.date
+    ? normalizeJalaliDate(parsed.data.date)
+    : todayJalali();
+  const rawTime = parsed.data.time;
+  const normalizedTime = normalizeTime(rawTime);
+  if (rawTime && String(rawTime).trim() && !normalizedTime) {
+    throw new AppError(400, "ساعت باید به صورت HH:mm باشد");
+  }
+  const txTime = normalizedTime || tehranClockTime();
+
   if (mode === "full") {
     const deductions = (parsed.data.deductions ?? [])
       .map((d) => ({
@@ -667,8 +678,6 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
       settledAmount
     );
 
-    const txDate = todayJalali();
-    const txTime = tehranClockTime();
     const deductionNote =
       deductionTotal > 0
         ? ` | کسورات ${deductionTotal.toLocaleString("en-US")} تومان — خالص ${netExpected.toLocaleString("en-US")}`
@@ -770,7 +779,7 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
       await createdTx.save();
     }
 
-    recurring.lastPaymentDate = todayJalali();
+    recurring.lastPaymentDate = txDate;
     recurring.lastSettledAmount = Math.round(dueAmount);
     recurring.amount = baseAmount;
     recurring.baseAmount = baseAmount;
@@ -828,8 +837,6 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
   }
 
   const unwindSnapshot = captureSettleSnapshot(recurring, "partial");
-  const txDate = todayJalali();
-  const txTime = tehranClockTime();
 
   createdTx = await TransactionModel.create({
     userId,
@@ -870,7 +877,7 @@ export const generate = asyncHandler(async (req: Request, res: Response) => {
     }
   }
 
-  recurring.lastPaymentDate = todayJalali();
+  recurring.lastPaymentDate = txDate;
   recurring.lastSettledAmount = Math.round(paidAmount);
 
   if (parsed.data.remainderHandling === "next_month") {

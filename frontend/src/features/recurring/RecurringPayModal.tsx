@@ -13,9 +13,11 @@ import type {
 import { AppModal } from "@/components/ui/modal";
 import { AmountInput } from "@/components/ui/amount-input";
 import { JalaliDateInput } from "@/components/ui/jalali-date-input";
+import { TimeInput } from "@/components/ui/time-input";
 import { formatJalaliDate, formatToman, toPersianDigits } from "@/lib/format";
 import { formatAmountInputValue, normalizeJalaliDateInput, parseAmountInput } from "@/lib/amount";
 import { getTodayJalali } from "@/lib/transaction-helpers";
+import { getNowTehranClockTime } from "@/lib/transaction-time";
 
 const { Text } = Typography;
 
@@ -74,6 +76,8 @@ export function RecurringPayModal({
     useState<RemainderHandling>("new_debt");
   const [remainderDueDate, setRemainderDueDate] = useState("");
   const [postponeDueDate, setPostponeDueDate] = useState("");
+  const [txDate, setTxDate] = useState("");
+  const [txTime, setTxTime] = useState("");
 
   useEffect(() => {
     if (!open || !item) return;
@@ -89,6 +93,8 @@ export function RecurringPayModal({
     const today = getTodayJalali();
     setRemainderDueDate(due < today ? today : due);
     setPostponeDueDate(item.nextPaymentDate);
+    setTxDate(today);
+    setTxTime(getNowTehranClockTime());
   }, [open, item, defaultAccountId]);
 
   const dueAmount = item?.amount ?? 0;
@@ -167,6 +173,17 @@ export function RecurringPayModal({
       return;
     }
 
+    const date = normalizeJalaliDateInput(txDate);
+    if (!date) {
+      message.error("تاریخ تراکنش را وارد کنید");
+      return;
+    }
+    const time = txTime.trim();
+    if (time && !/^\d{2}:\d{2}$/.test(time)) {
+      message.error("ساعت باید به صورت HH:mm باشد");
+      return;
+    }
+
     if (mode === "full" || !partialEnabled) {
       const parsedDeductions = deductions
         .map((row) => ({
@@ -193,6 +210,8 @@ export function RecurringPayModal({
       const payload: GenerateRecurringPayload = {
         mode: "full",
         accountId: acc,
+        date,
+        time: time || undefined,
       };
       if (parsedDeductions.length > 0) {
         payload.deductions = parsedDeductions;
@@ -229,16 +248,18 @@ export function RecurringPayModal({
       accountId: acc,
       paidAmount: paid,
       remainderHandling,
+      date,
+      time: time || undefined,
     };
     if (feeValue > 0) payload.feeAmount = feeValue;
 
     if (remainderHandling === "new_debt") {
-      const date = normalizeJalaliDateInput(remainderDueDate);
-      if (!date) {
+      const remDate = normalizeJalaliDateInput(remainderDueDate);
+      if (!remDate) {
         message.error("تاریخ سررسید مانده را وارد کنید");
         return;
       }
-      payload.remainderDueDate = date;
+      payload.remainderDueDate = remDate;
     }
 
     onSubmit(payload);
@@ -583,6 +604,21 @@ export function RecurringPayModal({
                   label: a.name,
                 }))}
               />
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <Text type="secondary" className="mb-1 block text-xs">
+                  تاریخ تراکنش
+                </Text>
+                <JalaliDateInput value={txDate} onChange={setTxDate} />
+              </div>
+              <div>
+                <Text type="secondary" className="mb-1 block text-xs">
+                  ساعت
+                </Text>
+                <TimeInput value={txTime} onChange={setTxTime} />
+              </div>
             </div>
           </>
         )}

@@ -1,5 +1,19 @@
 import { toPersianDigits } from "@/lib/format";
 
+/** Current clock time HH:mm in Asia/Tehran (English digits). */
+export function getNowTehranClockTime(now = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Tehran",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+
+  const hour = parts.find((p) => p.type === "hour")?.value ?? "00";
+  const minute = parts.find((p) => p.type === "minute")?.value ?? "00";
+  return `${hour.padStart(2, "0")}:${minute.padStart(2, "0")}`;
+}
+
 /** Prefer top-level time, then bankMeta.time. Returns HH:mm (English digits) for forms/API. */
 export function transactionTimeOf(tx: {
   time?: string | null;

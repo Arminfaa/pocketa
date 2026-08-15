@@ -60,6 +60,10 @@ export type GenerateRecurringPayload = {
   remainderHandling?: RemainderHandling;
   remainderDueDate?: string;
   postponeDueDate?: string;
+  /** تاریخ جلالی تراکنش — پیش‌فرض امروز */
+  date?: string;
+  /** ساعت HH:mm تراکنش — پیش‌فرض الان */
+  time?: string;
 };
 
 export type CreateDebtPayload =
