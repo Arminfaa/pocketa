@@ -374,8 +374,8 @@ export const transfer = asyncHandler(async (req: Request, res: Response) => {
   const transferGroupId = new mongoose.Types.ObjectId();
   const outId = new mongoose.Types.ObjectId();
   const inId = new mongoose.Types.ObjectId();
-  // Stamp clock time so transfers aren't buried under timed SMS rows (empty time sorts last).
-  const time = tehranClockTime();
+  // Prefer submitted clock time; fall back so transfers aren't buried under timed SMS rows.
+  const time = normalizeTime(parsed.data.time) || tehranClockTime();
 
   // Dual-entry: − on source (expense) and + on destination (income).
   const outTx = await TransactionModel.create({

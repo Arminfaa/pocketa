@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
-import { Button, Form, Grid, Input, Select, Space, Typography } from "antd";
+import { Button, Col, Form, Grid, Input, Row, Select, Space, Typography } from "antd";
 import type { BankAccount } from "@/types/account";
 import { AmountInput } from "@/components/ui/amount-input";
 import { JalaliDateInput } from "@/components/ui/jalali-date-input";
+import { TimeInput } from "@/components/ui/time-input";
 import { AppModal } from "@/components/ui/modal";
 import {
   formatAmountInputValue,
@@ -13,6 +14,7 @@ import {
 } from "@/lib/amount";
 import { formatToman } from "@/lib/format";
 import { getTodayJalali } from "@/lib/transaction-helpers";
+import { getNowTehranClockTime } from "@/lib/transaction-time";
 
 type FormValues = {
   fromAccountId: string;
@@ -22,6 +24,7 @@ type FormValues = {
   title?: string;
   description?: string;
   date: string;
+  time?: string;
 };
 
 type Props = {
@@ -35,6 +38,7 @@ type Props = {
     title?: string;
     description?: string | null;
     date: string;
+    time?: string;
   }) => Promise<void>;
   accounts: BankAccount[];
   defaultFromAccountId?: string | null;
@@ -73,6 +77,7 @@ export function TransferFormModal({
       title: "انتقال بین حساب‌ها",
       description: "",
       date: getTodayJalali(),
+      time: getNowTehranClockTime(),
     });
   }, [open, accounts, defaultFromAccountId, form]);
 
@@ -114,6 +119,7 @@ export function TransferFormModal({
             title: values.title?.trim() || undefined,
             description: values.description?.trim() || null,
             date: normalizeJalaliDateInput(values.date),
+            time: values.time?.trim() || undefined,
           });
         }}
       >
@@ -153,9 +159,18 @@ export function TransferFormModal({
             {formatToman(Math.round(amountNumeric))} + کارمزد {formatToman(feeNumeric)})
           </Typography.Paragraph>
         ) : null}
-        <Form.Item name="date" label="تاریخ" rules={[{ required: true }]}>
-          <JalaliDateInput />
-        </Form.Item>
+        <Row gutter={[12, 0]}>
+          <Col xs={24} sm={12} className="!min-w-0">
+            <Form.Item name="date" label="تاریخ" rules={[{ required: true }]}>
+              <JalaliDateInput />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={12} className="!min-w-0">
+            <Form.Item name="time" label="ساعت">
+              <TimeInput />
+            </Form.Item>
+          </Col>
+        </Row>
         <Form.Item name="title" label="عنوان (اختیاری)">
           <Input />
         </Form.Item>

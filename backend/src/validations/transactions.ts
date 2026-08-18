@@ -171,6 +171,7 @@ export const TransferCreateSchema = z.object({
   title: z.string().min(2).max(120).trim().optional(),
   description: z.string().max(500).optional().nullable(),
   date: JalaliDateSchema,
+  time: TimeSchema,
 }).superRefine((data, ctx) => {
   if (data.fromAccountId === data.toAccountId) {
     ctx.addIssue({

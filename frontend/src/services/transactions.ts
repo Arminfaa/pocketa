@@ -52,6 +52,7 @@ export async function createTransfer(payload: {
   title?: string;
   description?: string | null;
   date: string;
+  time?: string;
 }): Promise<void> {
   await api.post("/api/transactions/transfer", payload);
 }
