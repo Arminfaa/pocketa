@@ -166,6 +166,8 @@ export const TransferCreateSchema = z.object({
   fromAccountId: z.string().min(1),
   toAccountId: z.string().min(1),
   amount: z.coerce.number().positive(),
+  /** کارمزد بانک (تومان) — اختیاری؛ به‌صورت هزینه جدا روی حساب مبدأ ثبت می‌شود */
+  feeAmount: z.coerce.number().min(0).optional().nullable(),
   title: z.string().min(2).max(120).trim().optional(),
   description: z.string().max(500).optional().nullable(),
   date: JalaliDateSchema,

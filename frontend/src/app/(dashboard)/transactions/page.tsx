@@ -320,8 +320,13 @@ export default function TransactionsPage() {
 
   const transferMutation = useMutation({
     mutationFn: createTransfer,
-    onSuccess: () => {
-      message.success("انتقال ثبت شد: یک تراکنش منفی (−) و یک مثبت (+)");
+    onSuccess: (_data, variables) => {
+      const hasFee = (variables.feeAmount ?? 0) > 0;
+      message.success(
+        hasFee
+          ? "انتقال ثبت شد: دو تراکنش انتقال + کارمزد"
+          : "انتقال ثبت شد: یک تراکنش منفی (−) و یک مثبت (+)"
+      );
       setTransferOpen(false);
       void queryClient.invalidateQueries({ queryKey: ["transactions"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });

@@ -48,6 +48,7 @@ export async function createTransfer(payload: {
   fromAccountId: string;
   toAccountId: string;
   amount: number;
+  feeAmount?: number;
   title?: string;
   description?: string | null;
   date: string;

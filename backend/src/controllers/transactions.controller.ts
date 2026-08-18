@@ -354,6 +354,10 @@ export const transfer = asyncHandler(async (req: Request, res: Response) => {
   if (!parsed.success) throw new AppError(400, "خطا در اعتبارسنجی داده‌ها", parsed.error.flatten());
 
   const { fromAccountId, toAccountId, amount, description, date } = parsed.data;
+  const feeAmount =
+    parsed.data.feeAmount != null && Number.isFinite(parsed.data.feeAmount)
+      ? Math.round(parsed.data.feeAmount)
+      : 0;
   const title =
     parsed.data.title?.trim() ||
     "انتقال بین حساب‌ها";
@@ -420,10 +424,35 @@ export const transfer = asyncHandler(async (req: Request, res: Response) => {
     throw err;
   }
 
+  let feeTx = null;
+  if (feeAmount > 0) {
+    try {
+      feeTx = await createExplicitFeeTransaction({
+        userId,
+        accountId: fromAccountId,
+        date: normalizedDate,
+        time,
+        amount: feeAmount,
+        parentTitle: title,
+        linkedTransactionId: outId,
+        transferGroupId,
+        description: `کارمزد انتقال به ${toAccount.name}`,
+        tags: ["کارمزد", "fee"],
+      });
+    } catch (err) {
+      await TransactionModel.deleteMany({
+        _id: { $in: [outId, inId] },
+        userId,
+        transferGroupId,
+      });
+      throw err;
+    }
+  }
+
   return sendSuccess(
     res,
-    { item: outTx, linked: inTx, transferGroupId },
-    "انتقال بین حساب‌ها ثبت شد",
+    { item: outTx, linked: inTx, fee: feeTx, transferGroupId },
+    feeTx ? "انتقال بین حساب‌ها با کارمزد ثبت شد" : "انتقال بین حساب‌ها ثبت شد",
     201
   );
 });

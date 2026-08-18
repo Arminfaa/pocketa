@@ -11,12 +11,14 @@ import {
   normalizeJalaliDateInput,
   parseAmountInput,
 } from "@/lib/amount";
+import { formatToman } from "@/lib/format";
 import { getTodayJalali } from "@/lib/transaction-helpers";
 
 type FormValues = {
   fromAccountId: string;
   toAccountId: string;
   amount: string;
+  feeAmount?: string;
   title?: string;
   description?: string;
   date: string;
@@ -29,6 +31,7 @@ type Props = {
     fromAccountId: string;
     toAccountId: string;
     amount: number;
+    feeAmount?: number;
     title?: string;
     description?: string | null;
     date: string;
@@ -48,6 +51,15 @@ export function TransferFormModal({
 }: Props) {
   const screens = Grid.useBreakpoint();
   const [form] = Form.useForm<FormValues>();
+  const amountWatch = Form.useWatch("amount", form) ?? "";
+  const feeWatch = Form.useWatch("feeAmount", form) ?? "";
+
+  const amountNumeric = parseAmountInput(amountWatch);
+  const feeNumeric = Math.max(0, Math.round(parseAmountInput(feeWatch) || 0));
+  const showFeePreview =
+    Number.isFinite(amountNumeric) &&
+    amountNumeric > 0 &&
+    feeNumeric > 0;
 
   useEffect(() => {
     if (!open) return;
@@ -57,6 +69,7 @@ export function TransferFormModal({
         accounts.find((a) => a.id !== (defaultFromAccountId || accounts[0]?.id))?.id ||
         "",
       amount: "",
+      feeAmount: "",
       title: "انتقال بین حساب‌ها",
       description: "",
       date: getTodayJalali(),
@@ -80,7 +93,8 @@ export function TransferFormModal({
     >
       <Typography.Text type="secondary" className="mb-3 block text-sm">
         دو تراکنش هم‌زمان ثبت می‌شود: منفی (−) روی حساب مبدأ و مثبت (+) روی حساب مقصد.
-        در گزارش درآمد/هزینه ماه شمرده نمی‌شوند.
+        در گزارش درآمد/هزینه ماه شمرده نمی‌شوند. اگر کارمزد وارد کنید، به‌صورت جداگانه
+        از حساب مبدأ برداشت می‌شود.
       </Typography.Text>
       <Form
         form={form}
@@ -91,10 +105,12 @@ export function TransferFormModal({
             form.setFields([{ name: "amount", errors: ["مبلغ معتبر نیست"] }]);
             return;
           }
+          const fee = Math.max(0, Math.round(parseAmountInput(values.feeAmount) || 0));
           await onSubmit({
             fromAccountId: values.fromAccountId,
             toAccountId: values.toAccountId,
             amount,
+            ...(fee > 0 ? { feeAmount: fee } : {}),
             title: values.title?.trim() || undefined,
             description: values.description?.trim() || null,
             date: normalizeJalaliDateInput(values.date),
@@ -117,12 +133,26 @@ export function TransferFormModal({
         </Form.Item>
         <Form.Item
           name="amount"
-          label="مبلغ (تومان)"
+          label="مبلغ انتقال (تومان)"
           rules={[{ required: true, message: "مبلغ را وارد کنید" }]}
           getValueFromEvent={(v) => formatAmountInputValue(String(v ?? ""))}
         >
           <AmountInput />
         </Form.Item>
+        <Form.Item
+          name="feeAmount"
+          label="کارمزد (اختیاری)"
+          getValueFromEvent={(v) => formatAmountInputValue(String(v ?? ""))}
+        >
+          <AmountInput />
+        </Form.Item>
+        {showFeePreview ? (
+          <Typography.Paragraph type="secondary" className="!mt-0 !mb-3 text-xs">
+            جمع برداشت از حساب مبدأ:{" "}
+            {formatToman(Math.round(amountNumeric) + feeNumeric)} (انتقال{" "}
+            {formatToman(Math.round(amountNumeric))} + کارمزد {formatToman(feeNumeric)})
+          </Typography.Paragraph>
+        ) : null}
         <Form.Item name="date" label="تاریخ" rules={[{ required: true }]}>
           <JalaliDateInput />
         </Form.Item>

@@ -198,6 +198,9 @@ export async function createExplicitFeeTransaction(input: {
   amount: number;
   parentTitle: string;
   linkedTransactionId?: mongoose.Types.ObjectId;
+  description?: string;
+  tags?: string[];
+  transferGroupId?: mongoose.Types.ObjectId;
 }) {
   const fee = Math.round(input.amount);
   if (fee < 1) return null;
@@ -211,12 +214,13 @@ export async function createExplicitFeeTransaction(input: {
     type: "expense",
     amount: fee,
     title: `کارمزد — ${input.parentTitle}`,
-    description: `کارمزد تسویه سررسید «${input.parentTitle}»`,
+    description: input.description ?? `کارمزد تسویه سررسید «${input.parentTitle}»`,
     date: input.date,
     time: input.time ?? "",
     source: "manual",
     needsReview: false,
-    tags: ["کارمزد-سررسید", "fee"],
+    tags: input.tags ?? ["کارمزد-سررسید", "fee"],
     linkedTransactionId: input.linkedTransactionId,
+    transferGroupId: input.transferGroupId,
   });
 }
