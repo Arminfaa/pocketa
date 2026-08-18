@@ -203,6 +203,7 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
     settleMode,
     remainderDueDate,
     settleFeeAmount,
+    feeAmount: rawFeeAmount,
     clientId: rawClientId,
   } = parsed.data;
 
@@ -227,6 +228,25 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
     throw new AppError(400, "نوع دسته با نوع تراکنش همخوانی ندارد");
   }
 
+  const cardFee =
+    rawFeeAmount != null && Number.isFinite(rawFeeAmount) && rawFeeAmount > 0
+      ? Math.round(rawFeeAmount)
+      : 0;
+  if (cardFee > 0 && type !== "expense") {
+    throw new AppError(400, "کارمزد کارت‌به‌کارت فقط برای برداشت معنا دارد");
+  }
+
+  const transferAmount = Math.round(amount);
+  const storedAmount = transferAmount + cardFee;
+  const cardBankMeta =
+    cardFee > 0
+      ? {
+          transferAmount,
+          feeAmount: cardFee,
+          needsFee: false,
+        }
+      : undefined;
+
   const normalizedDate = normalizeJalaliDate(date);
   const normalizedTime = normalizeTime(time);
   if (time && String(time).trim() && !normalizedTime) {
@@ -239,7 +259,7 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
       userId,
       accountId,
       type,
-      amount,
+      amount: storedAmount,
       categoryId,
       title,
       description: description ?? "",
@@ -248,6 +268,7 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
       tags: tags ?? [],
       source: "manual",
       needsReview: false,
+      ...(cardBankMeta ? { bankMeta: cardBankMeta } : {}),
       ...(clientId ? { clientId } : {}),
     });
   } catch (err) {
@@ -267,7 +288,7 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
 
   let debt = null;
   let settle = null;
-  let message = "تراکنش ایجاد شد";
+  let message = cardFee > 0 ? "تراکنش کارت‌به‌کارت ایجاد شد" : "تراکنش ایجاد شد";
 
   if (registerAsDebt && debtDueDate) {
     const dueDate = normalizeJalaliDate(debtDueDate);

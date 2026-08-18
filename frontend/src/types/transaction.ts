@@ -71,7 +71,7 @@ export type TransactionInput = {
   remainderDueDate?: string | null;
   /** کارمزد تسویه سررسید (تومان) — مازاد نسبت به مبلغ اصل */
   settleFeeAmount?: number | null;
-  /** کارمزد کارت‌به‌کارت (تومان) — مبلغ نهایی = انتقال + کارمزد */
+  /** کارمزد کارت‌به‌کارت به شخص دیگر (تومان) — مبلغ ذخیره‌شده = انتقال + کارمزد */
   feeAmount?: number | null;
   /** Offline outbox idempotency key */
   clientId?: string | null;

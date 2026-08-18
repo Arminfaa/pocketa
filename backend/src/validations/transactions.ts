@@ -96,6 +96,8 @@ export const TransactionCreateSchema = z
   .object({
     ...TransactionBaseFields,
     ...ObligationAndSettleFields,
+    /** کارمزد کارت‌به‌کارت به شخص دیگر (تومان) — مبلغ ذخیره‌شده = انتقال + کارمزد */
+    feeAmount: z.coerce.number().min(0).optional().nullable(),
     /** Offline outbox idempotency key (UUID or similar) */
     clientId: z.string().trim().min(8).max(80).optional().nullable(),
   })

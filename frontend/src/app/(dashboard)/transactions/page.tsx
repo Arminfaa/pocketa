@@ -40,7 +40,7 @@ import {
   fetchTransactions,
   updateTransaction,
 } from "@/services/transactions";
-import type { PendingSyncMeta, Transaction } from "@/types/transaction";
+import type { PendingSyncMeta, Transaction, TransactionInput } from "@/types/transaction";
 import { formatJalaliDate, formatToman, toPersianDigits } from "@/lib/format";
 import { formatTransactionDateTime, transactionTimeOf } from "@/lib/transaction-time";
 import { accountName, categoryName } from "@/lib/transaction-helpers";
@@ -247,33 +247,10 @@ export default function TransactionsPage() {
   });
 
   const saveMutation = useMutation({
-    mutationFn: async (
-      payload: Parameters<typeof captureTransaction>[0]["payload"] & {
-        isTransfer?: boolean;
-        toAccountId?: string | null;
-        feeAmount?: number | null;
-      }
-    ) => {
+    mutationFn: async (payload: TransactionInput) => {
       if (editing) {
         if (!online) throw new Error("برای ویرایش به اینترنت نیاز است");
         return updateTransaction(editing._id, payload);
-      }
-
-      if (payload.isTransfer) {
-        if (!online) throw new Error("انتقال بین حساب فقط با اینترنت ممکن است");
-        if (!payload.toAccountId) throw new Error("حساب مقصد را انتخاب کنید");
-        return createTransfer({
-          fromAccountId: payload.accountId,
-          toAccountId: payload.toAccountId,
-          amount: payload.amount,
-          ...(payload.feeAmount && payload.feeAmount > 0
-            ? { feeAmount: payload.feeAmount }
-            : {}),
-          title: payload.title,
-          description: payload.description,
-          date: payload.date,
-          time: payload.time ?? undefined,
-        });
       }
 
       const complex =
@@ -301,7 +278,7 @@ export default function TransactionsPage() {
     onSuccess: (data, variables) => {
       const asDebt = Boolean(variables.registerAsDebt);
       const asSettle = Boolean(variables.settleRecurringId);
-      const asTransfer = Boolean(variables.isTransfer);
+      const hasCardFee = (variables.feeAmount ?? 0) > 0;
       const queued =
         data &&
         typeof data === "object" &&
@@ -311,20 +288,18 @@ export default function TransactionsPage() {
       message.success(
         editing
           ? "تراکنش به‌روزرسانی شد"
-          : asTransfer
-            ? (variables.feeAmount ?? 0) > 0
-              ? "انتقال ثبت شد: دو تراکنش انتقال + کارمزد"
-              : "انتقال ثبت شد: یک تراکنش منفی (−) و یک مثبت (+)"
-            : queued
-              ? online
-                ? "در صف ارسال قرار گرفت"
-                : "آفلاین ذخیره شد — بعد از اتصال ارسال می‌شود"
-              : asSettle
-                ? "تراکنش ثبت و سررسید تسویه شد"
-                : asDebt
-                  ? variables.type === "income"
-                    ? "تراکنش مثبت و بدهی یک‌باره ثبت شد"
-                    : "تراکنش منفی و طلب یک‌باره ثبت شد"
+          : queued
+            ? online
+              ? "در صف ارسال قرار گرفت"
+              : "آفلاین ذخیره شد — بعد از اتصال ارسال می‌شود"
+            : asSettle
+              ? "تراکنش ثبت و سررسید تسویه شد"
+              : asDebt
+                ? variables.type === "income"
+                  ? "تراکنش مثبت و بدهی یک‌باره ثبت شد"
+                  : "تراکنش منفی و طلب یک‌باره ثبت شد"
+                : hasCardFee
+                  ? "تراکنش کارت‌به‌کارت ثبت شد (مبلغ انتقال + کارمزد)"
                   : "تراکنش ثبت شد"
       );
       setModalOpen(false);

@@ -56,8 +56,7 @@ export type TransactionFormValues = {
   settleMode?: "full" | "partial";
   remainderDueDate?: string;
   settleFeeAmount?: string;
-  isTransfer?: boolean;
-  toAccountId?: string;
+  isCardTransfer?: boolean;
   transferFeeAmount?: string;
 };
 
@@ -80,8 +79,6 @@ type SubmitValues = {
   settleMode?: "full" | "partial" | null;
   remainderDueDate?: string | null;
   settleFeeAmount?: number | null;
-  isTransfer?: boolean;
-  toAccountId?: string | null;
   feeAmount?: number | null;
 };
 
@@ -136,13 +133,12 @@ export function TransactionFormModal({
   const title = Form.useWatch("title", form) ?? "";
   const registerAsDebt = Form.useWatch("registerAsDebt", form) ?? false;
   const linkToRecurring = Form.useWatch("linkToRecurring", form) ?? false;
-  const isTransfer = Form.useWatch("isTransfer", form) ?? false;
+  const isCardTransfer = Form.useWatch("isCardTransfer", form) ?? false;
   const settleRecurringId = Form.useWatch("settleRecurringId", form);
   const settleMode = Form.useWatch("settleMode", form) ?? "full";
   const amountWatch = Form.useWatch("amount", form) ?? "";
   const settleFeeWatch = Form.useWatch("settleFeeAmount", form) ?? "";
   const transferFeeWatch = Form.useWatch("transferFeeAmount", form) ?? "";
-  const fromAccountId = Form.useWatch("accountId", form) ?? "";
 
   const recurringQ = useQuery({
     queryKey: ["recurring"],
@@ -160,8 +156,7 @@ export function TransactionFormModal({
       settleMode: "full",
       remainderDueDate: undefined,
       settleFeeAmount: "",
-      isTransfer: false,
-      toAccountId: undefined,
+      isCardTransfer: false,
       transferFeeAmount: "",
     });
   }, [online, open, isCreate, form]);
@@ -203,8 +198,7 @@ export function TransactionFormModal({
         settleMode: "full",
         remainderDueDate: "",
         settleFeeAmount: "",
-        isTransfer: false,
-        toAccountId: undefined,
+        isCardTransfer: false,
         transferFeeAmount: "",
       });
       setTags(initial.tags ?? []);
@@ -225,8 +219,7 @@ export function TransactionFormModal({
         settleMode: "full",
         remainderDueDate: "",
         settleFeeAmount: "",
-        isTransfer: false,
-        toAccountId: undefined,
+        isCardTransfer: false,
         transferFeeAmount: "",
       });
       setTags([]);
@@ -246,9 +239,6 @@ export function TransactionFormModal({
     if (registerAsDebt) {
       form.setFieldValue("linkToRecurring", false);
       form.setFieldValue("settleRecurringId", undefined);
-      form.setFieldValue("isTransfer", false);
-      form.setFieldValue("toAccountId", undefined);
-      form.setFieldValue("transferFeeAmount", "");
     }
   }, [registerAsDebt, isCreate, form]);
 
@@ -258,33 +248,16 @@ export function TransactionFormModal({
       form.setFieldValue("registerAsDebt", false);
       form.setFieldValue("debtDueDate", "");
       form.setFieldValue("settleRecurringId", undefined);
-      form.setFieldValue("isTransfer", false);
-      form.setFieldValue("toAccountId", undefined);
-      form.setFieldValue("transferFeeAmount", "");
     }
   }, [linkToRecurring, isCreate, form]);
 
   useEffect(() => {
     if (!isCreate) return;
-    if (isTransfer) {
-      form.setFieldValue("registerAsDebt", false);
-      form.setFieldValue("debtDueDate", "");
-      form.setFieldValue("linkToRecurring", false);
-      form.setFieldValue("settleRecurringId", undefined);
-      const currentTitle = String(form.getFieldValue("title") ?? "").trim();
-      if (!currentTitle) {
-        form.setFieldValue("title", "انتقال بین حساب‌ها");
-      }
+    if (type !== "expense") {
+      form.setFieldValue("isCardTransfer", false);
+      form.setFieldValue("transferFeeAmount", "");
     }
-  }, [isTransfer, isCreate, form]);
-
-  useEffect(() => {
-    if (!isTransfer) return;
-    const toId = form.getFieldValue("toAccountId");
-    if (toId && toId === fromAccountId) {
-      form.setFieldValue("toAccountId", undefined);
-    }
-  }, [fromAccountId, isTransfer, form]);
+  }, [type, isCreate, form]);
 
   useEffect(() => {
     // Clear selected سررسید when type changes (list is type-filtered)
@@ -349,38 +322,10 @@ export function TransactionFormModal({
     const asSettle = Boolean(
       isCreate && online && values.linkToRecurring && values.settleRecurringId
     );
-    const asTransfer = Boolean(isCreate && online && values.isTransfer);
-
-    if (asTransfer) {
-      if (!values.toAccountId) {
-        form.setFields([{ name: "toAccountId", errors: ["حساب مقصد را انتخاب کنید"] }]);
-        return;
-      }
-      if (values.toAccountId === values.accountId) {
-        form.setFields([{ name: "toAccountId", errors: ["حساب مبدأ و مقصد نباید یکی باشند"] }]);
-        return;
-      }
-      const transferFee = Math.max(
-        0,
-        Math.round(parseAmountInput(values.transferFeeAmount) || 0)
-      );
-      await onSubmit({
-        type: "expense",
-        amount,
-        categoryId: values.categoryId || "",
-        accountId: values.accountId,
-        title: values.title.trim() || "انتقال بین حساب‌ها",
-        description: values.description?.trim() || "",
-        date: normalizeJalaliDateInput(values.date),
-        time: values.time?.trim() || "",
-        needsReview: false,
-        tags,
-        isTransfer: true,
-        toAccountId: values.toAccountId,
-        feeAmount: transferFee > 0 ? transferFee : undefined,
-      });
-      return;
-    }
+    const cardFee =
+      isCreate && values.type === "expense" && values.isCardTransfer
+        ? Math.max(0, Math.round(parseAmountInput(values.transferFeeAmount) || 0))
+        : 0;
 
     if (asDebt && !values.debtDueDate?.trim()) {
       form.setFields([{ name: "debtDueDate", errors: ["تاریخ سررسید را وارد کنید"] }]);
@@ -447,6 +392,7 @@ export function TransactionFormModal({
           ? normalizeJalaliDateInput(values.remainderDueDate!)
           : undefined,
       settleFeeAmount: asSettle && fee > 0 ? fee : undefined,
+      feeAmount: cardFee > 0 ? cardFee : undefined,
     });
   }
 
@@ -457,7 +403,6 @@ export function TransactionFormModal({
       return type === "income" ? "ثبت درآمد و بدهی" : "ثبت هزینه و طلب";
     }
     if (linkToRecurring) return "ثبت و تسویه سررسید";
-    if (isTransfer) return "ثبت انتقال";
     return "ثبت تراکنش";
   })();
 
@@ -469,7 +414,7 @@ export function TransactionFormModal({
       subtitle={
         online
           ? "مبلغ به تومان و تاریخ به صورت شمسی وارد شود"
-          : "آفلاین — ثبت ساده محلی می‌شود؛ بدهی/طلب، تسویه و انتقال فقط آنلاین"
+          : "آفلاین — ثبت ساده محلی می‌شود؛ بدهی/طلب و تسویه فقط آنلاین"
       }
       width={modalWidth}
       footer={
@@ -489,20 +434,18 @@ export function TransactionFormModal({
       }
     >
       <Form form={form} layout="vertical" onFinish={handleFinish} requiredMark={false}>
-        {isTransfer ? null : (
-          <Form.Item
-            name="type"
-            className="!mb-4 w-full"
-            rules={[{ required: true, message: "نوع را انتخاب کنید" }]}
-          >
-            <FinanceTypeToggle className="w-full" />
-          </Form.Item>
-        )}
+        <Form.Item
+          name="type"
+          className="!mb-4 w-full"
+          rules={[{ required: true, message: "نوع را انتخاب کنید" }]}
+        >
+          <FinanceTypeToggle className="w-full" />
+        </Form.Item>
 
         {isCreate ? (
           <>
             <Form.Item name="registerAsDebt" valuePropName="checked" className="!mb-2">
-              <Checkbox disabled={!online || linkToRecurring || isTransfer}>
+              <Checkbox disabled={!online || linkToRecurring}>
                 {obligationLabel(type)}
                 {!online ? " (نیاز به اینترنت)" : ""}
               </Checkbox>
@@ -515,25 +458,28 @@ export function TransactionFormModal({
             ) : null}
 
             <Form.Item name="linkToRecurring" valuePropName="checked" className="!mb-2">
-              <Checkbox disabled={!online || registerAsDebt || isTransfer}>
+              <Checkbox disabled={!online || registerAsDebt}>
                 اتصال به سررسید موجود (تسویه از جریان دوره‌ای)
                 {!online ? " (نیاز به اینترنت)" : ""}
               </Checkbox>
             </Form.Item>
 
-            <Form.Item name="isTransfer" valuePropName="checked" className="!mb-2">
-              <Checkbox disabled={!online || registerAsDebt || linkToRecurring}>
-                انتقال وجه به حساب دیگر
-                {!online ? " (نیاز به اینترنت)" : ""}
-              </Checkbox>
-            </Form.Item>
-
-            {isTransfer ? (
-              <Typography.Paragraph type="secondary" className="!mt-0 !mb-3 text-xs">
-                دو تراکنش هم‌زمان ثبت می‌شود: منفی (−) روی حساب مبدأ و مثبت (+) روی حساب مقصد.
-                در گزارش درآمد/هزینه ماه شمرده نمی‌شوند. کارمزد اختیاری است و جدا از حساب مبدأ
-                برداشت می‌شود.
-              </Typography.Paragraph>
+            {type === "expense" ? (
+              <>
+                <Form.Item name="isCardTransfer" valuePropName="checked" className="!mb-2">
+                  <Checkbox>
+                    کارت‌به‌کارت به حساب شخص دیگر (کارمزد دارد)
+                  </Checkbox>
+                </Form.Item>
+                {isCardTransfer ? (
+                  <Typography.Paragraph type="secondary" className="!mt-0 !mb-3 text-xs">
+                    پول از حساب خودتان به حساب فرد/فروشنده دیگر می‌رود — مثل خرید با کارت‌به‌کارت.
+                    مبدأ یکی از حساب‌های شماست؛ مقصد حساب خودتان نیست. کارمزد بانک جدا وارد شود و
+                    به برداشت اضافه می‌شود. جابه‌جایی بین حساب‌های خودتان از دکمه «انتقال بین حساب»
+                    است.
+                  </Typography.Paragraph>
+                ) : null}
+              </>
             ) : null}
           </>
         ) : null}
@@ -550,7 +496,7 @@ export function TransactionFormModal({
           <Col xs={24} sm={12}>
             <Form.Item
               name="amount"
-              label={isTransfer ? "مبلغ انتقال (تومان)" : "مبلغ (تومان)"}
+              label={isCardTransfer ? "مبلغ انتقال / خرید (تومان)" : "مبلغ (تومان)"}
               rules={[{ required: true, message: "مبلغ را وارد کنید" }]}
             >
               <AmountInput
@@ -664,7 +610,7 @@ export function TransactionFormModal({
           <Col xs={24} sm={12}>
             <Form.Item
               name="accountId"
-              label={isTransfer ? "از حساب" : "حساب بانکی"}
+              label="حساب بانکی"
               rules={[{ required: true, message: "حساب را انتخاب کنید" }]}
             >
               <Select
@@ -676,71 +622,51 @@ export function TransactionFormModal({
               />
             </Form.Item>
           </Col>
-          {isTransfer ? (
-            <Col xs={24} sm={12}>
+          <Col xs={24} sm={12}>
+            <Form.Item label="دسته‌بندی" required>
+              <Flex
+                justify="space-between"
+                align={screens.sm ? "center" : "flex-start"}
+                wrap="wrap"
+                gap="small"
+                className="mb-2"
+              >
+                <Typography.Text type="secondary" className="text-xs min-w-0">
+                  {suggestLabel ? `پیشنهاد اعمال‌شده: ${suggestLabel}` : null}
+                </Typography.Text>
+                <Button
+                  type="link"
+                  size="small"
+                  icon={<BulbOutlined />}
+                  disabled={suggesting || title.trim().length < 2}
+                  loading={suggesting}
+                  onClick={() => void applySuggestion()}
+                >
+                  پیشنهاد از عنوان
+                </Button>
+              </Flex>
               <Form.Item
-                name="toAccountId"
-                label="به حساب"
-                rules={[{ required: true, message: "حساب مقصد را انتخاب کنید" }]}
+                name="categoryId"
+                noStyle
+                rules={[{ required: true, message: "دسته‌بندی را انتخاب کنید" }]}
               >
                 <Select
-                  placeholder="انتخاب حساب مقصد"
-                  options={accounts
-                    .filter((a) => a.id !== fromAccountId)
-                    .map((a) => ({
-                      value: a.id,
-                      label: `${a.name}${a.bankName ? ` · ${a.bankName}` : ""}`,
-                    }))}
+                  placeholder="انتخاب دسته"
+                  options={filteredCategories.map((c) => ({
+                    value: c._id,
+                    label: c.name,
+                  }))}
                 />
               </Form.Item>
-            </Col>
-          ) : (
-            <Col xs={24} sm={12}>
-              <Form.Item label="دسته‌بندی" required>
-                <Flex
-                  justify="space-between"
-                  align={screens.sm ? "center" : "flex-start"}
-                  wrap="wrap"
-                  gap="small"
-                  className="mb-2"
-                >
-                  <Typography.Text type="secondary" className="text-xs min-w-0">
-                    {suggestLabel ? `پیشنهاد اعمال‌شده: ${suggestLabel}` : null}
-                  </Typography.Text>
-                  <Button
-                    type="link"
-                    size="small"
-                    icon={<BulbOutlined />}
-                    disabled={suggesting || title.trim().length < 2}
-                    loading={suggesting}
-                    onClick={() => void applySuggestion()}
-                  >
-                    پیشنهاد از عنوان
-                  </Button>
-                </Flex>
-                <Form.Item
-                  name="categoryId"
-                  noStyle
-                  rules={[{ required: true, message: "دسته‌بندی را انتخاب کنید" }]}
-                >
-                  <Select
-                    placeholder="انتخاب دسته"
-                    options={filteredCategories.map((c) => ({
-                      value: c._id,
-                      label: c.name,
-                    }))}
-                  />
-                </Form.Item>
-              </Form.Item>
-            </Col>
-          )}
+            </Form.Item>
+          </Col>
         </Row>
 
-        {isTransfer ? (
+        {isCreate && isCardTransfer ? (
           <>
             <Form.Item
               name="transferFeeAmount"
-              label="کارمزد (اختیاری)"
+              label="کارمزد کارت‌به‌کارت (اختیاری)"
               getValueFromEvent={(v) => formatAmountInputValue(String(v ?? ""))}
             >
               <AmountInput />
@@ -749,7 +675,7 @@ export function TransactionFormModal({
             parseAmountInput(amountWatch) > 0 &&
             Math.round(parseAmountInput(transferFeeWatch) || 0) > 0 ? (
               <Typography.Paragraph type="secondary" className="!mt-0 !mb-3 text-xs">
-                جمع برداشت از حساب مبدأ:{" "}
+                جمع برداشت از حساب:{" "}
                 {formatToman(
                   Math.round(parseAmountInput(amountWatch)) +
                     Math.round(parseAmountInput(transferFeeWatch) || 0)
@@ -759,11 +685,11 @@ export function TransactionFormModal({
               </Typography.Paragraph>
             ) : null}
           </>
-        ) : (
-          <Form.Item label="تگ‌ها (اختیاری)">
-            <TagsInput value={tags} onChange={setTags} />
-          </Form.Item>
-        )}
+        ) : null}
+
+        <Form.Item label="تگ‌ها (اختیاری)">
+          <TagsInput value={tags} onChange={setTags} />
+        </Form.Item>
 
         <Form.Item name="description" label="توضیحات (اختیاری)" className="!mb-0">
           <Input.TextArea rows={3} />

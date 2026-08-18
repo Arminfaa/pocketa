@@ -7,11 +7,12 @@ export function outboxToPendingTransaction(item: OutboxItem): Transaction & {
   syncError?: string;
   clientId: string;
 } {
-  const { payload } = item;
-  return {
-    _id: `pending:${item.clientId}`,
-    type: payload.type,
-    amount: payload.amount,
+    const { payload } = item;
+    const cardFee = payload.feeAmount != null && payload.feeAmount > 0 ? payload.feeAmount : 0;
+    return {
+      _id: `pending:${item.clientId}`,
+      type: payload.type,
+      amount: payload.amount + cardFee,
     title: payload.title,
     description: payload.description ?? undefined,
     date: payload.date,
