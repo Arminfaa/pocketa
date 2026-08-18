@@ -72,7 +72,7 @@ export type TransactionInput = {
   /** کارمزد تسویه سررسید (تومان) — مازاد نسبت به مبلغ اصل */
   settleFeeAmount?: number | null;
   /** کارمزد کارت‌به‌کارت (تومان) — مبلغ نهایی = انتقال + کارمزد */
-  feeAmount?: number;
+  feeAmount?: number | null;
   /** Offline outbox idempotency key */
   clientId?: string | null;
 };
